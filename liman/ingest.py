@@ -12,7 +12,9 @@ class Ingestor:
     """Ham mesajlar değiştirilmeden günlük JSONL dosyalarına eklenir (kanıtın kaynağı);
     ayrıştırılmış hâlleri analiz için veritabanına yazılır."""
 
-    THROTTLE_S = 30  # aynı gemiden 30 sn'den sık konum kaydedilmez (ham dosyada hepsi kalır)
+    THROTTLE_S = 30        # aynı gemiden 30 sn'den sık konum kaydedilmez (ham dosyada hepsi kalır)
+    THROTTLE_BERTH_S = 600  # limanda duran gemi için 10 dakikada bir yeter
+    STATIC_REFRESH_S = 6 * 3600
 
     def __init__(self, cfg, con):
         self.cfg = cfg
@@ -21,6 +23,7 @@ class Ingestor:
         self.raw_dir.mkdir(parents=True, exist_ok=True)
         self._files: dict[str, object] = {}
         self._last: dict[int, tuple[str, str | None]] = {}
+        self._last_static: dict[int, tuple] = {}
         self.count = 0
         self.last_message_t: str | None = None
 
@@ -53,8 +56,12 @@ class Ingestor:
         port, terminal = self.cfg.locate(p["lat"], p["lon"])
         last = self._last.get(p["mmsi"])
         if last and last[1] == port:
-            if (parse_iso(p["t"]) - parse_iso(last[0])).total_seconds() < self.THROTTLE_S:
+            limit = self.THROTTLE_BERTH_S if port and p["sog"] is not None and p["sog"] < 1 else self.THROTTLE_S
+            if (parse_iso(p["t"]) - parse_iso(last[0])).total_seconds() < limit:
                 return
+        if port is None:
+            # liman dışında izlendiği saatleri kalıcı tut (eski konumlar silinse de güzergâh sınıfı bozulmasın)
+            self.con.execute("INSERT OR IGNORE INTO seen_offport(mmsi, hour) VALUES(?,?)", (p["mmsi"], p["t"][:13]))
         self._last[p["mmsi"]] = (p["t"], port)
         self.con.execute(
             "INSERT INTO positions(mmsi,t,lat,lon,sog,cog,nav,port,terminal,src) VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -68,6 +75,11 @@ class Ingestor:
         )
 
     def _static(self, p: dict) -> None:
+        sig = (p["imo"], p["name"], p["callsign"], p["type"], p["draught"], p["dest"])
+        prev = self._last_static.get(p["mmsi"])
+        if prev and prev[1] == sig and (parse_iso(p["t"]) - parse_iso(prev[0])).total_seconds() < self.STATIC_REFRESH_S:
+            return  # değişmemiş statik mesajı tekrar yazma
+        self._last_static[p["mmsi"]] = (p["t"], sig)
         self.con.execute(
             "INSERT INTO statics(mmsi,t,imo,name,callsign,type,length,width,draught,dest) VALUES(?,?,?,?,?,?,?,?,?,?)",
             (p["mmsi"], p["t"], p["imo"], p["name"], p["callsign"], p["type"],

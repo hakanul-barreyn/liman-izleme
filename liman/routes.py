@@ -62,8 +62,8 @@ def compute(cfg, con) -> int:
 
     def tracked(mmsis, a, b):
         q = ",".join("?" * len(mmsis))
-        return con.execute(f"SELECT count(*) FROM positions WHERE mmsi IN ({q}) AND port IS NULL AND t>? AND t<?",
-                           (*mmsis, a, b)).fetchone()[0] > 0
+        return con.execute(f"SELECT count(*) FROM seen_offport WHERE mmsi IN ({q}) AND hour>? AND hour<?",
+                           (*mmsis, a[:13], b[:13])).fetchone()[0] > 0
 
     def name_of(mmsi):
         v = vessels.get(mmsi) or {}

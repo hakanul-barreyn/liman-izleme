@@ -2,7 +2,16 @@
 .env
 data/
 demo/
+_durum/
+_durum_cikis/
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Site her çalıştırmada yeniden üretilir ve GitHub Pages'e yüklenir.
+# Depoda yalnızca kalıcı arşiv ve kanıt zinciri tutulur; ham veri GitHub Releases'ta durur.
+site/*
+!site/arsiv/
+!site/kanit/
+site/arsiv/*/ham.jsonl.gz

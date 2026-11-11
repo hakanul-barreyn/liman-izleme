@@ -57,3 +57,23 @@ def test_destination_match(tmp_path):
     assert cfg.destination_matches("TRIST", "TR") is True
     assert cfg.destination_matches("ISTANBUL TURKEY", "TR") is True
     assert cfg.destination_matches(None, "TR") is None
+
+
+def test_state_roundtrip_and_raw_rebuild(tmp_path):
+    import shutil
+    from liman import durum
+    assert demo.run(tmp_path / "demo") == 0
+    cfg = config.load(tmp_path / "demo" / "config.yaml")
+    n_before = sqlite3.connect(cfg.data_dir / "liman.db").execute("SELECT count(*) FROM visits").fetchone()[0]
+    parts = durum.save(cfg, tmp_path / "durum")
+    assert parts and all(p.stat().st_size > 0 for p in parts)
+    shutil.rmtree(cfg.data_dir)
+    assert durum.load(cfg, tmp_path / "durum")
+    n_after = sqlite3.connect(cfg.data_dir / "liman.db").execute("SELECT count(*) FROM visits").fetchone()[0]
+    assert n_before == n_after > 0
+    # Releases'a yüklenmeden silinen ham dosya, aynı hash ile yeniden üretilebilmeli
+    day = "2026-11-02"
+    (cfg.site_dir / "arsiv" / day / "ham.jsonl.gz").unlink()
+    assert not proof.verify(cfg, day)[0]
+    assert day in durum.prepare_raw(cfg)
+    assert proof.verify(cfg, day)[0]

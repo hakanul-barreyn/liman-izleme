@@ -5,7 +5,7 @@ import asyncio
 import logging
 import signal
 
-from . import jobs
+from . import jobs, tracking, visits
 from .collector import Collector
 from .db import connect, db_path, get_meta, set_meta
 from .ingest import Ingestor
@@ -14,15 +14,18 @@ from .util import iso, now_utc, parse_iso
 log = logging.getLogger("calistir")
 
 
-async def main(cfg) -> int:
+async def main(cfg, minutes: float | None = None) -> int:
+    """minutes verilirse (GitHub Actions modu) o kadar dakika toplar ve durur;
+    saatlik/günlük işleri çağıran taraf ayrıca çalıştırır."""
     if not cfg.ports:
         raise SystemExit("config.yaml içinde hiç liman yok. Önce limanları ekle.")
     con = connect(db_path(cfg))
     # Program kapalıyken geçen süreyi kesinti olarak kaydet
     last = get_meta(con, "last_alive")
     if last and (now_utc() - parse_iso(last)).total_seconds() > 120:
-        con.execute("INSERT INTO outages(conn,t_start,t_end,reason) VALUES('tumu',?,?,'program kapalıydı')",
-                    (last, iso(now_utc())))
+        reason = "çalıştırmalar arası boşluk" if minutes else "program kapalıydı"
+        con.execute("INSERT INTO outages(conn,t_start,t_end,reason) VALUES('tumu',?,?,?)",
+                    (last, iso(now_utc()), reason))
         con.commit()
     ing = Ingestor(cfg, con)
     col = Collector(cfg, con, ing)
@@ -42,6 +45,22 @@ async def main(cfg) -> int:
             ing.flush()
             set_meta(con, "last_alive", iso(now_utc()))
             con.commit()
+
+    async def refresher():
+        # Limana yeni giren gemiler 10 dakika içinde canlı takibe alınsın
+        while True:
+            await asyncio.sleep(600)
+            try:
+                ing.flush()
+                visits.process(cfg, con)
+                tracking.refresh(cfg, con, iso(now_utc()))
+                col.refresh_tracking()
+            except Exception:  # noqa: BLE001
+                log.exception("Takip yenileme hatası")
+
+    async def timer():
+        await asyncio.sleep(minutes * 60)
+        stop.set()
 
     async def hourly():
         every = cfg.pub.get("site_guncelleme_dakika", 60) * 60
@@ -71,7 +90,8 @@ async def main(cfg) -> int:
             except Exception:  # noqa: BLE001
                 log.exception("Günlük iş hatası")
 
-    tasks = [asyncio.create_task(x()) for x in (flusher, hourly, daily)]
+    loops = (flusher, refresher, timer) if minutes else (flusher, refresher, hourly, daily)
+    tasks = [asyncio.create_task(x()) for x in loops]
     log.info("Çalışıyor. %d liman izleniyor. Durdurmak için Ctrl+C.", len(cfg.ports))
     await stop.wait()
     log.info("Durduruluyor…")

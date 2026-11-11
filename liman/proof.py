@@ -91,7 +91,8 @@ def verify(cfg, day: str) -> tuple[bool, list[str]]:
         p = day_dir / name
         if not p.exists():
             ok = False
-            out.append(f"EKSİK   {name}")
+            out.append(f"EKSİK   {name}" + ("  (GitHub Releases'tan arsiv-" + day + " sürümündeki dosyayı bu klasöre indir)"
+                                            if name == "ham.jsonl.gz" else ""))
         elif sha256_file(p) != h:
             ok = False
             out.append(f"DEĞİŞMİŞ {name}")

@@ -1,8 +1,9 @@
-"""Statik web sitesini üretir (Netlify doğrudan 'site' klasörünü yayımlar)."""
+"""Statik web sitesini üretir (GitHub Actions bunu GitHub Pages'e yükler)."""
 from __future__ import annotations
 
 import html
 import json
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -113,6 +114,12 @@ def _event_text(e: dict, names: dict) -> str:
     if e["kind"] == "draught":
         return f"Liman ziyareti olmadan su çekimi {d.get('once')} → {d.get('sonra')} m"
     return ""
+
+
+def ham_url(day: str) -> str:
+    """Ham veri GitHub Releases'ta tutuluyorsa onun adresi (LIMAN_HAM_URL içinde {gun} yer tutucusu)."""
+    tpl = os.environ.get("LIMAN_HAM_URL")
+    return tpl.format(gun=day) if tpl else f"arsiv/{day}/ham.jsonl.gz"
 
 
 def build(cfg, con) -> None:
@@ -291,6 +298,7 @@ def build(cfg, con) -> None:
     rows = [[E(c["gun"]), f'<span class="mono">{c["gun_hash"]}</span>', f'<span class="mono">{c["kayit_hash"][:16]}…</span>',
              "evet" if c.get("opentimestamps") else "hayır",
              f'<a href="arsiv/{c["gun"]}/MANIFEST.sha256">manifest</a> · <a href="arsiv/{c["gun"]}/ozet.json">özet</a>'
+             f' · <a href="{ham_url(c["gun"])}">ham veri</a>'
              + (f' · <a href="arsiv/{c["gun"]}/MANIFEST.sha256.ots">.ots</a>' if c.get("opentimestamps") else "")]
             for c in reversed(chain)]
     b = ("<h1>Kanıt zinciri</h1><p class='lede'>Her gün bittiğinde o günün bütün dosyaları (ham AIS mesajları, ziyaret "
@@ -298,7 +306,8 @@ def build(cfg, con) -> None:
          "önceki günün kaydına bağlanır; geçmişteki tek bir bayt değişirse zincir kırılır. OpenTimestamps açıksa gün hash'i "
          "Bitcoin blok zincirine damgalanır ve dosyanın o tarihte var olduğu bağımsız olarak kanıtlanır.</p>"
          "<h2>Nasıl doğrularım?</h2><ol class='small'>"
-         "<li>Bir günün klasöründen dosyaları ve <span class='mono'>MANIFEST.sha256</span> dosyasını indir.</li>"
+         "<li>Bir günün klasöründen dosyaları, <span class='mono'>MANIFEST.sha256</span> dosyasını ve 'ham veri' bağlantısındaki "
+         "<span class='mono'>ham.jsonl.gz</span> dosyasını aynı klasöre indir.</li>"
          "<li>Linux/Mac'te klasörde <span class='mono'>sha256sum -c MANIFEST.sha256</span> çalıştır; her satır OK olmalı.</li>"
          "<li><span class='mono'>sha256sum MANIFEST.sha256</span> sonucu aşağıdaki gün hash'iyle aynı olmalı.</li>"
          "<li>Damga varsa <span class='mono'>ots verify MANIFEST.sha256.ots</span> ile Bitcoin kaydını kontrol et.</li>"

@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS routes(
   tracked INTEGER, cargo TEXT, cargo_conf TEXT, cargo_basis TEXT,
   via_vkey TEXT, via_mmsi INTEGER, via_name TEXT);
 
+CREATE TABLE IF NOT EXISTS seen_offport(mmsi INTEGER, hour TEXT, PRIMARY KEY(mmsi, hour));
+
 CREATE TABLE IF NOT EXISTS archived_days(day TEXT PRIMARY KEY, day_hash TEXT, created TEXT);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
 """

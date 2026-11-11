@@ -6,6 +6,9 @@
   python -m liman gunluk [--gonder]   bekleyen günleri arşivler, siteyi üretir, istenirse GitHub'a gönderir
   python -m liman dogrula GÜN         bir günün dosyalarını kanıt zincirine göre doğrular
   python -m liman demo                kurgusal verilerle uçtan uca deneme yapar (demo/ klasörüne)
+  python -m liman tur --dakika 50     GitHub Actions modu: belirtilen süre toplar, sonra arşiv ve site üretir
+  python -m liman durum-yukle KLASÖR  kayıtlı durumu geri yükler (Actions)
+  python -m liman durum-kaydet KLASÖR durumu sıkıştırıp kaydeder (Actions)
 """
 from __future__ import annotations
 
@@ -21,10 +24,12 @@ from . import config
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m liman", description="Liman İzleme")
-    ap.add_argument("komut", choices=["calistir", "kontrol", "saatlik", "gunluk", "dogrula", "demo"])
+    ap.add_argument("komut", choices=["calistir", "kontrol", "saatlik", "gunluk", "dogrula", "demo",
+                                      "tur", "durum-yukle", "durum-kaydet", "ham-hazirla"])
     ap.add_argument("gun", nargs="?")
     ap.add_argument("--ayar", default="config.yaml")
     ap.add_argument("--gonder", action="store_true", help="GitHub'a gönder (gunluk)")
+    ap.add_argument("--dakika", type=float, default=50, help="tur: kaç dakika veri toplanacak")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -43,6 +48,32 @@ def main(argv=None) -> int:
         key = os.environ.get(cfg.ais["anahtar_degiskeni"])
         print("aisstream anahtarı:", "var" if key else "YOK (.env dosyasına ekle)")
         return 0 if key and cfg.ports else 1
+    if a.komut == "ham-hazirla":
+        from . import durum
+        print(" ".join(durum.prepare_raw(cfg)))
+        return 0
+    if a.komut in ("durum-yukle", "durum-kaydet"):
+        from pathlib import Path
+        from . import durum
+        d = Path(a.gun or "_durum")
+        if a.komut == "durum-yukle":
+            durum.load(cfg, d)
+        else:
+            durum.save(cfg, d)
+        return 0
+    if a.komut == "tur":
+        from . import jobs, runner
+        rc = 0
+        if cfg.ports and os.environ.get(cfg.ais["anahtar_degiskeni"]):
+            try:
+                rc = asyncio.run(runner.main(cfg, minutes=a.dakika))
+            except Exception:  # noqa: BLE001  (toplama hatası arşiv ve siteyi engellemesin)
+                logging.exception("Toplama sırasında hata")
+                rc = 1
+        else:
+            logging.warning("Liman veya aisstream anahtarı yok; yalnızca site üretiliyor")
+        print(jobs.daily(cfg, push=False))
+        return rc
     if a.komut == "calistir":
         from . import runner
         if not cfg.ports:
