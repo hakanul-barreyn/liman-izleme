@@ -1,0 +1,69 @@
+# ============================================================================
+#  Liman İzleme – ayar dosyası
+#  Bu dosyayı GitHub'da doğrudan düzenleyebilirsin (kalem simgesi).
+#  Sunucu her gün değişiklikleri kendisi çeker ve yeni ayarlarla yeniden başlar.
+#  Koordinatlar [enlem, boylam] sırasıyla, ondalık derece olarak yazılır.
+# ============================================================================
+
+proje:
+  ad: "Liman İzleme"
+  aciklama: "Seçilen limanlara uğrayan gemilerin açık ve doğrulanabilir arşivi."
+  saat_dilimi: "Europe/Istanbul"
+
+# --- Test edilecek hükümet beyanı -------------------------------------------
+# yonler: "A>B" = A ülkesinin limanlarından B ülkesinin limanlarına giden gemiler.
+# Ülkeler iki harfli kodla yazılır (TR, GR, RU ...). Boş bırakılırsa beyan testi kapalıdır.
+beyan:
+  yonler: []            # ör. ["XX>YY", "YY>XX"]
+  metin: ""             # beyanın tam metni, tırnak içinde
+  tarih: ""             # ör. "2026-10-01"
+  kaynak: ""            # ör. "Bakanlık açıklaması, resmi web sitesi"
+
+# --- Ülkeler ------------------------------------------------------------------
+# varis_anahtarlari: gemilerin AIS'e yazdığı varış noktasında bu ülkeyi gösteren kelimeler.
+ulkeler: {}
+#  XX:
+#    ad: "X ülkesi"
+#    varis_anahtarlari: ["XLAND"]
+
+# --- Limanlar -------------------------------------------------------------------
+# rol: izlenen -> uğrayan her gemi takibe alınır ve günlük arşivi tutulur (en fazla 3 önerilir)
+#      varis   -> sadece "gemi buraya vardı mı" kontrolü (karşı ülkenin limanları, aktarma limanları)
+# Alan: ya merkez + yaricap_km (daire) ya da alan: [[enlem, boylam], ...] (poligon, demirleme sahasını da içersin)
+# Terminaller isteğe bağlıdır; yük çıkarımını güçlendirir.
+#   yuk değerleri: sivi_dokme, gaz, kuru_dokme, konteyner, ro_ro, genel_kargo
+limanlar: []
+#  - kod: "LIMAN1"
+#    ad: "Örnek Liman"
+#    ulke: "XX"
+#    rol: "izlenen"
+#    merkez: [41.00, 29.00]
+#    yaricap_km: 6
+#    terminaller:
+#      - ad: "Petrol iskelesi"
+#        yuk: "sivi_dokme"
+#        merkez: [41.01, 29.02]
+#        yaricap_km: 1
+
+# --- Hangi gemiler takibe alınsın ------------------------------------------------
+# tipler: kargo, tanker, yolcu, balikci, romorkor, askeri, gezi, diger, bilinmiyor
+gemi_filtresi:
+  tipler: ["kargo", "tanker", "bilinmiyor"]
+  min_boy_m: 0
+
+# --- Eşikler (değiştirmek zorunda değilsin) -----------------------------------------
+esikler:
+  ziyaret_min_dakika: 60       # limanda en az bu kadar kalan ve duran gemi ziyaret sayılır
+  takip_gun: 30                # takip süresi
+  guzergah_max_gun: 90         # çıkıştan varışa en fazla bu kadar gün
+  ais_bosluk_saat: 6           # açık denizde bu kadar sinyal yoksa işaretlenir
+  sts_mesafe_m: 500            # denizde buluşma mesafesi
+  sts_sure_saat: 2             # denizde buluşma süresi
+  draft_degisim_m: 1.0         # limansız su çekimi değişimi eşiği
+
+yayin:
+  ham_veri_yayinla: true       # ham AIS mesajlarını arşivde yayımla (doğrulanabilirlik için önerilir)
+  git_push: true               # sunucu her gün siteyi GitHub'a göndersin
+  opentimestamps: true         # gün hash'ini Bitcoin blok zincirine damgala
+  site_guncelleme_dakika: 60
+  gunluk_saat: "00:05"

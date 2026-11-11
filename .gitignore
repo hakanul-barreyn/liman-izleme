@@ -1,0 +1,8 @@
+# gizli anahtarlar ve yerel veritabanı asla GitHub'a gitmez
+.env
+data/
+demo/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -1,0 +1,4 @@
+# Netlify bu depodaki hazır "site" klasörünü olduğu gibi yayımlar; derleme gerekmez.
+[build]
+  publish = "site"
+  command = ""
