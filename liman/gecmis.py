@@ -49,6 +49,20 @@ TR_ADLAR = {
 }
 CEYHAN = (36.875, 35.925)  # BTC ve Kerkük-Ceyhan terminalleri
 CEYHAN_KM = 11  # GFW Ceyhan ziyaretlerini terminallerin 6-10 km güneyindeki demirleme noktalarına bağlıyor
+# Neredeyse yalnızca ham petrol ve akaryakıt tankerlerinin uğradığı iskeleler (GFW demirleme yeri adı → Türkçe).
+# Ceyhan'a uğrayan bir gemi bunlardan birine de uğruyorsa tanker olduğu rotasından anlaşılır.
+PETROL_ISKELELERI = {
+    "SIDI KERIR": "Sidi Kerir (SUMED boru hattı, Mısır)", "SARROCH": "Sarroch rafinerisi (İtalya)",
+    "SANTA PANAGIA": "Santa Panagia petrol iskelesi (Sicilya)", "PRIOLO": "Priolo rafinerisi (Sicilya)",
+    "MELILLI": "Melilli petrol iskelesi (Sicilya)", "MILAZZO": "Milazzo rafinerisi (Sicilya)",
+    "SUPSA": "Supsa petrol terminali (Gürcistan)", "KULEVI": "Kulevi petrol terminali (Gürcistan)",
+    "ES SIDER": "Es Sider petrol terminali (Libya)", "RAS LANUF": "Ras Lanuf petrol terminali (Libya)",
+    "ZUEITINA": "Zueitina petrol terminali (Libya)", "BREGA": "Brega petrol terminali (Libya)",
+    "MELLITAH": "Mellitah terminali (Libya)", "AGIOI THEODOROI": "Agioi Theodoroi rafinerisi (Yunanistan)",
+    "OMISALJ": "Omišalj petrol terminali (Hırvatistan)", "LAVERA": "Lavéra petrol terminali (Fransa)",
+    "OZEREYEVKA": "CPC petrol terminali (Rusya)", "SHESKHARIS": "Sheskharis petrol terminali (Rusya)",
+    "TUTUNCIFTLIK": "Tüpraş İzmit rafinerisi", "SKIKDA": "Skikda petrol terminali (Cezayir)",
+}
 CLASS_LABELS = {
     "dogrudan": "Doğrudan",
     "aktarmali": "Ara limanlı",
@@ -549,6 +563,7 @@ def compute(cfg, con, *_eski) -> int:
             rows += _cache_get(con, key) or []
         for vid_, (e0, e1, saat, _o) in _episodes(rows):
             acik.setdefault(vid_, []).append({"bas": e0, "son": e1, "saat": round(saat, 1)})
+    petrol_lim: dict[str, list[str]] = {}
     n = 0
     for vid in ids:
         if not vkeys[vid]["pv"]:
@@ -569,10 +584,15 @@ def compute(cfg, con, *_eski) -> int:
                 prev["end"] = max(prev["end"], end)
                 continue
             pv_ = e.get("port_visit") or {}
-            iso3 = ((pv_.get("startAnchorage") or pv_.get("endAnchorage") or {}).get("flag"))
-            visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon, "iso3": iso3,
-                           "start": e["start"], "end": end, "vessel": e["vessel"]})
+            anc = pv_.get("startAnchorage") or pv_.get("endAnchorage") or {}
+            visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon, "iso3": anc.get("flag"),
+                           "anc": str(anc.get("name") or "").upper(), "start": e["start"], "end": end, "vessel": e["vessel"]})
         gl = sorted((_gap_info(g) for g in gaps if g.get("start")), key=lambda g: g["baslangic"])
+        # Ceyhan'a uğrayan gemi başka petrol iskelelerine de uğruyor mu? (tanker olduğunun rotadan kanıtı)
+        if any(v["lat"] is not None and haversine_km(v["lat"], v["lon"], *CEYHAN) <= CEYHAN_KM for v in visits):
+            pl = sorted({ad for v in visits for k, ad in PETROL_ISKELELERI.items() if k in v["anc"]})
+            if pl:
+                petrol_lim[vid] = pl
         # dünyadan hedef ülkeye: her varışın bir önceki uğrağı (hangi ülkeden geldi?)
         for i, v in enumerate(visits):
             if v["c"] not in hedef or v["start"] < period or (i and visits[i - 1]["c"] == v["c"]):
@@ -674,6 +694,7 @@ def compute(cfg, con, *_eski) -> int:
     n += _offshore(cfg, con, vkeys, period, home, aktarma, via_h, direct_h, max_mids)
     ceyhan.sort(key=lambda x: x["t"], reverse=True)
     set_meta(con, "ceyhan_cikislari", json.dumps(ceyhan, ensure_ascii=False))
+    set_meta(con, "gemi_petrol_iskeleleri", json.dumps(petrol_lim, ensure_ascii=False))
     con.commit()
     return n
 

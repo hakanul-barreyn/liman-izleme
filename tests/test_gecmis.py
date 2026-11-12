@@ -214,7 +214,7 @@ def test_israil_aciklarinda_ais_kapali(tmp_path):
     gecmis.set_target(con, "2025-01-01", "2025-04-01")
     fake = FakeClient()
     fake.v = {"V9": [pv("V9", "ceyhan", "TUR", 36.87, 35.93, "2025-02-01", "2025-02-02"),
-                     pv("V9", "augusta", "ITA", 37.2, 15.2, "2025-02-10", "2025-02-11")],
+                     pv("V9", "santa panagia", "ITA", 37.1, 15.3, "2025-02-10", "2025-02-11")],
               # V10: aynı boşluk ama Port Said yolunda (İsrail kutusunun dışında): işaretlenmemeli
               "V10": [pv("V10", "ceyhan", "TUR", 36.87, 35.93, "2025-02-01", "2025-02-02"),
                       pv("V10", "augusta", "ITA", 37.2, 15.2, "2025-02-10", "2025-02-11")]}
@@ -239,6 +239,7 @@ def test_israil_aciklarinda_ais_kapali(tmp_path):
     assert not site.HATALAR
     dosya = json.loads((cfg.site_dir / "veri" / "tankerler.json").read_text())
     assert [d["kanit"] for d in dosya] == ["acik"]
+    assert any("Santa Panagia" in t for t in dosya[0]["tip"])  # tanker olduğu rotasından
     sayfa_ = (cfg.site_dir / "tankerler" / f'{dosya[0]["dosya"]}.html').read_text()
     assert "Aşkelon’un" in sayfa_ and "kapandi" in sayfa_ and "acildi-il" in sayfa_
     # Ceyhan uğrakları tablosu: yoldaki boşluk İsrail açığı olarak işaretli

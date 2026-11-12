@@ -154,6 +154,7 @@ def dosyalar(cfg, con, recs: list[dict]) -> list[dict]:
     g2vid = {f"g{i}": v for i, v in con.execute("SELECT id, vessel_id FROM gecmis WHERE vessel_id IS NOT NULL")}
     canli_tip = {r[0]: r[1] for r in con.execute("SELECT mmsi, type FROM vessels WHERE type IS NOT NULL")}
     cik = json.loads(get_meta(con, "ceyhan_cikislari", "[]") or "[]")
+    petrol_lim = json.loads(get_meta(con, "gemi_petrol_iskeleleri", "{}") or "{}")
     cik_m: dict[str, list] = defaultdict(list)
     cik_v: dict[str, list] = defaultdict(list)
     for x in cik:
@@ -193,6 +194,9 @@ def dosyalar(cfg, con, recs: list[dict]) -> list[dict]:
                          and not r["ter"].startswith("Ceyhan terminalleri ve demirleme")})
         for t in iskele:
             tip.append(f"Petrol iskelesinden çıktı: {t}")
+        diger = sorted({x for v in vids for x in petrol_lim.get(v, [])})
+        if diger:
+            tip.append("Rotasında başka petrol iskeleleri de var: " + ", ".join(diger[:4]))
         bas = [b for b in basin if (b.get("imo") and imo and str(b["imo"]) == str(imo))
                or (not b.get("imo") and str(b.get("ad", "")).upper() in {(n or "").upper() for n in [ad, *adlar]} and cy)]
         if bas:
