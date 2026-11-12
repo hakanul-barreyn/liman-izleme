@@ -108,6 +108,7 @@ def main() -> int:
         ("gercek-yontem", "gercek", "yontem.html", 1280, 1800, "light", False),
         ("gercek-raporlar", "gercek", "raporlar/index.html", 1280, 1400, "light", False),
         ("gercek-raporlar-mobil", "gercek", "raporlar/index.html", 390, 1400, "light", True),
+        ("gercek-dunya", "gercek", "raporlar/dunya.html", 1280, 2200, "light", False),
         ("gercek-limanlar", "gercek", "limanlar/index.html", 1280, 1300, "light", False),
         ("gercek-gecmis-sayfa", "gercek", "gecmis.html", 1280, 1100, "light", False),
     ]

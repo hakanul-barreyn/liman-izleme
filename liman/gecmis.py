@@ -394,6 +394,8 @@ def _merged(con, keys: list[str]) -> list[dict]:
 
 def compute(cfg, con, *_eski) -> int:
     con.execute("DELETE FROM gecmis")
+    con.execute("DELETE FROM dunya")
+    hedef = cfg.dest_countries()
     # tarama sürerken de önbelleğe girmiş bütün gemiler, bütün pencereleriyle hesaba katılır
     vkeys = _vessel_keys(con)
     ids = sorted(vkeys)
@@ -432,9 +434,23 @@ def compute(cfg, con, *_eski) -> int:
                 # aynı limanda art arda iki kayıt (demirleme, sonra rıhtım): tek uğrak
                 prev["end"] = max(prev["end"], end)
                 continue
-            visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon,
+            pv_ = e.get("port_visit") or {}
+            iso3 = ((pv_.get("startAnchorage") or pv_.get("endAnchorage") or {}).get("flag"))
+            visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon, "iso3": iso3,
                            "start": e["start"], "end": end, "vessel": e["vessel"]})
         gl = [_gap_info(g) for g in gaps if g.get("start")]
+        # dünyadan hedef ülkeye: her varışın bir önceki uğrağı (hangi ülkeden geldi?)
+        for i, v in enumerate(visits):
+            if v["c"] not in hedef or v["start"] < period or (i and visits[i - 1]["c"] == v["c"]):
+                continue
+            pr = visits[i - 1] if i and hours_between(visits[i - 1]["end"], v["start"]) <= 45 * 24 else None
+            vs_ = v["vessel"]
+            con.execute("INSERT INTO dunya(vessel_id,ssvid,name,flag,vtype,origin,origin_iso3,o_lat,o_lon,t_dep,dest,t_arr) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (vid, vs_.get("ssvid"), vs_.get("name"), vs_.get("flag"), vs_.get("type"),
+                         pr["name"] if pr else None, (pr.get("iso3") or ("TUR" if pr["c"] == "TR" else None)) if pr else None,
+                         pr["lat"] if pr else None, pr["lon"] if pr else None, pr["end"] if pr else None,
+                         v["name"], v["start"]))
         # Ceyhan petrol terminallerinden çıkışlar ve sonraki uğrak (nereye gittiler?)
         for i, v in enumerate(visits):
             if v["code"] and v["lat"] is not None and v["end"] >= period and \

@@ -106,6 +106,9 @@ def test_retro_scan(tmp_path):
     assert rp.count('<details class="gemi"') == 1 and "1 gemi, 3 sefer" in rp
     assert (rd / "tr-il-seferler.csv").read_bytes().startswith("\ufeff".encode())
     assert list(rd.glob("tr-il-2025-0*.html"))
+    # dünyadan İsrail'e: her varış önceki uğrağıyla
+    dp = (rd / "dunya.html").read_text()
+    assert "Mısır" in dp and (rd / "dunya-egy.html").exists() and (rd / "dunya-seferler.csv").exists()
 
 
 def test_guncelleme_bogaz_ve_donem(tmp_path):

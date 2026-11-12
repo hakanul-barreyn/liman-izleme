@@ -55,6 +55,9 @@ CREATE TABLE IF NOT EXISTS seen_offport(mmsi INTEGER, hour TEXT, PRIMARY KEY(mms
 
 CREATE TABLE IF NOT EXISTS izler(mmsi INTEGER, day TEXT, pts TEXT, PRIMARY KEY(mmsi, day));
 CREATE TABLE IF NOT EXISTS gfw_cache(key TEXT PRIMARY KEY, data TEXT, fetched TEXT);
+CREATE TABLE IF NOT EXISTS dunya(
+  id INTEGER PRIMARY KEY, vessel_id TEXT, ssvid TEXT, name TEXT, flag TEXT, vtype TEXT,
+  origin TEXT, origin_iso3 TEXT, o_lat REAL, o_lon REAL, t_dep TEXT, dest TEXT, t_arr TEXT);
 CREATE TABLE IF NOT EXISTS gecmis(
   id INTEGER PRIMARY KEY, direction TEXT, cls TEXT, vessel_id TEXT, ssvid TEXT, name TEXT, flag TEXT,
   vtype TEXT, origin TEXT, origin_country TEXT, t_dep TEXT, dest TEXT, dest_country TEXT, t_arr TEXT,

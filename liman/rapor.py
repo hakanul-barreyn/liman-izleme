@@ -93,10 +93,11 @@ def _harita_link(directions, r) -> str:
 
 
 def _sefer_li(cfg, E, directions, r) -> str:
+    link = f'<a href="{_harita_link(directions, r)}">Haritada</a>' if r["id"][0] in "cg" else "<span></span>"
     return (f'<li><span class="t">{E(_aralik(cfg, r.get("t0"), r.get("t1")))}</span>'
             f'<span class="r">{E(_rota(r))}</span>'
-            f'<em class="{r["a"]}">{E(harita.ALL_LABELS.get(r["k"], r["k"]))}</em>'
-            f'<a href="{_harita_link(directions, r)}">Haritada</a></li>')
+            f'<em class="{r["a"]}">{E(r.get("etiket") or harita.ALL_LABELS.get(r["k"], r["k"]))}</em>'
+            f'{link}</li>')
 
 
 def _satir(cfg, E, directions, s: dict, top: int) -> str:
@@ -110,7 +111,8 @@ def _satir(cfg, E, directions, s: dict, top: int) -> str:
     if len(s["hatlar"]) > 2:
         hat += f', <small>{len(s["hatlar"]) - 2} hat daha</small>'
     ailesi = ", ".join(f'{harita.FAMILY_LABELS[a].lower()} {s["aile"][a]}' for a in harita.FAMILY_ORDER if s["aile"].get(a))
-    baglanti = [f'<a href="../index.html#q={quote(str(s["mmsi"] or s["ad"]))}">Haritada bütün seferleri</a>']
+    baglanti = ([f'<a href="../index.html#q={quote(str(s["mmsi"] or s["ad"]))}">Haritada bütün seferleri</a>']
+                if any(r["id"][0] in "cg" for r in s["seferler"]) else [])
     if s["sayfa"]:
         baglanti.append(f'<a href="../gemiler/{E(s["sayfa"])}.html">Gemi sayfası</a>')
     eski = f' Önceki adları: {E(", ".join(s["adlar"]))}.' if s["adlar"] else ""
@@ -233,6 +235,15 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
     pages = {f.stem for f in (out / "gemiler").glob("*.html")}
     legend = "".join(f'<span class="isaret" style="--c:var(--c-{k})">{E(harita.FAMILY_LABELS[k])}</span>'
                      for k in harita.FAMILY_ORDER)
+    # dünyadan hedef ülkeye: geçmiş taramadaki bütün varışlar ve bir önceki uğrak
+    dunya = [dict(r) for r in con.execute("SELECT * FROM dunya ORDER BY t_arr DESC")]
+    hedef_ad = ", ".join(cfg.country_name(c) for c in sorted(cfg.dest_countries()))
+
+    def dunya_sekme(aktif):
+        if not dunya:
+            return ""
+        return f'<a href="dunya.html"{" aria-current=page" if aktif else ""}>Dünya → {E(hedef_ad)}</a>'
+
     for y in directions:
         A, B = y.split(">")
         a_ad, b_ad = cfg.country_name(A), cfg.country_name(B)
@@ -241,7 +252,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
         sel = [r for r in recs if r["y"] == y]
         top = max((s["n"] for s in sh), default=1)
         ts = sorted(_zaman(r) for r in sel if _zaman(r))
-        yon = "".join(f'<a href="{sayfa(directions, x)}"{" aria-current=page" if x == y else ""}>'
+        yon = dunya_sekme(False) + "".join(f'<a href="{sayfa(directions, x)}"{" aria-current=page" if x == y else ""}>'
                       f'{E(cfg.country_name(x.split(">")[0]))} → {E(cfg.country_name(x.split(">")[1]))}</a>' for x in directions)
         aylar = defaultdict(list)
         for r in sel:
@@ -308,7 +319,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
         body = (f'<main class="sayfa rapor" id="icerik"><header><h1>Raporlar</h1>'
                 f'<p class="giris">{E(a_ad)} limanlarından {E(b_ad)} limanlarına doğrudan ya da dolaylı giden gemiler, '
                 'gemi gemi. Bir gemiye tıklayınca bütün seferleri açılır.</p></header>'
-                + (f'<nav class="dugmeler yon" aria-label="Yön">{yon}</nav>' if len(directions) > 1 else "")
+                + (f'<nav class="dugmeler yon" aria-label="Yön">{yon}</nav>' if len(directions) > 1 or dunya else "")
                 + f'<h2 class="rapor-baslik">{_n(len(sh))} gemi, {_n(len(sel))} sefer</h2>'
                 f'<p class="not">{E(donem)}{", " if donem else ""}canlı kayıt ve geçmiş tarama birlikte. Varış ayına göre '
                 f'<a href="#aylik">aylık raporlar</a> sayfanın sonunda.</p>{petrol_not}'
@@ -402,3 +413,71 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 harita.ALL_LABELS.get(r["k"], r["k"]), r.get("o") or "", r.get("t0") or "", ", ".join(r.get("ara") or []),
                 r.get("d") or "", r.get("t1") or "", r.get("ter") or "", "Canlı kayıt" if r["s"] == "c" else "Geçmiş tarama (GFW)", r["id"]]
                for r in sorted(sel, key=lambda r: r.get("t0") or "")]))
+
+    if dunya:
+        _dunya(cfg, con, dunya, directions, rdir, vessels, m2k, pages, bilgi, legend, hedef_ad, dunya_sekme)
+
+
+def _dunya(cfg, con, dunya, directions, rdir, vessels, m2k, pages, bilgi, legend, hedef_ad, dunya_sekme):
+    from .site import E, _n, _page, _tarih, _tbl, _write
+    from .ulkeler import ulke_adi
+    recs = []
+    for r in dunya:
+        try:
+            m = int(r["ssvid"]) if r["ssvid"] else None
+        except ValueError:
+            m = None
+        recs.append({"id": f"d{r['id']}", "s": "g", "y": "DUNYA", "k": "dunya", "a": "dogrudan", "etiket": "Varış",
+                     "n": r["name"], "m": m, "b": r["flag"], "o": r["origin"] or "önceki uğrak kayıtsız",
+                     "oc3": r["origin_iso3"], "t0": r["t_dep"], "d": r["dest"], "t1": r["t_arr"]})
+    yon = dunya_sekme(True) + "".join(f'<a href="{sayfa(directions, x)}">{E(cfg.country_name(x.split(">")[0]))} → '
+                                      f'{E(cfg.country_name(x.split(">")[1]))}</a>' for x in directions)
+    ulk = defaultdict(list)
+    for r in recs:
+        ulk[r["oc3"] or "?"].append(r)
+    gsay = lambda rs: len({x.get("m") or x.get("n") for x in rs})  # noqa: E731
+    ts = sorted(r["t1"] for r in recs if r["t1"])
+    satir = []
+    for c, rs in sorted(ulk.items(), key=lambda kv: -len(kv[1])):
+        ad = "Önceki uğrak kayıtsız (45 gün içinde)" if c == "?" else (ulke_adi(c) or c)
+        link = f'<a href="dunya-{c.lower()}.html">{E(ad)}</a>' if c != "?" else E(ad)
+        satir.append([link, _n(len(rs)), _n(gsay(rs)), f"%{100 * len(rs) / len(recs):.1f}".replace(".", ",")])
+    limanlar = Counter((r["o"], r["oc3"]) for r in recs if r["oc3"])
+    lrows = [[E(o), E(ulke_adi(c) or c), _n(n)] for (o, c), n in limanlar.most_common(30)]
+    body = (f'<main class="sayfa rapor" id="icerik"><header><h1>Raporlar</h1>'
+            f'<p class="giris">Dünyanın her yerinden {E(hedef_ad)} limanlarına gelen gemiler ve her varıştan önceki son uğrak. '
+            'Global Fishing Watch liman ziyaretlerinden; bir ülkeye tıklayınca o ülkeden gelen gemiler gemi gemi açılır.</p></header>'
+            f'<nav class="dugmeler yon" aria-label="Yön">{yon}</nav>'
+            f'<h2 class="rapor-baslik">{_n(gsay(recs))} gemi, {_n(len(recs))} varış, {_n(len([c for c in ulk if c != "?"]))} ülkeden</h2>'
+            f'<p class="not">{E(_tarih(cfg, ts[0]) if ts else "")} ile {E(_tarih(cfg, ts[-1]) if ts else "")} arasında. '
+            'Tarama yalnızca hedef ülke limanlarına uğrayan gemileri kapsar; liman dışı (açık deniz şamandırası) boşaltmalar ve '
+            'AIS’i kapalı gelişler görünmez.</p>'
+            '<p class="eylemler"><a class="eylem" href="dunya-seferler.csv" download>Bütün varışlar (CSV)</a></p>'
+            '<h2>Geldikleri ülke</h2>' + _tbl(["Önceki uğrak ülkesi", "Varış", "Gemi", "Pay"], satir, num=(1, 2, 3))
+            + '<h2>En sık son uğrak limanları</h2>' + _tbl(["Liman", "Ülke", "Varış"], lrows, num=(2,)) + "</main>")
+    _write(rdir / "dunya.html", _page(cfg, "Dünyadan " + hedef_ad, body, 1, "raporlar",
+                                      desc=f"Dünyadan {hedef_ad} limanlarına {len(recs)} varış."))
+    for c, rs in ulk.items():
+        if c == "?":
+            continue
+        sh = ships(rs, "DUNYA", vessels, m2k, pages, bilgi)
+        top = max((x["n"] for x in sh), default=1)
+        ad = ulke_adi(c) or c
+        b = (f'<main class="sayfa rapor" id="icerik"><header><p class="yol"><a href="dunya.html">Dünya → {E(hedef_ad)}</a></p>'
+             f'<h1>{E(ad)} → {E(hedef_ad)}</h1><p class="giris">Son uğrağı {E(ad)} olan {_n(len(rs))} varış, {_n(len(sh))} gemi. '
+             'Bir gemiye tıklayınca bütün varışları açılır.</p></header>'
+             '<div class="arac"><label class="ara"><span class="gizli">Gemi ara</span><input type="search" id="rapor-ara" '
+             'placeholder="Gemi adı, IMO, MMSI, bayrak, firma ya da liman" autocomplete="off"></label>'
+             '<div class="dugmeler" role="group" aria-label="Sıralama"><button type="button" data-sirala="n" aria-pressed="true">'
+             'Varış sayısı</button><button type="button" data-sirala="son" aria-pressed="false">Son varış</button>'
+             '<button type="button" data-sirala="ad" aria-pressed="false">Ad</button></div>'
+             f'<output id="rapor-say" aria-live="polite">{_n(len(sh))} gemi</output></div>'
+             '<div class="gemi-liste" id="gemi-liste"><div class="gemi-bas" aria-hidden="true"><span>Gemi</span>'
+             '<span>Varış</span><span>Son varış</span><span>Başlıca hat</span></div>'
+             + "".join(_satir(cfg, E, directions, x, top) for x in sh) + "</div>" + ARAC + "</main>")
+        _write(rdir / f"dunya-{c.lower()}.html", _page(cfg, f"{ad} → {hedef_ad}", b, 1, "raporlar"))
+    (rdir / "dunya-seferler.csv").write_bytes(_csv(
+        [["Gemi", "MMSI", "Bayrak", "GFW tipi", "Önceki uğrak", "Önceki uğrak ülkesi", "Çıkış", "Varış limanı", "Varış"]]
+        + [[r["name"] or "", r["ssvid"] or "", ulke_adi(r["flag"]), r["vtype"] or "", r["origin"] or "",
+            ulke_adi(r["origin_iso3"]) if r["origin_iso3"] else "", r["t_dep"] or "", r["dest"] or "", r["t_arr"] or ""]
+           for r in dunya]))
