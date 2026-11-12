@@ -576,8 +576,11 @@ svg.aylik .eksik-yazi{font:11.5px var(--font);fill:var(--ink-3)}
   .makale h1{font-size:21pt}
   .makale h2{font-size:14pt;margin-top:20pt;break-after:avoid}
   .makale h3{font-size:11.5pt;break-after:avoid}
-  .sekil,.makale .tablo,.kunye-rapor{break-inside:avoid}
-  .ozet-kutu{break-inside:auto}
+  .sekil,.kunye-rapor{break-inside:avoid}
+  .ozet-kutu,.makale .tablo{break-inside:auto}
+  .makale tr{break-inside:avoid}
+  .makale thead{display:table-header-group}
+  .makale caption{break-after:avoid}
   .makale .tablo{overflow:visible}
   .makale table{font-size:9pt}
   .makale th{position:static}

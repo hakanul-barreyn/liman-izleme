@@ -228,7 +228,7 @@ def aylik_svg(o: dict, y: str, *, en: bool = False, genis: int = 1040, yuk: int 
         if kismi:
             etiket += ". " + ("Month in progress; data incomplete." if en else "Ay sürüyor; veri eksik.")
         rects = "".join(f'<rect class="{c}" x="{x0:.1f}" y="{yy:.1f}" width="{max(bw - gap, 1):.1f}" height="{hh:.1f}"'
-                        f'{" rx=1.5" if j == len(seg) - 1 else ""}/>' for j, (c, yy, hh) in enumerate(seg))
+                        f'{' rx="1.5"' if j == len(seg) - 1 else ""}/>' for j, (c, yy, hh) in enumerate(seg))
         parts.append(f'<g class="ay{" kismi" if kismi else ""}"><title>{etiket}</title><rect class="isabet" x="{x0:.1f}" y="{ust_p}" '
                      f'width="{max(bw - gap, 1):.1f}" height="{h}"/>{rects}</g>')
         if m[5:] in ("01", "04", "07", "10"):
