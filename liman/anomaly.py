@@ -136,10 +136,21 @@ def detect(cfg, con, now: str) -> dict:
         buckets[b][r["mmsi"]] = (r["lat"], r["lon"], r["t"])
     pairs: dict[tuple, list] = defaultdict(list)
     lim_km = th["sts_mesafe_m"] / 1000
+
+    def takipte(m, t):
+        sp = tracked.get(m)
+        return bool(sp) and sp[0] <= t <= add_hours(sp[1], 24)
+
+    # Yalnızca takipteki (izlenen limandan çıkmış) bir geminin karıştığı buluşmalar: demirleme
+    # yerlerinde yan yana bekleyen yerel tekneler ve yakıt mavnaları buluşma sayılmaz.
     for b, ships in buckets.items():
         items = list(ships.items())
-        for i in range(len(items)):
-            for j in range(i + 1, len(items)):
+        ilgili = [k for k, (m, p) in enumerate(items) if takipte(m, p[2])]
+        ilgili_set = set(ilgili)
+        for i in ilgili:
+            for j in range(len(items)):
+                if j == i or (j in ilgili_set and j < i):
+                    continue
                 (m1, p1), (m2, p2) = items[i], items[j]
                 if haversine_km(p1[0], p1[1], p2[0], p2[1]) <= lim_km:
                     key = (min(m1, m2), max(m1, m2))
@@ -155,6 +166,9 @@ def detect(cfg, con, now: str) -> dict:
             if dur_h >= th["sts_sure_saat"]:
                 lat = sum(x[1] for x in seg) / len(seg)
                 lon = sum(x[2] for x in seg) / len(seg)
+                if cfg.near_port(lat, lon, th.get("sts_liman_km", 10)):
+                    seg = [h] if h is not None else []
+                    continue
                 t0 = seg[0][3]
                 t1 = add_hours(t0, dur_h)
                 if t1 < win:

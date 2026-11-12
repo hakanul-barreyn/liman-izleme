@@ -140,7 +140,11 @@
     k = k == null ? 0.16 : k;
     const dx = b[0] - a[0], dy = b[1] - a[1];
     if (!dx && !dy) return [a, b];
-    const cx = (a[0] + b[0]) / 2 - dy * k, cy = (a[1] + b[1]) / 2 + dx * k;
+    // kavis güneybatıya doğru: Doğu Akdeniz'de kıyılar doğu ve kuzeyde, deniz batı ve güneyde kalır;
+    // böylece aynı iki liman arasındaki gidiş ve dönüş de aynı yana kavis yapar
+    let nx = -dy, ny = dx;
+    if (-nx - ny < 0) { nx = -nx; ny = -ny; }
+    const cx = (a[0] + b[0]) / 2 + nx * k, cy = (a[1] + b[1]) / 2 + ny * k;
     const out = [];
     for (let i = 0; i <= n; i++) {
       const t = i / n, u = 1 - t;

@@ -18,6 +18,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -32,6 +33,24 @@ API = "https://gateway.api.globalfishingwatch.org/v3/events"
 DS_PV = "public-global-port-visits-events:latest"
 DS_GAP = "public-global-gaps-events:latest"
 SKIP_TYPES = ("fishing", "passenger", "gear", "support", "seismic")
+# Ülke kodu yapılandırmada olmayan limanlar için Türkçe ülke adları (GFW ISO3 kullanır)
+ULKE_ADLARI = {
+    "ALB": "Arnavutluk", "ARE": "BAE", "AZE": "Azerbaycan", "BEL": "Belçika", "BGR": "Bulgaristan", "BHR": "Bahreyn",
+    "CHN": "Çin", "CYP": "Kıbrıs", "DEU": "Almanya", "DZA": "Cezayir", "EGY": "Mısır", "ESP": "İspanya", "FRA": "Fransa",
+    "GBR": "Birleşik Krallık", "GEO": "Gürcistan", "GRC": "Yunanistan", "HRV": "Hırvatistan", "IND": "Hindistan",
+    "IRN": "İran", "IRQ": "Irak", "ISR": "İsrail", "ITA": "İtalya", "JOR": "Ürdün", "KWT": "Kuveyt", "LBN": "Lübnan",
+    "LBY": "Libya", "MAR": "Fas", "MLT": "Malta", "MNE": "Karadağ", "NLD": "Hollanda", "OMN": "Umman", "PAK": "Pakistan",
+    "PRT": "Portekiz", "QAT": "Katar", "ROU": "Romanya", "RUS": "Rusya", "SAU": "Suudi Arabistan", "SVN": "Slovenya",
+    "SYR": "Suriye", "TUN": "Tunus", "TUR": "Türkiye", "UKR": "Ukrayna", "USA": "ABD", "XXX": "X ülkesi",
+}
+# GFW liman adları ASCII; sık görülen Türk limanlarının doğru yazımı
+TR_ADLAR = {
+    "Aliaga": "Aliağa", "Ambarli": "Ambarlı", "Bandirma": "Bandırma", "Bartin": "Bartın", "Botas": "Botaş",
+    "Canakkale": "Çanakkale", "Cesme": "Çeşme", "Derince": "Derince", "Diliskelesi": "Dilişkelesi", "Dortyol": "Dörtyol",
+    "Eregli": "Ereğli", "Gulluk": "Güllük", "Haydarpasa": "Haydarpaşa", "Icdas": "İçdaş", "Isdemir": "İsdemir",
+    "Iskenderun": "İskenderun", "Istanbul": "İstanbul", "Izmir": "İzmir", "Izmit": "İzmit", "Kapakli": "Kapaklı",
+    "Karabiga": "Karabiga", "Tasucu": "Taşucu", "Tekirdag": "Tekirdağ", "Yumurtalik": "Yumurtalık",
+}
 CLASS_LABELS = {
     "dogrudan": "Doğrudan",
     "aktarmali": "Ara duraklı",
@@ -267,9 +286,13 @@ def _visit_place(cfg, e: dict) -> tuple[str | None, str, str | None, float | Non
             p = best[1]
             return p.country, p.name, p.code, lat, lon
     nm = (anc.get("name") or "").strip()
-    ulke = cfg.country_name(c) if c else (anc.get("flag") or "")
-    if nm:
-        name = f"{nm.title()}, {ulke}" if ulke else nm.title()
+    flag = anc.get("flag") or ""
+    ulke = cfg.country_name(c) if c else ULKE_ADLARI.get(flag, flag)
+    if nm and not re.fullmatch(r"[A-Za-z]{3}-\d+", nm):  # "GRC-184" gibi adsız demirleme yerleri
+        nm = " ".join(TR_ADLAR.get(w, w) for w in nm.title().split())
+        name = f"{nm}, {ulke}" if ulke else nm
+    elif nm:
+        name = f"{ulke}, adsız demirleme yeri" if ulke else "Adsız demirleme yeri"
     else:
         name = f"{ulke} limanı" if ulke else "Bilinmeyen liman"
     return c, name, None, lat, lon
@@ -302,6 +325,8 @@ def compute(cfg, con, v_start: str, end: str) -> int:
     direct_h = th["dogrudan_max_gun"] * 24
     t = target(con)
     period = f"{t['baslangic']}T00:00:00Z" if t else ""
+    # beyanı veren ülke (izlenen limanların ülkesi): dönem kuralı o ülkedeki uğrağa bakar
+    home = {p.country for p in cfg.ports if p.role == "izlenen"}
     n = 0
     for vid in ids:
         pvs = _cache_get(con, f"v_pv:{vid}:{v_start}:{end}")
@@ -313,6 +338,8 @@ def compute(cfg, con, v_start: str, end: str) -> int:
             if not e.get("start"):
                 continue
             c, name, code, lat, lon = _visit_place(cfg, e)
+            if code is None and lat is not None and cfg.in_transit_zone(lat, lon):
+                continue  # boğaz geçişi için bekleme: liman uğrağı değil
             visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon,
                            "start": e["start"], "end": e["end"] or e["start"],
                            "vessel": e["vessel"]})
@@ -332,9 +359,12 @@ def compute(cfg, con, v_start: str, end: str) -> int:
                         break
                     mids.append(w)
                     j -= 1
-                if j < 0 or v["start"] < period:
+                if j < 0:
                     continue
                 o = visits[j]
+                # ihracatta çıkış, ithalatta varış tarihi beyandan sonra olmalı
+                if (o["end"] if A in home or B not in home else v["start"]) < period:
+                    continue
                 span = hours_between(o["end"], v["start"])
                 if (mids and (len(mids) > max_mids or span > via_h)) or (not mids and span > direct_h):
                     continue  # bağ zayıf: çok fazla ara liman ya da çok uzun süre

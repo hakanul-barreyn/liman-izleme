@@ -46,6 +46,12 @@ DEFAULTS: dict = {
         "aktarma_max_liman": 2,      # ara limanlı sayılmak için en fazla ara liman
         "aktarma_max_gun": 30,       # ara limanlı seferde çıkıştan varışa en fazla gün
         "dogrudan_max_gun": 45,      # doğrudan seferde çıkıştan varışa en fazla gün
+        # Geçiş bekleme alanları: buradaki demirlemeler liman uğrağı sayılmaz (Karadeniz'den gelen
+        # gemiler İstanbul ve Çanakkale boğazlarının girişinde sıra bekler).
+        "gecis_bolgeleri": [
+            {"ad": "İstanbul Boğazı ve giriş demirlemeleri", "kutu": [[40.95, 28.85], [41.35, 29.40]]},
+            {"ad": "Çanakkale Boğazı ve giriş demirlemeleri", "kutu": [[39.95, 26.10], [40.45, 26.75]]},
+        ],
     },
     "gemi_filtresi": {"tipler": ["kargo", "tanker", "bilinmiyor"], "min_boy_m": 0},
     "aisstream": {
@@ -188,6 +194,13 @@ class Config:
         """Hedef ülkelerden, izlenen limanı olmayanlar (ör. TR>IL ve IL>TR için yalnızca IL)."""
         origin = {p.country for p in self.ports if p.role == "izlenen"}
         return self.target_countries() - origin
+
+    def in_transit_zone(self, lat, lon) -> bool:
+        for z in self.th.get("gecis_bolgeleri") or []:
+            (la0, lo0), (la1, lo1) = z["kutu"]
+            if la0 <= lat <= la1 and lo0 <= lon <= lo1:
+                return True
+        return False
 
     def in_dark_box(self, lat, lon) -> bool:
         if lat is None or lon is None:

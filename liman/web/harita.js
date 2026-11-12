@@ -17,6 +17,7 @@
   let harita = null, haritaHazir = false, popup = null, oynatici = null;
   let GORUNEN = [];               // süzgeçten geçen seferler
   let AKIS = new Map();           // haritadaki hatlar: anahtar -> {h, a, n, ad, p}
+  let DUGUM = new Map();          // ara limanlar: anahtar -> {k, ad, n, p}
   const MERKEZ = new Map();       // liman adı -> merkez [boylam, enlem]
   // aynı iki liman arasındaki farklı türler üst üste binmesin diye her tür biraz farklı kavis çizer
   const BUKUM = { dogrudan: 0.1, liman: 0.17, sts: 0.24, karanlik: 0.31 };
@@ -80,17 +81,20 @@
     return w.map((_, i) => (i === 0 ? r.o : i === w.length - 1 && r.d ? r.d : null));
   }
   const nokta2 = (p) => `${p[0].toFixed(2)},${p[1].toFixed(2)}`;
-  // gerçek izi olmayan seferin limanlar arası bacakları: [hat anahtarı, başlangıç, bitiş, başlangıç adı, bitiş adı]
-  function bacaklar(r) {
-    if ((r.iz && r.iz.length) || !r.w || r.w.length < 2) return [];
-    const ad = duraklar(r), out = [];
-    for (let i = 1; i < r.w.length; i++) {
-      const a = ad[i - 1], b = ad[i];
-      const pa = (a && MERKEZ.get(a)) || r.w[i - 1], pb = (b && MERKEZ.get(b)) || r.w[i];
-      if (nokta2(pa) === nokta2(pb)) continue;
-      out.push([`${a || nokta2(pa)}>${b || nokta2(pb)}`, pa, pb, a, b]);
-    }
-    return out;
+  // gerçek izi olmayan seferin çizgileri: çıkıştan son noktaya tek hat (genel görünüm),
+  // limanlar arası bacaklar (ayrıntı) ve ara limanlar (haritada düğüm)
+  function hatBilgisi(r) {
+    if ((r.iz && r.iz.length) || !r.w || r.w.length < 2) return null;
+    const ad = duraklar(r);
+    const p = r.w.map((w, i) => (ad[i] && MERKEZ.get(ad[i])) || w);
+    const ak = (i) => ad[i] || nokta2(p[i]);
+    const bacak = [];
+    for (let i = 1; i < p.length; i++) if (nokta2(p[i - 1]) !== nokta2(p[i])) bacak.push([`${ak(i - 1)}>${ak(i)}`, p[i - 1], p[i]]);
+    const son = p.length - 1;
+    const kor = nokta2(p[0]) !== nokta2(p[son]) ? [`${ak(0)}>${ak(son)}`, p[0], p[son]] : null;
+    const ara = [];
+    for (let i = 1; i < son; i++) ara.push([`@${ak(i)}`, p[i], ad[i] || 'Adı bilinmeyen liman']);
+    return { kor, bacak, ara };
   }
   // gerçek izin parçaları arasındaki kayıtsız aralıklar ve çıkış limanından ilk konuma bağlantı
   function baglantilar(r) {
@@ -103,7 +107,9 @@
   const sonNokta = (r) => (r.iz && r.iz.length ? r.iz[r.iz.length - 1][r.iz[r.iz.length - 1].length - 1] : (r.w || [])[(r.w || []).length - 1]);
   const kayboldu = (r) => !r.d || r.k === 'kiyida_kayboldu';
   const koordinat = (s) => !s || /^-?\d+\.\d+,-?\d+\.\d+$/.test(s);
+  const dugumMu = (h) => h.startsWith('@');
   const hatAdi = (h) => {
+    if (dugumMu(h)) return koordinat(h.slice(1)) ? 'Adı bilinmeyen liman' : h.slice(1);
     const [a, b] = h.split('>');
     return `${koordinat(a) ? 'Açık deniz' : a} → ${koordinat(b) ? 'sinyalin kesildiği yer' : b}`;
   };
@@ -113,8 +119,9 @@
     const [A, B] = durum.y.split('>');
     const n = list.length;
     const karanlik = list.filter((r) => r.a === 'karanlik').length;
-    $('#manset').textContent = durum.hat ? `${hatAdi(durum.hat)} hattında ${LI.sayi(n)} sefer`
-      : `${ulke(A)} limanlarından ${ulke(B)} yönüne ${LI.sayi(n)} sefer`;
+    $('#manset').textContent = !durum.hat ? `${ulke(A)} limanlarından ${ulke(B)} yönüne ${LI.sayi(n)} sefer`
+      : dugumMu(durum.hat) ? `${hatAdi(durum.hat)} üzerinden ${LI.sayi(n)} sefer`
+      : `${hatAdi(durum.hat)} hattında ${LI.sayi(n)} sefer`;
     let donem;
     if (durum.t) {
       donem = durum.t[0] === durum.t[1] ? `${ayAd(durum.t[0])} içinde` : `${ayAd(durum.t[0])} ile ${ayAd(durum.t[1])} arasında`;
@@ -144,7 +151,7 @@
     const hat = $('#hat');
     if (hat) {
       hat.hidden = !durum.hat;
-      if (durum.hat) hat.innerHTML = `<span>Yalnızca <b>${esc(hatAdi(durum.hat))}</b> hattından geçen seferler</span>
+      if (durum.hat) hat.innerHTML = `<span>Yalnızca <b>${esc(hatAdi(durum.hat))}</b> ${dugumMu(durum.hat) ? 'üzerinden geçen' : 'hattındaki'} seferler</span>
         <button type="button" id="hat-kapat">Bütün hatlar</button>`;
     }
   }
@@ -178,18 +185,38 @@
     if (!opts.hashYok) hashYaz();
   }
 
-  // aynı iki nokta arasındaki seferleri türlerine göre tek çizgide toplar; çizgi kalınlığı sefer sayısını gösterir
+  // Seferleri türlerine göre ortak çizgilerde toplar; çizgi kalınlığı sefer sayısını gösterir.
+  // Genel görünümde her sefer çıkıştan varışa tek çizgidir, ara limanlar düğüm olarak görünür;
+  // bir hat ya da ara liman seçilince ya da sefer sayısı azalınca bütün bacaklar çizilir.
+  const AYRINTI_SINIRI = 100;
   function akislar(list) {
-    AKIS = new Map();
+    AKIS = new Map(); DUGUM = new Map();
+    const ayrinti = !!durum.hat || list.length <= AYRINTI_SINIRI;
     for (const r of list) {
-      for (const [h, pa, pb, a, b] of bacaklar(r)) {
-        const k = `${h}|${r.a}`;
+      const h = r._h;
+      if (!h) continue;
+      for (const [k0, pa, pb] of ayrinti ? h.bacak : (h.kor ? [h.kor] : [])) {
+        const k = `${k0}|${r.a}`;
         let x = AKIS.get(k);
-        if (!x) { x = { k, h, a: r.a, n: 0, ad: hatAdi(h), p: [pa, pb] }; AKIS.set(k, x); }
+        if (!x) { x = { k, h: k0, a: r.a, n: 0, ad: hatAdi(k0), p: [pa, pb] }; AKIS.set(k, x); }
+        x.n++;
+      }
+      for (const [k0, p, ad] of h.ara) {
+        let x = DUGUM.get(k0);
+        if (!x) { x = { k: k0, ad, n: 0, p }; DUGUM.set(k0, x); }
         x.n++;
       }
     }
-    if (haritaHazir) harita.getSource('akis').setData(akisOzellik());
+    if (haritaHazir) { harita.getSource('akis').setData(akisOzellik()); harita.getSource('dugum').setData(dugumOzellik()); }
+  }
+  function dugumOzellik() {
+    const f = [];
+    for (const x of DUGUM.values()) {
+      f.push({ type: 'Feature', properties: { k: x.k, ad: x.ad, n: x.n, ns: LI.sayi(x.n), r: Math.min(15, 3.5 + 1.2 * Math.sqrt(x.n)) },
+               geometry: { type: 'Point', coordinates: x.p } });
+    }
+    f.sort((p, q) => q.properties.n - p.properties.n);
+    return { type: 'FeatureCollection', features: f };
   }
   const kalinlik = (n) => Math.min(14, 1.3 + 0.8 * Math.sqrt(n));
   function akisOzellik() {
@@ -308,14 +335,20 @@
       const sec = !durum.t || (i + ilk >= durum.t[0] && i + ilk <= durum.t[1]);
       s += `<path class="cubuk${sec ? ' sec' : ''}" d="M${x},${H - altBos}V${yy + r}Q${x},${yy} ${x + r},${yy}H${x + w - r}Q${x + w},${yy} ${x + w},${yy + r}V${H - altBos}Z"/>`;
     }
-    // resmî açıklamaların tarihleri
+    // resmî açıklamaların tarihleri; sığmayan etiket yazılmaz (ipucunda görünür)
+    let etiketSonu = -Infinity;
     for (const m of ISARET) {
       const i = m.ay - ilk;
       if (i < 0 || i >= N) continue;
       const x = Math.round(padX + (i + m.oran) * bw) + 0.5;
-      const sag = x > W - 130;
+      const gen = m.etiket.length * 5.7 + 6;
+      const sag = x + 4 + gen > W;
+      const bas = sag ? x - 4 - gen : x + 4;
       s += `<line class="isaret" x1="${x}" x2="${x}" y1="1" y2="${H - altBos}"/>`;
-      s += `<text class="isaret-ad" x="${sag ? x - 4 : x + 4}" y="10"${sag ? ' text-anchor="end"' : ''}>${esc(m.etiket)}</text>`;
+      if (bas > etiketSonu + 6 && bas >= 0) {
+        s += `<text class="isaret-ad" x="${sag ? x - 4 : x + 4}" y="10"${sag ? ' text-anchor="end"' : ''}>${esc(m.etiket)}</text>`;
+        etiketSonu = bas + gen;
+      }
     }
     const adim = bw < 14 ? 12 : bw < 28 ? 6 : 3;
     for (let i = 0; i < N; i++) {
@@ -386,7 +419,7 @@
   /* ---------- harita ---------- */
   function renkler() {
     const r = (n) => LI.renk(n);
-    return { ink: r('--ink'), ink2: r('--ink-2'), ink3: r('--ink-3'), paper: r('--paper'), magenta: r('--magenta'), sts: r('--c-sts'),
+    return { ink: r('--ink'), ink2: r('--ink-2'), ink3: r('--ink-3'), paper: r('--paper'), magenta: r('--magenta'), sts: r('--c-sts'), liman: r('--c-liman'),
              aile: ['match', ['get', 'a'], 'dogrudan', r('--c-dogrudan'), 'liman', r('--c-liman'), 'sts', r('--c-sts'), r('--c-karanlik')] };
   }
   const fc = (f) => ({ type: 'FeatureCollection', features: f });
@@ -470,6 +503,7 @@
     m.addSource('alan', { type: 'geojson', data: ALAN || { type: 'FeatureCollection', features: [] } });
     m.addSource('alan-etiket', { type: 'geojson', data: alanEtiketleri() });
     m.addSource('akis', { type: 'geojson', data: akisOzellik(), tolerance: 0.3 });
+    m.addSource('dugum', { type: 'geojson', data: dugumOzellik() });
     m.addSource('sefer', { type: 'geojson', data: oz.cizgi, tolerance: 0.2 });
     m.addSource('secim', { type: 'geojson', data: secimOzellik(durum.sec && ID.get(durum.sec)) });
     m.addSource('bosluk', { type: 'geojson', data: oz.bosluk });
@@ -509,6 +543,10 @@
       'circle-stroke-color': ['match', ['get', 'tur'], 'kapandi', c.magenta, 'kayip', c.magenta, 'durak', c.ink, c.paper],
       'circle-stroke-width': ['match', ['get', 'tur'], 'kapandi', 2, 'kayip', 2, 'durak', 2, 1.5] });
     m.addLayer({ id: 'nokta', type: 'circle', source: 'nokta', paint: noktaBoya(1) });
+    // ara limanlar: büyüklük, o limana uğrayıp hedef ülkeye giden sefer sayısı
+    m.addLayer({ id: 'dugum', type: 'circle', source: 'dugum', layout: { 'circle-sort-key': ['-', 0, ['get', 'n']] },
+      paint: { 'circle-radius': ['get', 'r'], 'circle-color': c.liman, 'circle-opacity': 0.9,
+               'circle-stroke-color': c.paper, 'circle-stroke-width': 1.5 } });
     // seçili sefer: ayrı kaynakta, gerçek iz düz, kayıtsız aralık noktalı, sinyal boşluğu macenta
     const cizgiTur = (...t) => ['in', ['get', 'tur'], ['literal', t]];
     m.addLayer({ id: 'secim-zemin', type: 'line', source: 'secim', filter: cizgiTur('iz', 'yay'), layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -538,6 +576,11 @@
       m.addLayer({ id: 'alan-etiket', type: 'symbol', source: 'alan-etiket', filter: tur('izlenen', 'hedef'), minzoom: 4.5,
         layout: { 'text-field': ['get', 'ad'], 'text-font': FONT_B, 'text-size': 12, 'text-max-width': 9, 'text-optional': true },
         paint: { 'text-color': c.ink, 'text-halo-color': c.paper, 'text-halo-width': 1.4 } });
+      m.addLayer({ id: 'dugum-etiket', type: 'symbol', source: 'dugum', minzoom: 4,
+        layout: { 'text-field': ['concat', ['get', 'ad'], '  ', ['get', 'ns']], 'text-font': FONT, 'text-size': 11,
+                  'text-max-width': 12, 'text-anchor': 'left', 'text-offset': [0.9, 0], 'text-optional': true,
+                  'symbol-sort-key': ['-', 0, ['get', 'n']] },
+        paint: { 'text-color': c.ink2, 'text-halo-color': c.paper, 'text-halo-width': 1.4 } });
       m.addLayer({ id: 'secim-etiket', type: 'symbol', source: 'secim', filter: ['all', cizgiTur('durak', 'kayip'), ['!=', ['get', 'ad'], '']],
         layout: { 'text-field': ['get', 'ad'], 'text-font': FONT_B, 'text-size': 12, 'text-max-width': 10, 'text-anchor': 'left',
                   'text-offset': [0.8, 0], 'text-optional': true },
@@ -579,6 +622,8 @@
     harita.setPaintProperty('bos', 'line-opacity', sec ? 0.12 : 0.8);
     harita.setPaintProperty('akis', 'line-opacity', sec ? 0.14 : 0.8);
     harita.setPaintProperty('akis-zemin', 'line-opacity', sec ? 0 : 0.85);
+    harita.setPaintProperty('dugum', 'circle-opacity', sec ? 0.15 : 0.9);
+    harita.setPaintProperty('dugum', 'circle-stroke-opacity', sec ? 0.15 : 1);
     harita.setPaintProperty('bosluk', 'line-opacity', sNokta);
     harita.setPaintProperty('nokta', 'circle-opacity', sNokta);
     harita.setPaintProperty('nokta', 'circle-stroke-opacity', sNokta);
@@ -600,13 +645,25 @@
     }
   }
 
+  // seçilen hattın ya da ara limanın bütün bacakları görünsün
+  function hataOdaklan() {
+    if (!haritaHazir) return;
+    const pts = [];
+    for (const x of AKIS.values()) pts.push(x.p[0], x.p[1]);
+    const b = LI.sinirlar(pts);
+    if (!b) return;
+    const dar = innerWidth <= 860;
+    harita.fitBounds(b, { padding: dar ? { top: 50, bottom: 90, left: 30, right: 30 } : { top: 80, bottom: 120, left: 60, right: 60 },
+      maxZoom: 7, duration: LI.azHareket ? 0 : 700 });
+  }
+
   function etkilesim() {
     const m = harita;
     popup = new window.maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, maxWidth: '260px' });
     const OLAYAD = { gap: 'AIS sinyali kesildi', stop: 'Açık denizde uzun durdu', sts: 'Denizde iki gemi buluştu', draught: 'Limanda olmadan su çekimi değişti' };
     const AILEAD = () => Object.fromEntries(AILE.map((f) => [f.kod, f.ad]));
     // üst üste binen katmanlardan önce gemiler, sonra tek tek izler, en son toplu hatlar
-    const SIRA = ['canli', 'olay', 'vurgu', 'akis-vurgu'];
+    const SIRA = ['canli', 'olay', 'dugum', 'vurgu', 'akis-vurgu'];
     const bul = (e) => {
       const layers = SIRA.filter((l) => m.getLayer(l) && m.getLayoutProperty(l, 'visibility') !== 'none');
       const fs = m.queryRenderedFeatures(e.point, { layers });
@@ -621,6 +678,10 @@
       if (f.layer.id === 'vurgu') {
         const r = ID.get(p.id);
         return r ? `<b>${esc(r.n || '?')}</b>${esc(r.o)} → ${r.d ? esc(r.d) : 'varış kayıtsız'}<br>${LI.tarih(zaman(r))}` : '';
+      }
+      if (f.layer.id === 'dugum') {
+        const x = DUGUM.get(p.k);
+        return x ? `<b>${esc(x.ad)}</b>${LI.sayi(x.n)} seferde ara liman<br><span class="ipucu-alt">Seferleri listelemek için tıkla</span>` : '';
       }
       const x = AKIS.get(p.k);
       return x ? `<b>${esc(x.ad)}</b>${LI.sayi(x.n)} sefer, ${esc((AILEAD()[x.a] || '').toLocaleLowerCase('tr'))}<br><span class="ipucu-alt">Seferleri listelemek için tıkla</span>` : '';
@@ -642,10 +703,11 @@
       const p = f.properties;
       if (f.layer.id === 'canli') { if (p.g) location.href = `${KOK}gemiler/${p.g}.html`; }
       else if (f.layer.id === 'vurgu') { durum.sec = p.id; detay(p.id); hashYaz(); }
-      else if (f.layer.id === 'akis-vurgu') {
+      else if (f.layer.id === 'akis-vurgu' || f.layer.id === 'dugum') {
         popup.remove();
-        durum.hat = p.h; durum.limit = 80;
+        durum.hat = f.layer.id === 'dugum' ? p.k : p.h; durum.limit = 80;
         if (durum.sec) kapat(); else uygula();
+        hataOdaklan();
       }
     });
   }
@@ -674,6 +736,13 @@
     harita.touchZoomRotate.disableRotation();
     harita.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
     harita.addControl(new ml.AttributionControl({ compact: true, customAttribution: 'Veri: AIS (aisstream.io), Global Fishing Watch' }), 'top-right');
+    if (dar) {
+      // dar ekranda künye katman düğmelerinin üstüne binmesin: (i) düğmesiyle açılır
+      harita.once('load', () => {
+        const k = harita.getContainer().querySelector('.maplibregl-ctrl-attrib');
+        if (k) { k.classList.remove('maplibregl-compact-show'); k.removeAttribute('open'); }
+      });
+    }
     if (stil.yedek) { mesaj.hidden = false; mesaj.textContent = 'Altlık harita yüklenemedi; seferler kıyı çizgisi olmadan gösteriliyor.'; }
     harita.on('load', async () => {
       await verilerHazir;
@@ -682,6 +751,7 @@
       etkilesim();
       haritaSuz();
       if (durum.sec && ID.get(durum.sec)) haritaSec(ID.get(durum.sec));
+      else if (durum.hat) hataOdaklan();
       harita.once('idle', () => { window.__haritaHazir = Math.round(performance.now()); });
     });
     document.addEventListener('tema', async () => {
@@ -707,8 +777,11 @@
     for (const z of (ALAN && ALAN.features) || []) if (z.properties.merkez && z.properties.tur !== 'yaklasma') MERKEZ.set(z.properties.ad, z.properties.merkez);
     for (const r of KAYIT) {
       r._ay = ay(zaman(r) || r.t0 || '2024-01-01');
-      const b = bacaklar(r);
-      if (b.length) r._hat = new Set(b.map((x) => x[0]));
+      const h = hatBilgisi(r);
+      if (h) {
+        r._h = h;
+        r._hat = new Set([...(h.kor ? [h.kor[0]] : []), ...h.bacak.map((x) => x[0]), ...h.ara.map((x) => x[0])]);
+      }
       ID.set(r.id, r);
     }
     if (durum.hat && !KAYIT.some((r) => r._hat && r._hat.has(durum.hat))) durum.hat = null;

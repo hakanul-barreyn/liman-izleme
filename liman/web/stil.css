@@ -190,6 +190,10 @@ body.uyg{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:
 .maplibregl-popup-content b{display:block;font-size:14px}
 .maplibregl-popup-content .ipucu-alt{color:var(--ink-3);font-size:12px}
 .maplibregl-ctrl-attrib{font:11px/1.4 var(--font)!important}
+.maplibregl-ctrl-attrib,.maplibregl-ctrl-attrib.maplibregl-compact-show{background:var(--paper)!important;color:var(--ink-2)}
+.maplibregl-ctrl-attrib a{color:var(--ink-2)!important}
+:root[data-theme="dark"] .maplibregl-ctrl-attrib-button{filter:invert(1)}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .maplibregl-ctrl-attrib-button{filter:invert(1)}}
 .maplibregl-ctrl-group{background:var(--paper)!important;box-shadow:var(--float)!important;border:1px solid var(--rule)}
 .maplibregl-ctrl-group button+button{border-top-color:var(--rule)!important}
 :root[data-theme="dark"] .maplibregl-ctrl-icon{filter:invert(1)}

@@ -191,9 +191,10 @@ def _index(cfg, recs, meta) -> str:
     </div>
     <div id="liste"><ul class="liste">{satirlar}</ul></div>
     <div id="detay" hidden></div>
-    <footer class="panel-alt">Renk sefer türünü, kavisli çizginin kalınlığı o iki liman arasındaki sefer sayısını gösterir.
-    Kavisli çizgi limanlar arası bağlantıdır, gerçek güzergâh değil; ince düz çizgi bu sitenin kaydettiği gerçek AIS izidir.
-    Macenta noktalı çizgi AIS sinyalinin kesildiği aralıktır. Bir hatta tıklarsan yalnızca o hattan geçen seferler listelenir.<br><br>
+    <footer class="panel-alt">Renk sefer türünü, kavisli çizginin kalınlığı o hattaki sefer sayısını gösterir. Kavisli çizgi
+    çıkış ve varış limanlarını bağlar, gerçek güzergâhı göstermez; ince düz çizgi bu sitenin kaydettiği gerçek AIS izidir.
+    Yeşil daireler ara limanlardır, büyüklükleri oraya uğrayan sefer sayısıdır. Macenta noktalı çizgi AIS sinyalinin kesildiği
+    aralıktır. Bir hatta ya da ara limana tıklarsan yalnızca oradan geçen seferler listelenir ve bütün bacakları çizilir.<br><br>
     Veri: AIS (aisstream.io). Geçmiş tarama: <a href="https://globalfishingwatch.org">Powered by Global Fishing Watch.</a>
     Harita: OpenFreeMap, OpenStreetMap. Son güncelleme: {E(_tarih(cfg, meta["olusturma"], True))}.
     <a href="kanit.html">Kanıt zinciri</a>, <a href="yontem.html">yöntem</a>.</footer>
