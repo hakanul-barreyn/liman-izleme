@@ -118,7 +118,10 @@ jobs:
 
       - name: Durumu kaydet
         if: always() && steps.yukle.outcome == 'success'
-        run: python -m liman durum-kaydet _durum
+        run: |
+          # iş iptal edildiyse arka plandaki GFW taraması hâlâ yazıyor olabilir: önce durdur
+          pkill -TERM -f "python -m liman (gecmis|gemi-bilgi)" && sleep 5 || true
+          python -m liman durum-kaydet _durum
 
       - name: Durumu önbelleğe yaz
         if: always() && steps.yukle.outcome == 'success'
