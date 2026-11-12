@@ -59,10 +59,11 @@ CLASS_LABELS = {
 
 
 class Client:
-    def __init__(self, token: str, pause: float = 0.25):
+    def __init__(self, token: str, pause: float = 0.25, limit: int | None = None):
         self.token = token
         self.pause = pause
         self.requests = 0
+        self.limit = limit  # bu çalıştırmada en fazla kaç istek (GFW günlük sınırı için; bkz. gfw_sinir)
 
     def _req(self, method: str, url: str, body=None, ham: bool = False):
         data = json.dumps(body).encode() if body is not None else None
@@ -263,7 +264,9 @@ class _Plan:
         self.out = client is None
 
     def _time_left(self) -> bool:
-        if self.out or (self.deadline is not None and time.time() > self.deadline):
+        lim = getattr(self.client, "limit", None)
+        if self.out or (self.deadline is not None and time.time() > self.deadline) or \
+                (lim is not None and self.client.requests >= lim):
             self.out = True
         return not self.out
 
@@ -366,11 +369,11 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                     vessel_ids.setdefault(vid, seen_here[vid])
             if ports is dest_ports:
                 dest_ids = set(vessel_ids)
-        # sıra: varış limanlarına uğrayanlar, sonra Ceyhan petrol terminallerine uğrayanlar, sonra diğerleri
-        # gemi sorguları öncelik sırasıyla: varış limanlarına uğrayanlar, Ceyhan'a uğrayanlar, diğerleri
+        # gemi sorguları öncelik sırasıyla: 0 varış limanlarına uğrayanlar, 1 Ceyhan petrol terminallerine uğrayanlar
+        # ve hedef ülke kıyı açığında bekleyenler, 2-3 aynı gruplar erken dönemde, 4-5 diğerleri
         gorev: list[tuple] = []
         for i, vid in enumerate(vessel_ids):
-            gorev.append(((0 if vid in dest_ids else 2 if vid in ceyhan_ids else 4), i, vid, v_start, end))
+            gorev.append(((0 if vid in dest_ids else 1 if vid in ceyhan_ids else 4), i, vid, v_start, end))
         if not partial:
             set_meta(con, "gecmis_gemiler", json.dumps(list(vessel_ids)))
         # 1b) erken dönem (ör. 7 Ekim 2023 – beyan tarihi): aynı sorgular, ayrı pencereyle
@@ -392,7 +395,23 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                 if ports is dest_ports:
                     dest_e = set(erken_ids)
             for i, vid in enumerate(erken_ids):
-                gorev.append(((1 if vid in dest_e else 3 if vid in ceyhan_ids else 5), i, vid, ew0, start))
+                gorev.append(((2 if vid in dest_e else 3 if vid in ceyhan_ids else 5), i, vid, ew0, start))
+        # 1c) hedef ülkenin kıyı açıkları: limana girmeden bekleyen gemiler (şamandıra boşaltması, aktarma).
+        # Alan sorgusu az istek tutar; bekleyen gemilerin geçmişi Ceyhan gemileriyle aynı öncelikte alınır.
+        son = (today - dt.timedelta(days=3)).isoformat()
+        bilinen = {k.split(":")[1] for (k,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")}
+        bilinen |= set(vessel_ids)
+        for z in offshore_zones(cfg):
+            for a, b in chunks(erken_bas(cfg, t), son, days=30):
+                evs = plan.area(f"pres:{z.code}:{a}:{b}",
+                                lambda z=z, a=a, b=b: client.presence(geometry(z.area), a, b), ham=True)
+                for vid, (k0, k1, _h, _v) in _episodes(evs or []):
+                    if vid in bilinen:
+                        continue
+                    w0 = (dt.date.fromisoformat(k0) - dt.timedelta(days=60)).isoformat()
+                    w1 = (dt.date.fromisoformat(k1) + dt.timedelta(days=2)).isoformat()
+                    gorev.append((1, -1, vid, w0, w1))
+                    bilinen.add(vid)
         for _p, _i, vid, w0, w1 in sorted(gorev):
             for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
                 plan.ensure(f"{kind}:{vid}:{w0}:{w1}",
@@ -417,22 +436,6 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                 for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
                     plan.ensure(f"{kind}:{vid}:{w0}:{b}",
                                 lambda ds=ds, vid=vid, w0=w0, b=b: client.vessel_events(ds, vid, w0, b))
-        # 3) hedef ülkenin kıyı açıkları: limana girmeden bekleyen gemiler (şamandıra boşaltması, aktarma)
-        son = (today - dt.timedelta(days=3)).isoformat()
-        for z in offshore_zones(cfg):
-            for a, b in chunks(erken_bas(cfg, t), son, days=30):
-                evs = plan.area(f"pres:{z.code}:{a}:{b}",
-                                lambda z=z, a=a, b=b: client.presence(geometry(z.area), a, b), ham=True)
-                bilinen = {k.split(":")[1] for (k,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")}
-                for vid, (e0, e1, _h, _v) in _episodes(evs or []):
-                    if vid in bilinen:
-                        continue
-                    w0 = (dt.date.fromisoformat(e0) - dt.timedelta(days=60)).isoformat()
-                    w1 = (dt.date.fromisoformat(e1) + dt.timedelta(days=2)).isoformat()
-                    for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
-                        plan.ensure(f"{kind}:{vid}:{w0}:{w1}",
-                                    lambda ds=ds, vid=vid, w0=w0, w1=w1: client.vessel_events(ds, vid, w0, w1))
-                    bilinen.add(vid)
     except RuntimeError as e:
         log.error("%s", e)
         errors = True
@@ -715,7 +718,8 @@ def _insert(con, A, B, cls, vid, vessel, o, d, nxt, mids, gaps):
          o.get("lat"), o.get("lon"), d.get("lat") if d else None, d.get("lon") if d else None))
 
 
-def run(cfg, start: str | None, end: str | None, budget_min: float | None) -> dict:
+def run(cfg, start: str | None, end: str | None, budget_min: float | None, istek: int | None = None) -> dict:
+    from . import gfw_sinir
     con = connect(db_path(cfg))
     try:
         if start:
@@ -732,9 +736,17 @@ def run(cfg, start: str | None, end: str | None, budget_min: float | None) -> di
             set_meta(con, "gecmis_durum", json.dumps(st))
             con.commit()
             return {"durum": "tamamlandı", **st}
-        client = Client(token) if token else None
-        if client is None:
+        client = None
+        if token:
+            hak = gfw_sinir.hak(con, istek or cfg.gecmis.get("istek_siniri") or 1500)
+            log.info("GFW istek hakkı: %d (son 24 saatte %d istek)", hak, gfw_sinir.son24(con))
+            client = Client(token, limit=hak)
+        else:
             log.warning("GFW anahtarı yok (%s); yalnızca önbellekteki veriler işlenecek", cfg.gecmis["anahtar_degiskeni"])
-        return scan(cfg, con, client, budget_min)
+        try:
+            return scan(cfg, con, client, budget_min)
+        finally:
+            if client:
+                gfw_sinir.yaz(con, client.requests)
     finally:
         con.close()

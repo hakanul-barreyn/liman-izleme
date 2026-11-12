@@ -53,22 +53,31 @@ jobs:
         id: yukle
         run: python -m liman durum-yukle _durum
 
-      - name: Geçmiş tarama (Global Fishing Watch)
-        if: env.GFW_API_TOKEN != ''
-        run: python -m liman gecmis --baslangic "${{ inputs.gecmis_baslangic }}" --dilim "${{ inputs.gecmis_baslangic != '' && '25' || '12' }}" || true
-
-      - name: Gemi kimliği, firma ve fotoğraflar
-        run: python -m liman gemi-bilgi --dilim 3 || true
-
-      - name: Veri topla, analiz et, arşivle
+      # GFW geçmiş taraması ve gemi kimlikleri, AIS toplanırken arka planda çalışır (ağ bekleyen iki iş);
+      # site, ikisi de bitince üretilir. İstek sayısı GFW'nin günlük sınırının altında tutulur (liman/gfw_sinir.py).
+      - name: Veri topla, geçmişi tara, analiz et, arşivle
         id: tur
         env:
           AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
           LIMAN_HAM_URL: https://github.com/${{ github.repository }}/releases/download/arsiv-{gun}/ham.jsonl.gz
         run: |
           set +e
-          python -m liman tur --dakika "${{ inputs.dakika || '48' }}"
-          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          BG=""
+          if [ -n "$GFW_API_TOKEN" ]; then
+            # ayrı süreç grubu: çok uzarsa toplayıcı onu bütünüyle durdurabilir
+            setsid bash -c 'python -m liman gecmis --baslangic "$1" --dilim 32 --istek 1500;
+                            python -m liman gemi-bilgi --dilim 5 --istek 200' _ "${{ inputs.gecmis_baslangic }}" \
+              > _gfw.log 2>&1 &
+            BG=$!
+          fi
+          python -m liman tur --dakika "${{ inputs.dakika || '48' }}" ${BG:+--bekle-pid $BG}
+          rc=$?
+          if [ -n "$BG" ]; then
+            wait "$BG"
+            echo "::group::GFW geçmiş taraması ve gemi kimlikleri"; cat _gfw.log; echo "::endgroup::"
+            grep -h "'gorev'\|Gemi bilgisi\|istek hakkı" _gfw.log | tail -3
+          fi
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
 
       - name: Ham veriyi GitHub Releases'a yükle
         if: always() && steps.yukle.outcome == 'success'

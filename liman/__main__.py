@@ -35,6 +35,9 @@ def main(argv=None) -> int:
     ap.add_argument("--baslangic", default="", help="gecmis: tarama başlangıç tarihi (YYYY-AA-GG)")
     ap.add_argument("--bitis", default="", help="gecmis: tarama bitiş tarihi (varsayılan bugün)")
     ap.add_argument("--dilim", type=float, default=None, help="gecmis: bu çalıştırmada en fazla kaç dakika sorgu")
+    ap.add_argument("--istek", type=int, default=None, help="gecmis, gemi-bilgi: bu çalıştırmada en fazla kaç GFW isteği")
+    ap.add_argument("--bekle-pid", type=int, default=None,
+                    help="tur: toplama bitince arşiv ve siteden önce bu süreci (arka plandaki GFW taraması) bekle")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -55,11 +58,11 @@ def main(argv=None) -> int:
         return 0 if key and cfg.ports else 1
     if a.komut == "gecmis":
         from . import gecmis
-        print(gecmis.run(cfg, a.baslangic or None, a.bitis or None, a.dilim))
+        print(gecmis.run(cfg, a.baslangic or None, a.bitis or None, a.dilim, a.istek))
         return 0
     if a.komut == "gemi-bilgi":
         from . import gemi_bilgi
-        print(gemi_bilgi.guncelle(cfg, a.dilim or 3))
+        print(gemi_bilgi.guncelle(cfg, a.dilim or 3, a.istek))
         return 0
     if a.komut == "ham-hazirla":
         from . import durum
@@ -85,6 +88,8 @@ def main(argv=None) -> int:
                 rc = 1
         else:
             logging.warning("Liman veya aisstream anahtarı yok; yalnızca site üretiliyor")
+        if a.bekle_pid:
+            _bekle(a.bekle_pid, dakika=15)
         print(jobs.daily(cfg, push=False))
         from . import site
         if site.HATALAR:
@@ -123,6 +128,39 @@ def main(argv=None) -> int:
         print("SONUÇ:", "DOĞRULANDI" if ok else "BAŞARISIZ")
         return 0 if ok else 1
     return 0
+
+
+def _bekle(pid: int, dakika: float) -> None:
+    """Arka plandaki süreç (GFW taraması) bitene kadar bekler; çok uzarsa durdurur, böylece site son veriyle üretilir."""
+    import signal
+    import time
+    son = time.time() + dakika * 60
+
+    def yasiyor() -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        # bitmiş ama kabuk tarafından henüz toplanmamış süreç (zombi) yaşıyor sayılmaz
+        try:
+            with open(f"/proc/{pid}/stat") as f:
+                return f.read().split(") ")[-1][:1] != "Z"
+        except OSError:
+            return True
+
+    if yasiyor():
+        logging.info("Arka plandaki GFW taraması bekleniyor (en fazla %d dakika)", dakika)
+    while yasiyor():
+        if time.time() > son:
+            logging.warning("GFW taraması süresini aştı; durduruluyor")
+            try:
+                os.killpg(pid, signal.SIGTERM)  # setsid ile başlatıldı: süreç grubu = pid
+            except OSError:
+                os.kill(pid, signal.SIGTERM)
+            break
+        time.sleep(5)
 
 
 if __name__ == "__main__":

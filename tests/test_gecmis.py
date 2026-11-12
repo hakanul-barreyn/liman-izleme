@@ -171,3 +171,25 @@ def test_kiyi_acigi_bosaltma(tmp_path):
     rows = [dict(r) for r in con.execute("SELECT * FROM gecmis WHERE cls='kiyida_bosaltma'")]
     assert len(rows) == 1 and rows[0]["origin"] == "Ceyhan" and rows[0]["name"] == "TANKER X"
     assert con.execute("SELECT count(*) FROM dunya WHERE dest LIKE '%kıyı açıkları%'").fetchone()[0] == 1
+
+
+def test_istek_siniri(tmp_path):
+    """GFW günlük istek sınırı: son 24 saatin istekleri sayılır, iş yalnızca kalan hakkı kullanır."""
+    import datetime as dt
+    from liman import gfw_sinir
+    cfg = config.Config(RAW, tmp_path)
+    con = connect(db_path(cfg))
+    t0 = dt.datetime(2026, 11, 12, 10, tzinfo=dt.timezone.utc)
+    gfw_sinir.yaz(con, 40000, t0)
+    gfw_sinir.yaz(con, 1000, t0 + dt.timedelta(hours=5))
+    assert gfw_sinir.son24(con, t0 + dt.timedelta(hours=6)) == 41000
+    assert gfw_sinir.hak(con, 5000, t0 + dt.timedelta(hours=6)) == gfw_sinir.GUNLUK - 41000
+    # 24 saat sonra ilk kayıt düşer
+    assert gfw_sinir.son24(con, t0 + dt.timedelta(hours=25)) == 1000
+    assert gfw_sinir.hak(con, 1500, t0 + dt.timedelta(hours=25)) == 1500
+    # tarama istek hakkı bitince durur, yarım kalır
+    gecmis.set_target(con, "2025-01-01", "2025-04-01")
+    fake = FakeClient()
+    fake.limit = 2
+    st = gecmis.scan(cfg, con, fake)
+    assert st["tamam"] is False and fake.requests <= 3

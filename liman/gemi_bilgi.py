@@ -86,23 +86,35 @@ def _foto(imo: str) -> list[dict]:
     return out
 
 
-def guncelle(cfg, budget_min: float = 3) -> dict:
-    """Geçmiş taramadaki gemilerin kimliğini ve IMO'su bilinen gemilerin fotoğraflarını çeker (süre bütçesiyle)."""
+def guncelle(cfg, budget_min: float = 3, istek: int | None = None) -> dict:
+    """Geçmiş taramadaki gemilerin kimliğini ve IMO'su bilinen gemilerin fotoğraflarını çeker (süre bütçesiyle).
+
+    Önce Ceyhan petrol terminallerine uğrayan gemiler (tanker dosyaları), sonra rapordaki diğer gemiler."""
+    from . import gfw_sinir
     deadline = time.time() + budget_min * 60
     token = os.environ.get(cfg.gecmis["anahtar_degiskeni"], "").strip()
     con = connect(db_path(cfg))
     n = {"kimlik": 0, "foto": 0, "hata": 0}
+    yapilan = 0
     try:
-        vids = [r[0] for r in con.execute(
-            "SELECT vessel_id FROM gecmis WHERE vessel_id IS NOT NULL GROUP BY vessel_id ORDER BY count(*) DESC")]
+        from .db import get_meta
+        cey = []
+        for x in json.loads(get_meta(con, "ceyhan_cikislari", "[]") or "[]"):
+            if x.get("vid") and x["vid"] not in cey:
+                cey.append(x["vid"])
+        vids = cey + [r[0] for r in con.execute(
+            "SELECT vessel_id FROM gecmis WHERE vessel_id IS NOT NULL GROUP BY vessel_id ORDER BY count(*) DESC")
+            if r[0] not in set(cey)]
+        hak = gfw_sinir.hak(con, istek or 250) if token else 0
         if token:
             for vid in vids:
-                if time.time() > deadline:
+                if time.time() > deadline or yapilan >= hak:
                     break
                 key = f"gkimlik:{vid}"
                 if _taze(con, key):
                     continue
                 q = urllib.parse.urlencode({"dataset": DS_ID, "registries-info-data": "ALL"})
+                yapilan += 1
                 try:
                     _yaz(con, key, _kimlik(_get(f"{VESSEL_API}{urllib.parse.quote(vid)}?{q}",
                                                 {"Authorization": f"Bearer {token}"})))
@@ -134,6 +146,7 @@ def guncelle(cfg, budget_min: float = 3) -> dict:
                 if "429" in str(e) or n["hata"] > 40:
                     break  # hız sınırı: kalanlar bir sonraki çalıştırmada
             time.sleep(1.0)
+        gfw_sinir.yaz(con, yapilan)
         kim = [json.loads(r[0]) for r in con.execute("SELECT data FROM gfw_cache WHERE key LIKE 'gkimlik:%'")]
         fot = [json.loads(r[0]) for r in con.execute("SELECT data FROM gfw_cache WHERE key LIKE 'foto:%'")]
         n.update({"gemi": len(vids), "imo_bilinen": sum(1 for k in kim if k.get("imo")),
