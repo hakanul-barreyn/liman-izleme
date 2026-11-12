@@ -25,7 +25,7 @@ from . import config
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="python -m liman", description="Liman İzleme")
+    ap = argparse.ArgumentParser(prog="python -m liman", description="Avvam")
     ap.add_argument("komut", choices=["calistir", "kontrol", "saatlik", "gunluk", "dogrula", "demo",
                                       "tur", "durum-yukle", "durum-kaydet", "ham-hazirla", "gecmis"])
     ap.add_argument("gun", nargs="?")

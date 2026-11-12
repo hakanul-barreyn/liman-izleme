@@ -70,7 +70,7 @@ class Client:
         for attempt in range(6):
             req = urllib.request.Request(url, data=data, method=method, headers={
                 "Authorization": f"Bearer {self.token}", "Content-Type": "application/json",
-                "User-Agent": "liman-izleme"})
+                "User-Agent": "avvam (github.com/hakanul-barreyn/liman-izleme)"})
             try:
                 with urllib.request.urlopen(req, timeout=180) as r:
                     self.requests += 1

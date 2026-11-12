@@ -27,7 +27,7 @@ from .ingest import Ingestor
 from .util import UTC, iso
 
 DEMO_CONFIG = {
-    "proje": {"ad": "Liman İzleme (demo)", "kurgusal": True, "saat_dilimi": "Europe/Istanbul",
+    "proje": {"ad": "Avvam (demo)", "kurgusal": True, "saat_dilimi": "Europe/Istanbul",
               "aciklama": "Kurgusal verilerle sistemin nasıl çalıştığını gösteren deneme sitesi."},
     "beyan": {"aktif": True, "yonler": ["XX>YY"], "tarih": "2026-10-01", "kaynak": "Kurgusal açıklama",
               "metin": "X ülkesinden Y ülkesine hiçbir gemi gönderilmemektedir.",

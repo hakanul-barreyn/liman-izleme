@@ -1,4 +1,4 @@
-/* Liman İzleme – ana harita: seferler, zaman çizelgesi ve geçmiş oynatma. */
+/* Avvam – ana harita: seferler, zaman çizelgesi ve geçmiş oynatma. */
 (function () {
   'use strict';
   const LI = window.LI;

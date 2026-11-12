@@ -1,4 +1,4 @@
-/* Liman İzleme – gemi sayfası: bütün iz ve zaman kaydırıcısıyla geçmiş oynatma. */
+/* Avvam – gemi sayfası: bütün iz ve zaman kaydırıcısıyla geçmiş oynatma. */
 (function () {
   'use strict';
   const LI = window.LI;

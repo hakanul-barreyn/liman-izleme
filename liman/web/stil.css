@@ -1,4 +1,4 @@
-/* Liman İzleme – seyir haritası teması.
+/* Avvam – seyir haritası teması.
    Gündüz: kâğıt harita (lacivert mürekkep, açık deniz mavisi).
    Gece: seyir ekranı gece paleti. Macenta yalnızca "gizlenen" şeyler içindir:
    AIS'in kapandığı yerler, hedef ülke kıyı alanı, varışı kayıtsız seferler. */
@@ -66,6 +66,10 @@ button{font:inherit;color:inherit}
   background:var(--paper);border-bottom:1px solid var(--rule);position:relative;z-index:20}
 .marka{display:flex;align-items:baseline;gap:10px;text-decoration:none;white-space:nowrap}
 .marka b{font-weight:700;font-stretch:75%;font-size:21px;letter-spacing:.005em}
+.simge{width:24px;height:24px;flex:none;align-self:center}
+.simge rect{fill:var(--ink)}
+.simge path{fill:none;stroke:var(--paper);stroke-width:3;stroke-linecap:round}
+.simge circle{fill:var(--paper)}
 .marka span{font-size:13px;color:var(--ink-2)}
 .ust nav{display:flex;gap:2px;flex-wrap:wrap;margin-right:auto}
 .ust nav a{padding:6px 10px;border-radius:6px;text-decoration:none;font-size:14px;color:var(--ink-2)}

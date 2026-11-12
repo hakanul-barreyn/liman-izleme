@@ -11,6 +11,7 @@ import html
 import json
 import os
 import shutil
+import urllib.parse
 from collections import Counter
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -78,6 +79,15 @@ def ham_url(day: str) -> str:
     return tpl.format(gun=day) if tpl else f"arsiv/{day}/ham.jsonl.gz"
 
 
+# Simge: dalganın üstünde bir yüzücünün başı (adını Avvâm İsa'dan, "yüzücü İsa"dan alır)
+SIMGE = ('<svg class="simge" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/>'
+         '<path d="M4.5 21c3.5 3.6 7.2 3.6 10.8 0s7.6-3.6 12.2 0"/><circle cx="21.2" cy="11.6" r="3"/></svg>')
+FAVICON = ('data:image/svg+xml,' + urllib.parse.quote(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#13283f"/>'
+    '<path d="M4.5 21c3.5 3.6 7.2 3.6 10.8 0s7.6-3.6 12.2 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>'
+    '<circle cx="21.2" cy="11.6" r="3" fill="#fff"/></svg>'))
+
+
 def _marka(cfg) -> tuple[str, str]:
     if ":" in cfg.name:
         a, b = cfg.name.split(":", 1)
@@ -103,11 +113,11 @@ def _page(cfg, title: str, body: str, depth: int, active: str, *, app: bool = Fa
     js = "".join(f'<script src="{r}assets/{s}?v={v}" defer></script>' for s in scripts)
     return (f'<!doctype html><html lang="tr"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
-            f'<title>{E(title)} – {E(cfg.name)}</title><meta name="description" content="{E(desc or cfg.description)}">'
-            f'<meta name="color-scheme" content="light dark">{TEMA}'
+            f'<title>{E(title)} – {E(ad)}</title><meta name="description" content="{E(desc or cfg.description)}">'
+            f'<link rel="icon" href="{FAVICON}"><meta name="color-scheme" content="light dark">{TEMA}'
             f'<link rel="stylesheet" href="{r}assets/stil.css?v={v}">{head}</head>'
             f'<body class="{"uyg" if app else "icerik"}" data-tz="{E(cfg.tz)}"><a class="atla" href="#icerik">İçeriğe geç</a>'
-            f'<header class="ust"><a class="marka" href="{r}index.html"><b>{E(ad)}</b>'
+            f'<header class="ust"><a class="marka" href="{r}index.html">{SIMGE}<b>{E(ad)}</b>'
             f'{f"<span>{E(alt)}</span>" if alt else ""}</a><nav aria-label="Bölümler">{nav}</nav>'
             f'<button type="button" class="tema" id="tema">Gece</button></header>{kurgu}{body}{foot}'
             f'<script src="{r}assets/ortak.js?v={v}" defer></script>{js}</body></html>')
@@ -541,8 +551,17 @@ Görüntülerin incelenmesi elle yapılmalıdır.</p>
 <h2>Sınırlar</h2><ul><li>AIS’i tamamen kapalı olan ya da sahte konum yayınlayan gemiler görülmez; açık denizde alıcı kapsaması zayıf olabilir.</li>
 <li>Ara limanlı seferlerin bir kısmı düzenli hat seferidir; ara limanda yükün el değiştirdiğini göstermez.</li>
 <li>Kayıtlar gemi hareketini gösterir; yükün sahibini, satıcısını ya da ticaretin hukuki durumunu göstermez.</li>
-<li>Bu sitedeki işaretler tespittir, hüküm değildir.</li></ul></main>'''
+<li>Bu sitedeki işaretler tespittir, hüküm değildir.</li></ul>{_ad_notu(cfg)}</main>'''
     return _page(cfg, "Yöntem", body, 0, "yontem")
+
+
+def _ad_notu(cfg) -> str:
+    if _marka(cfg)[0] != "Avvam":
+        return ""
+    return ('<h2>Adı</h2><p>Site adını Avvâm İsa’dan alır (“avvâm” Arapçada usta yüzücü demektir). Avvâm İsa, Haçlıların 1189–1191’de '
+            'kuşattığı Akka’ya geceleri düşman gemilerinin arasından yüzerek kuşatılmışlara mektup ve para taşırdı. Bahâeddin '
+            'İbn Şeddâd’ın aktardığına göre bir gece dönmedi; günler sonra cesedi Akka kıyısına vurduğunda taşıdığı para ve '
+            'mektuplar hâlâ üzerindeydi.</p>')
 
 
 def _share_drafts(cfg, routes, chain, port_name) -> list[dict]:
@@ -551,7 +570,7 @@ def _share_drafts(cfg, routes, chain, port_name) -> list[dict]:
     if chain:
         c = chain[-1]
         out.append({"tur": "gunluk_ozet", "gun": c["gun"],
-                    "metin": f"{cfg.name}: {c['gun']} arşivi mühürlendi.\nGün hash'i: {c['gun_hash'][:16]}…"})
+                    "metin": f"{_marka(cfg)[0]}: {c['gun']} arşivi mühürlendi.\nGün hash'i: {c['gun_hash'][:16]}…"})
     for r in routes[:20]:
         out.append({"tur": "beyan_hareketi", "id": r["id"], "metin": (
             f"{r['name']}: {port_name.get(r['origin_port'])} ({_tarih(cfg, r['t_dep'])}) → "

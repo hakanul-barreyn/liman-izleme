@@ -12,7 +12,7 @@ from .geo import Area, haversine_km
 
 DEFAULTS: dict = {
     "proje": {
-        "ad": "Liman İzleme",
+        "ad": "Avvam",
         "aciklama": "Seçilen limanlara uğrayan gemilerin açık ve doğrulanabilir arşivi.",
         "saat_dilimi": "Europe/Istanbul",
         "veri_klasoru": "data",

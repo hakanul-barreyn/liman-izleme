@@ -1,8 +1,8 @@
-# Liman İzleme – GitHub Actions ile ücretsiz çalıştırma
+# Avvam – GitHub Actions ile ücretsiz çalıştırma
 # Her saat: ~48 dakika AIS verisi toplar, analiz eder, biten günleri arşivleyip mühürler,
 # ham veriyi Releases'a yükler, siteyi GitHub Pages'e yayımlar ve durumu Actions önbelleğine kaydeder.
 # GFW_API_TOKEN gizli anahtarı varsa geçmişe dönük taramayı da her çalıştırmada biraz ilerletir.
-name: Liman izleme
+name: Avvam
 
 on:
   schedule:
@@ -94,7 +94,7 @@ jobs:
       - name: Arşivi ve kanıt zincirini depoya kaydet
         if: always() && steps.yukle.outcome == 'success'
         run: |
-          git config user.name "liman-izleme-bot"
+          git config user.name "avvam-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for d in site/arsiv site/kanit; do
             if [ -d "$d" ]; then git add "$d"; fi

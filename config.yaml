@@ -1,12 +1,12 @@
 # ============================================================================
-#  Liman İzleme – ayar dosyası (Türkiye → İsrail)
+#  Avvam – ayar dosyası (Türkiye → İsrail)
 #  GitHub'da kalem simgesiyle düzenlenebilir; bir sonraki saatlik çalıştırma yeni ayarı kullanır.
 #  Koordinatlar [enlem, boylam] sırasıyla, ondalık derece. Alanlar bilerek geniş çizildi
 #  (demirleme sahaları dahil); ilk haftanın verisine bakılarak daraltılabilir.
 # ============================================================================
 
 proje:
-  ad: "Liman İzleme: Türkiye → İsrail"
+  ad: "Avvam: Türkiye → İsrail"
   aciklama: >-
     Türk limanlarından çıkıp İsrail limanlarına doğrudan veya dolaylı yoldan giden gemilerin
     açık ve doğrulanabilir kaydı. Kayıtlar gemilerin kendi yayınladığı AIS verisine dayanır.

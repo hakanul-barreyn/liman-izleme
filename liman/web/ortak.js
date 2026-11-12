@@ -1,4 +1,4 @@
-/* Liman İzleme – ortak yardımcılar (harita ve gemi sayfası birlikte kullanır). */
+/* Avvam – ortak yardımcılar (harita ve gemi sayfası birlikte kullanır). */
 (function () {
   'use strict';
   const LI = (window.LI = window.LI || {});

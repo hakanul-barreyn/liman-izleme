@@ -1,4 +1,6 @@
-# Liman İzleme: Türkiye → İsrail
+# Avvam: Türkiye → İsrail
+
+Adını, Haçlıların kuşattığı Akka'ya (1189–1191) geceleri düşman gemilerinin arasından yüzerek mektup ve para taşıyan Avvâm İsa'dan alır.
 
 Türk limanlarından (İskenderun Körfezi/Ceyhan, Aliağa, Mersin, İstanbul-Ambarlı, İzmit) çıkıp İsrail limanlarına
 doğrudan veya dolaylı yoldan (Mısır, Kıbrıs, Yunanistan, Bulgaristan üzerinden; denizde gemiden gemiye aktarmayla;
@@ -40,7 +42,7 @@ aynı kod bir sunucuya taşınabilir (aşağıda "Sunucu kurulumu").
 4. **(Geçmiş tarama için) Global Fishing Watch anahtarı:** globalfishingwatch.org/our-apis adresinden ücretsiz kaydol
    (kullanım amacı: ticari olmayan, kamuya açık deniz trafiği araştırması), API token oluştur. GitHub'a 2. adımdaki gibi
    `GFW_API_TOKEN` adıyla ekle.
-5. **İlk çalıştırma:** *Actions* sekmesi → (istenirse *I understand… enable*) → solda **Liman izleme** → *Run workflow*.
+5. **İlk çalıştırma:** *Actions* sekmesi → (istenirse *I understand… enable*) → solda **Avvam** → *Run workflow*.
    Geçmiş taramayı başlatmak için *gecmis_baslangic* kutusuna `2024-05-02` yaz. Tarama sonraki saatlik çalıştırmalarda
    kendiliğinden devam eder; ilerlemesi sitedeki *Geçmiş tarama* sayfasında görünür.
    Yaklaşık bir saat sonra site `https://KULLANICI.github.io/liman-izleme/` adresinde açılır. Sonrası her saat kendiliğinden çalışır.
@@ -56,7 +58,7 @@ SSH penceresine şunu yapıştır:
 curl -fsSL https://raw.githubusercontent.com/hakanul-barreyn/liman-izleme/main/kurulum/kur.sh | bash
 ```
 
-Sunucu modunda arşiv ve kanıt zinciri GitHub'a gönderilir; sitenin yayımı o aşamada ayrıca ayarlanır. Sunucuya geçersen Actions iş akışını kapat (*Actions → Liman izleme → ⋯ → Disable workflow*), ikisi aynı anda çalışmasın.
+Sunucu modunda arşiv ve kanıt zinciri GitHub'a gönderilir; sitenin yayımı o aşamada ayrıca ayarlanır. Sunucuya geçersen Actions iş akışını kapat (*Actions → Avvam → ⋯ → Disable workflow*), ikisi aynı anda çalışmasın.
 
 ## Komutlar (bilgisayarda veya sunucuda)
 
