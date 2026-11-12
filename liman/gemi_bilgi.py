@@ -54,11 +54,13 @@ def _get(url: str, headers: dict) -> dict:
 
 def _kimlik(d: dict) -> dict:
     """GFW gemi kimliği yanıtından gerekenler."""
-    sr = sorted(d.get("selfReportedInfo") or [], key=lambda x: x.get("transmissionDateTo") or "", reverse=True)
-    reg = d.get("registryInfo") or []
+    def liste(x):
+        return [x] if isinstance(x, dict) else [y for y in (x or []) if isinstance(y, dict)]
+    sr = sorted(liste(d.get("selfReportedInfo")), key=lambda x: x.get("transmissionDateTo") or "", reverse=True)
+    reg = liste(d.get("registryInfo"))
     imo = next((x.get("imo") for x in reg + sr if x.get("imo")), None)
     owners = []
-    for o in d.get("registryOwners") or []:
+    for o in liste(d.get("registryOwners")):
         if o.get("name"):
             owners.append({"ad": o["name"].strip(), "ulke": o.get("flag"), "bas": (o.get("dateFrom") or "")[:10],
                            "son": (o.get("dateTo") or "")[:10], "kaynak": o.get("sourceCode")})
@@ -100,7 +102,7 @@ def guncelle(cfg, budget_min: float = 3) -> dict:
                 key = f"gkimlik:{vid}"
                 if _taze(con, key):
                     continue
-                q = urllib.parse.urlencode({"dataset": DS_ID, "includes[0]": "OWNERSHIP"})
+                q = urllib.parse.urlencode({"dataset": DS_ID, "registries-info-data": "ALL"})
                 try:
                     _yaz(con, key, _kimlik(_get(f"{VESSEL_API}{urllib.parse.quote(vid)}?{q}",
                                                 {"Authorization": f"Bearer {token}"})))
