@@ -44,6 +44,8 @@ TR_ADLAR = {
     "Iskenderun": "İskenderun", "Istanbul": "İstanbul", "Izmir": "İzmir", "Izmit": "İzmit", "Kapakli": "Kapaklı",
     "Karabiga": "Karabiga", "Tasucu": "Taşucu", "Tekirdag": "Tekirdağ", "Yumurtalik": "Yumurtalık",
 }
+CEYHAN = (36.875, 35.925)  # BTC ve Kerkük-Ceyhan terminalleri
+CEYHAN_KM = 6
 CLASS_LABELS = {
     "dogrudan": "Doğrudan",
     "aktarmali": "Ara limanlı",
@@ -395,6 +397,8 @@ def compute(cfg, con, *_eski) -> int:
     # tarama sürerken de önbelleğe girmiş bütün gemiler, bütün pencereleriyle hesaba katılır
     vkeys = _vessel_keys(con)
     ids = sorted(vkeys)
+    ceyhan: list[dict] = []
+    end = "9999-12-31"  # güncelleme dilimleriyle dönem açık uçlu
     th = cfg.th
     max_h = th["guzergah_max_gun"] * 24
     dark_h = th["karanlik_sefer_saat"]
@@ -431,6 +435,19 @@ def compute(cfg, con, *_eski) -> int:
             visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon,
                            "start": e["start"], "end": end, "vessel": e["vessel"]})
         gl = [_gap_info(g) for g in gaps if g.get("start")]
+        # Ceyhan petrol terminallerinden çıkışlar ve sonraki uğrak (nereye gittiler?)
+        for i, v in enumerate(visits):
+            if v["code"] and v["lat"] is not None and v["end"] >= period and \
+                    haversine_km(v["lat"], v["lon"], *CEYHAN) <= CEYHAN_KM and v["end"] <= f"{end}T23:59:59Z":
+                nx = visits[i + 1] if i + 1 < len(visits) else None
+                kapali = [g for g in gl if v["end"] <= g["baslangic"] < (nx["start"] if nx else "9999")
+                          and g["saat"] >= dark_h and g.get("kasitli") is not False]
+                ceyhan.append({"vid": vid, "ad": v["vessel"].get("name"), "m": v["vessel"].get("ssvid"),
+                               "b": v["vessel"].get("flag"), "t": v["end"], "sonraki": nx["name"] if nx else None,
+                               "ulke": nx["c"] if nx else None, "t1": nx["start"] if nx else None,
+                               "ulke_ad": (cfg.country_name(nx["c"]) if nx["c"] else
+                                           re.sub(r"( limanı|, adsız demirleme yeri)$", "", nx["name"].split(", ")[-1])) if nx else None,
+                               "karanlik": round(sum(g["saat"] for g in kapali), 1) or None})
         for (A, B) in cfg.directions:
             used = set()
             for i, v in enumerate(visits):
@@ -480,6 +497,8 @@ def compute(cfg, con, *_eski) -> int:
                 if legs:
                     _insert(con, A, B, "karanlik_sefer", vid, o["vessel"], o, None, nxt, [], legs)
                     n += 1
+    ceyhan.sort(key=lambda x: x["t"], reverse=True)
+    set_meta(con, "ceyhan_cikislari", json.dumps(ceyhan, ensure_ascii=False))
     con.commit()
     return n
 

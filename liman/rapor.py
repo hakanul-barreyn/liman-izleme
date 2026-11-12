@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from collections import Counter, defaultdict
 from pathlib import Path
 from urllib.parse import quote
@@ -192,7 +193,9 @@ goster();})();</script>'''
 
 def build(cfg, con, recs: list[dict], out: Path) -> None:
     from .routes import vessel_keys
+    from .db import get_meta
     from .site import E, _ay, _n, _page, _tarih, _tbl, _write
+    home = {p.country for p in cfg.ports if p.role == "izlenen"}
 
     directions = [f"{a}>{b}" for a, b in cfg.directions]
     rdir = out / "raporlar"
@@ -257,6 +260,36 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                           f'petrol tankeri ya da petrol iskelesinden; <b>{_n(len(ceyhan))} seferi ({_n(gemi_say(ceyhan))} gemi)</b> '
                           f'Ceyhan petrol terminallerinden (BTC ve Kerkük-Ceyhan). <a href="{sl}-petrol.html">Petrol tankerleri raporu</a></p>')
 
+        # Ceyhan'dan çıkan bütün gemiler: sonraki uğrak (yalnızca beyanı veren ülkeden çıkan yönde)
+        ceyhan_html = ""
+        cik = json.loads(get_meta(con, "ceyhan_cikislari", "[]") or "[]") if A in home else []
+        if cik:
+            from .ulkeler import ulke_adi
+            anah = lambda x: x.get("ulke_ad") or (cfg.country_name(x["ulke"]) if x.get("ulke") else "?")  # noqa: E731
+            say = Counter(x.get("ulke") for x in cik)
+            ulk = Counter(anah(x) for x in cik)
+            satir = []
+            for c, n in ulk.most_common():
+                ad_ = "Sonraki uğrak kayıtsız" if c == "?" else c
+                satir.append([f"<b>{E(ad_)}</b>" if c in (b_ad, "?") else E(ad_), _n(n),
+                              _n(len({x["vid"] for x in cik if anah(x) == c}))])
+            dikkat = [x for x in cik if x.get("ulke") in (B, None) or x.get("karanlik")]
+            drows = [[f'<b>{E(x.get("ad") or "?")}</b><br><span class="not">{E(ulke_adi(x.get("b")))}, MMSI {E(str(x.get("m") or "?"))}</span>',
+                      f'<span class="tarih">{E(_kisa(cfg, x["t"]))}</span>',
+                      E(x.get("sonraki") or "kayıt yok") + (f'<br><span class="not tarih">{E(_kisa(cfg, x.get("t1")))}</span>' if x.get("t1") else ""),
+                      f'<span class="uyari">{E(str(x["karanlik"]).replace(".", ","))} saat</span>' if x.get("karanlik") else "–"]
+                     for x in dikkat[:300]]
+            ceyhan_html = (f'<h2>Ceyhan’dan çıkan gemiler nereye gitti?</h2><p class="not">Geçmiş taramada Ceyhan petrol '
+                           f'terminallerinde (BTC, Kerkük-Ceyhan) yanaşıp ayrılan {_n(len(cik))} sefer ve her birinin bir sonraki '
+                           'uğrağı. Tarama sürdükçe sayı artar; gemi tipine bakılmaz.</p>'
+                           + _tbl(["Sonraki uğrak", "Sefer", "Gemi"], satir, num=(1, 2))
+                           + (f'<h3>{E(b_ad)}’e giden, sonraki uğrağı kayıtsız ya da yolda AIS’i kapanan seferler</h3>'
+                              + _tbl(["Gemi", "Ceyhan’dan çıkış", "Sonraki uğrak", "AIS kapalı"], drows) if drows else ""))
+        if cik and A in home:
+            petrol_not = (petrol_not[:-4] if petrol_not else '<p class="petrol-ozet">') + (
+                f' Ceyhan petrol terminallerinden taranan {_n(len(cik))} çıkıştan {_n(say.get(B, 0))} tanesi doğrudan {E(b_ad)}’e gitti.'
+                + ("" if petrol else f' <a href="{sl}-petrol.html">Petrol tankerleri raporu</a>') + '</p>')
+
         def liste(sh_):
             top_ = max((x["n"] for x in sh_), default=1)
             return (f'<div class="arac"><label class="ara"><span class="gizli">Gemi ya da liman ara</span>'
@@ -316,7 +349,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
             + "</main>"), 1, "raporlar", desc=f"{a_ad} limanlarından {b_ad} limanlarına bütün seferler."))
 
         # petrol tankerleri
-        if petrol:
+        if petrol or ceyhan_html:
             sh_p = ships(petrol, y, vessels, m2k, pages, bilgi)
             ter_say = Counter(r.get("ter") for r in petrol)
             ter_rows = [[E(t), _n(n), _n(gemi_say([r for r in petrol if r.get("ter") == t]))] for t, n in ter_say.most_common()]
@@ -328,8 +361,11 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 '<p class="not">Ceyhan’daki BTC (Bakü-Tiflis-Ceyhan) ve Kerkük-Ceyhan terminalleri birbirine bir iki kilometre '
                 'uzaklıkta; AIS konumuyla ayırt edilemedikleri için birlikte sayılır. Geçmiş taramada geminin tipi bilinmez; '
                 'tip, gemi canlı kayıtta bir kez görüldüğünde öğrenilir. Bu yüzden liste zamanla uzar.</p>'
-                + _tbl(["İskele", "Sefer", "Gemi"], ter_rows, num=(1, 2)) + "<h2>Gemiler</h2>" + liste(sh_p)
-                + "<h2>Seferler</h2>" + _tbl(bas, [sefer_satiri(r) for r in sorted(petrol, key=lambda r: r.get("t0") or "", reverse=True)])
+                + ceyhan_html
+                + (f'<h2>{E(b_ad)}’e giden petrol tankerleri</h2>' + _tbl(["İskele", "Sefer", "Gemi"], ter_rows, num=(1, 2))
+                   + liste(sh_p) + "<h2>Seferler</h2>"
+                   + _tbl(bas, [sefer_satiri(r) for r in sorted(petrol, key=lambda r: r.get("t0") or "", reverse=True)])
+                   if petrol else f'<h2>{E(b_ad)}’e giden petrol tankerleri</h2><p class="not">Şimdilik kayıt yok.</p>')
                 + "</main>"), 1, "raporlar", desc=f"{a_ad} petrol iskelelerinden {b_ad} limanlarına {len(petrol)} sefer."))
 
         # aylık raporlar
