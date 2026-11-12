@@ -67,6 +67,8 @@ def _sayi(x: float, n: int = 1) -> str:
 
 
 def koordinat(lat, lon) -> str:
+    if lat is None or lon is None:
+        return "konum yok"
     return f"{_sayi(lat, 2)}° K, {_sayi(lon, 2)}° D"
 
 

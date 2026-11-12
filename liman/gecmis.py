@@ -386,9 +386,17 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                 dest_ids = set(vessel_ids)
         # gemi sorguları öncelik sırasıyla: 0 varış limanlarına uğrayanlar, 1 Ceyhan petrol terminallerine uğrayanlar
         # ve hedef ülke kıyı açığında bekleyenler, 2-3 aynı gruplar erken dönemde, 4-5 diğerleri
+        # basında adı geçen gemiler (gemiler.yaml, "basin") en önce: tespitlerin sağlaması onlarla yapılır
+        from .tanker import _basin
+        basin_ad = {str(b.get("ad") or "").upper() for b in _basin(cfg)} - {""}
+
+        def basinda(v: dict) -> bool:
+            return str((v or {}).get("name") or "").upper().strip() in basin_ad
+
         gorev: list[tuple] = []
         for i, vid in enumerate(vessel_ids):
-            gorev.append(((0 if vid in dest_ids else 1 if vid in ceyhan_ids else 4), i, vid, v_start, end))
+            gorev.append(((-1 if basinda(vessel_ids[vid]) else 0 if vid in dest_ids else 1 if vid in ceyhan_ids else 4),
+                          i, vid, v_start, end))
         if not partial:
             set_meta(con, "gecmis_gemiler", json.dumps(list(vessel_ids)))
         # 1b) erken dönem (ör. 7 Ekim 2023 – beyan tarihi): aynı sorgular, ayrı pencereyle
@@ -410,7 +418,17 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                 if ports is dest_ports:
                     dest_e = set(erken_ids)
             for i, vid in enumerate(erken_ids):
-                gorev.append(((2 if vid in dest_e else 3 if vid in ceyhan_ids else 5), i, vid, ew0, start))
+                gorev.append(((-1 if basinda(erken_ids[vid]) else 2 if vid in dest_e else 3 if vid in ceyhan_ids else 5),
+                              i, vid, ew0, start))
+
+        def yurut(isler):
+            for _p, _i, vid, w0, w1 in sorted(isler):
+                for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
+                    plan.ensure(f"{kind}:{vid}:{w0}:{w1}",
+                                lambda ds=ds, vid=vid, w0=w0, w1=w1: client.vessel_events(ds, vid, w0, w1))
+        # önce basındaki gemiler ve varış limanlarına uğrayanlar; sonra kıyı açığı sorguları; sonra kalanlar
+        yurut([g for g in gorev if g[0] <= 0])
+        gorev = [g for g in gorev if g[0] > 0]
         # 1c) hedef ülkenin kıyı açıkları: limana girmeden bekleyen gemiler (şamandıra boşaltması, aktarma).
         # Alan sorgusu az istek tutar; bekleyen gemilerin geçmişi Ceyhan gemileriyle aynı öncelikte alınır.
         son = (today - dt.timedelta(days=3)).isoformat()
@@ -427,10 +445,7 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                     w1 = (dt.date.fromisoformat(k1) + dt.timedelta(days=2)).isoformat()
                     gorev.append((1, -1, vid, w0, w1))
                     bilinen.add(vid)
-        for _p, _i, vid, w0, w1 in sorted(gorev):
-            for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
-                plan.ensure(f"{kind}:{vid}:{w0}:{w1}",
-                            lambda ds=ds, vid=vid, w0=w0, w1=w1: client.vessel_events(ds, vid, w0, w1))
+        yurut(gorev)
         # 2) haftalık güncelleme dilimleri
         dark_hist: list[set[str]] = []
         for a, b in segs:
