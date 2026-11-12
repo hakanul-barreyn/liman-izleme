@@ -55,7 +55,7 @@ jobs:
 
       - name: Geçmiş tarama (Global Fishing Watch)
         if: env.GFW_API_TOKEN != ''
-        run: python -m liman gecmis --baslangic "${{ inputs.gecmis_baslangic }}" --dilim "${{ inputs.gecmis_baslangic != '' && '25' || '7' }}" || true
+        run: python -m liman gecmis --baslangic "${{ inputs.gecmis_baslangic }}" --dilim "${{ inputs.gecmis_baslangic != '' && '25' || '12' }}" || true
 
       - name: Gemi kimliği, firma ve fotoğraflar
         run: python -m liman gemi-bilgi --dilim 3 || true

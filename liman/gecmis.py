@@ -272,6 +272,7 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
         # 1) ana tarama
         vessel_ids: dict[str, dict] = {}
         partial = False
+        ceyhan_ids: set = set()
         for ports, cap in ((dest_ports, None), (dark_ports, cfg.gecmis["max_gemi_liman"])):
             for p in ports:
                 seen_here: dict[str, dict] = {}
@@ -280,13 +281,23 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                                     lambda p=p, a=a, b=b: client.area_events(DS_PV, geometry(p.area), a, b, pv_extra))
                     partial |= evs is None
                     _vessels_in(evs, seen_here)
+                    for e in evs or []:
+                        pos = e.get("position") or {}
+                        if pos.get("lat") is not None and haversine_km(pos["lat"], pos["lon"], *CEYHAN) <= CEYHAN_KM:
+                            ceyhan_ids.add((e.get("vessel") or {}).get("id"))
                 ids = list(seen_here)
                 if cap and len(ids) > cap:
                     log.warning("%s: %d gemi bulundu, ilk %d tanesi taranacak", p.name, len(ids), cap)
                     ids = ids[:cap]
                 for vid in ids:
                     vessel_ids.setdefault(vid, seen_here[vid])
-        for vid in vessel_ids:
+            if ports is dest_ports:
+                dest_ids = set(vessel_ids)
+        # sıra: varış limanlarına uğrayanlar, sonra Ceyhan petrol terminallerine uğrayanlar, sonra diğerleri
+        sirali = list(vessel_ids)
+        ilk = len([v for v in sirali if v in dest_ids])
+        sirali = sirali[:ilk] + sorted(sirali[ilk:], key=lambda v: v not in ceyhan_ids)
+        for vid in sirali:
             for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
                 plan.ensure(f"{kind}:{vid}:{v_start}:{end}",
                             lambda ds=ds, vid=vid: client.vessel_events(ds, vid, v_start, end))
