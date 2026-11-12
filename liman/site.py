@@ -200,7 +200,7 @@ def _index(cfg, recs, meta) -> str:
       <div class="dugmeler petrol" role="group" aria-label="Çıkış terminali">
         <button type="button" data-p="" aria-pressed="true">Hepsi <span class="sayi"></span></button>
         <button type="button" data-p="sv" aria-pressed="false">Petrol terminalleri <span class="sayi"></span></button>
-        <button type="button" data-p="ceyhan" aria-pressed="false">Ceyhan (BTC) <span class="sayi"></span></button></div>
+        <button type="button" data-p="ceyhan" aria-pressed="false">Ceyhan çevresi <span class="sayi"></span></button></div>
       <label class="ara"><span class="gizli">Gemi ara</span><input type="search" id="ara" placeholder="Gemi adı, IMO ya da MMSI" autocomplete="off"></label>
       <div class="hat" id="hat" hidden></div>
     </div>

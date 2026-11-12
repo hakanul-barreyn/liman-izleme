@@ -279,15 +279,17 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                       E(x.get("sonraki") or "kayıt yok") + (f'<br><span class="not tarih">{E(_kisa(cfg, x.get("t1")))}</span>' if x.get("t1") else ""),
                       f'<span class="uyari">{E(str(x["karanlik"]).replace(".", ","))} saat</span>' if x.get("karanlik") else "–"]
                      for x in dikkat[:300]]
-            ceyhan_html = (f'<h2>Ceyhan’dan çıkan gemiler nereye gitti?</h2><p class="not">Geçmiş taramada Ceyhan petrol '
-                           f'terminallerinde (BTC, Kerkük-Ceyhan) yanaşıp ayrılan {_n(len(cik))} sefer ve her birinin bir sonraki '
-                           'uğrağı. Tarama sürdükçe sayı artar; gemi tipine bakılmaz.</p>'
+            ceyhan_html = (f'<h2>Ceyhan’dan çıkan gemiler nereye gitti?</h2><p class="not">Geçmiş taramada Ceyhan '
+                           'terminallerine (BTC, Kerkük-Ceyhan) ya da önlerindeki demirleme alanına (11 km) uğrayıp ayrılan '
+                           f'{_n(len(cik))} sefer ve her birinin bir sonraki uğrağı. GFW bu ziyaretleri terminallerin birkaç km '
+                           'güneyindeki demirleme noktalarına bağlıyor; bu alanda Sugözü ve gübre iskelelerine gelen kuru yük '
+                           'gemileri de bulunabilir. Tarama sürdükçe sayı artar.</p>'
                            + _tbl(["Sonraki uğrak", "Sefer", "Gemi"], satir, num=(1, 2))
                            + (f'<h3>{E(b_ad)}’e giden, sonraki uğrağı kayıtsız ya da yolda AIS’i kapanan seferler</h3>'
                               + _tbl(["Gemi", "Ceyhan’dan çıkış", "Sonraki uğrak", "AIS kapalı"], drows) if drows else ""))
         if cik and A in home:
             petrol_not = (petrol_not[:-4] if petrol_not else '<p class="petrol-ozet">') + (
-                f' Ceyhan petrol terminallerinden taranan {_n(len(cik))} çıkıştan {_n(say.get(B, 0))} tanesi doğrudan {E(b_ad)}’e gitti.'
+                f' Ceyhan terminalleri çevresinden taranan {_n(len(cik))} çıkıştan {_n(say.get(B, 0))} tanesi doğrudan {E(b_ad)}’e gitti.'
                 + ("" if petrol else f' <a href="{sl}-petrol.html">Petrol tankerleri raporu</a>') + '</p>')
 
         def liste(sh_):

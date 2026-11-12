@@ -45,7 +45,7 @@ TR_ADLAR = {
     "Karabiga": "Karabiga", "Tasucu": "Taşucu", "Tekirdag": "Tekirdağ", "Yumurtalik": "Yumurtalık",
 }
 CEYHAN = (36.875, 35.925)  # BTC ve Kerkük-Ceyhan terminalleri
-CEYHAN_KM = 6
+CEYHAN_KM = 11  # GFW Ceyhan ziyaretlerini terminallerin 6-10 km güneyindeki demirleme noktalarına bağlıyor
 CLASS_LABELS = {
     "dogrudan": "Doğrudan",
     "aktarmali": "Ara limanlı",
@@ -443,6 +443,7 @@ def compute(cfg, con, *_eski) -> int:
                 kapali = [g for g in gl if v["end"] <= g["baslangic"] < (nx["start"] if nx else "9999")
                           and g["saat"] >= dark_h and g.get("kasitli") is not False]
                 ceyhan.append({"vid": vid, "ad": v["vessel"].get("name"), "m": v["vessel"].get("ssvid"),
+                               "tip": v["vessel"].get("type"),
                                "b": v["vessel"].get("flag"), "t": v["end"], "sonraki": nx["name"] if nx else None,
                                "ulke": nx["c"] if nx else None, "t1": nx["start"] if nx else None,
                                "ulke_ad": (cfg.country_name(nx["c"]) if nx["c"] else
