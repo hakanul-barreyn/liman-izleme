@@ -65,7 +65,7 @@ jobs:
           BG=""
           if [ -n "$GFW_API_TOKEN" ]; then
             # ayrı süreç grubu: çok uzarsa toplayıcı onu bütünüyle durdurabilir
-            setsid bash -c 'python -m liman gecmis --baslangic "$1" --dilim 32 --istek 1500;
+            setsid bash -c 'python -m liman gecmis --baslangic "$1" --dilim 32 --istek 1800;
                             python -m liman gemi-bilgi --dilim 5 --istek 200' _ "${{ inputs.gecmis_baslangic }}" \
               > _gfw.log 2>&1 &
             BG=$!
