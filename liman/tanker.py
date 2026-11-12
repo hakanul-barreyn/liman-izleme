@@ -44,6 +44,8 @@ SINIF_DUZEY = {"dogrudan": "kayitli", "dogrudan_izlenmedi": "kayitli", "karanlik
                "aktarmali": "aktarma", "karanlik_acik": "acik", "kiyida_kayboldu": "acik",
                "kiyida_bosaltma": "bekleme", "denizde_aktarma": "sts", "dolayli_sts": "sts",
                "karanlik_sefer": "karanlik"}
+# GFW'nin gemi sınıfları: tankerler "kargo" değil, "other_non_fishing" (ve yakıt ikmal gemisi "bunker") sınıfındadır
+GFW_TANKER_SINIFI = {"other_non_fishing", "bunker"}
 UNLU = "aeıioöuü"
 YONLER = ["kuzeyi", "kuzeydoğusu", "doğusu", "güneydoğusu", "güneyi", "güneybatısı", "batısı", "kuzeybatısı"]
 KISA_AY = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
@@ -146,13 +148,17 @@ def _basin(cfg) -> list[dict]:
     return [b for b in (data.get("basin") or []) if isinstance(b, dict) and (b.get("ad") or b.get("imo"))]
 
 
-def dosyalar(cfg, con, recs: list[dict]) -> list[dict]:
-    """Gemi gemi tanker dosyaları (en güçlü kanıt önce)."""
+def dosyalar(cfg, con, recs: list[dict]) -> tuple[list[dict], int]:
+    """Gemi gemi tanker dosyaları (en güçlü kanıt önce) ve tanker olmadığı için dışarıda bırakılan gemi sayısı.
+
+    Listeye giren gemi ya tankerliği doğrulanmış (AIS tipi, petrol iskelesi, rotadaki başka petrol iskeleleri, basın)
+    ya da Global Fishing Watch'ın kargo gemisi saymadığı (tankerlerin bulunduğu sınıftaki) gemidir. GFW'nin kargo
+    gemisi saydığı ve başka tanker kanıtı olmayan gemiler (Ceyhan körfezindeki kömür, gübre, çimento gemileri) girmez."""
     from .db import get_meta
     from .rapor import bilgi_kaynagi
     sec = _secim(cfg, recs)
     if not sec:
-        return []
+        return [], 0
     g2vid = {f"g{i}": v for i, v in con.execute("SELECT id, vessel_id FROM gecmis WHERE vessel_id IS NOT NULL")}
     canli_tip = {r[0]: r[1] for r in con.execute("SELECT mmsi, type FROM vessels WHERE type IS NOT NULL")}
     cik = json.loads(get_meta(con, "ceyhan_cikislari", "[]") or "[]")
@@ -170,6 +176,7 @@ def dosyalar(cfg, con, recs: list[dict]) -> list[dict]:
     for r in sec:
         by[r.get("m") or f"ad:{r.get('n')}"].append(r)
     out = []
+    dislanan = 0
     for key, rs in by.items():
         rs.sort(key=lambda r: r.get("t0") or r.get("t1") or "", reverse=True)
         mmsi = key if isinstance(key, int) else None
@@ -203,6 +210,16 @@ def dosyalar(cfg, con, recs: list[dict]) -> list[dict]:
                or (not b.get("imo") and str(b.get("ad", "")).upper() in {(n or "").upper() for n in [ad, *adlar]} and cy)]
         if bas:
             tip.append("Basında tanker olarak adı geçiyor")
+        dogru = bool(tip)
+        # GFW sınıfı: seferlerdeki ve Ceyhan uğraklarındaki gemi tipi (çoğunluk)
+        sinif = Counter([r["tip"] for r in rs if r["id"].startswith("g") and r.get("tip") and r["tip"] != "Tanker (AIS)"]
+                        + [x["tip"] for x in cy if x.get("tip")])
+        gfw_tip = sinif.most_common(1)[0][0] if sinif else None
+        if not dogru and gfw_tip not in GFW_TANKER_SINIFI:
+            dislanan += 1
+            continue
+        if not dogru:
+            tip.append("Global Fishing Watch kargo gemisi saymıyor; tankerler bu sınıfta (doğrulanmadı)")
         seferler = []
         for r in rs:
             dz = SINIF_DUZEY[r["k"]]
@@ -211,7 +228,7 @@ def dosyalar(cfg, con, recs: list[dict]) -> list[dict]:
         best = min(say, key=lambda k: SIRA[k])
         d = {"ad": ad, "adlar": adlar, "mmsi": mmsi, "imo": imo, "vid": ek.get("vid"), "cagri": ek.get("cagri"),
              "bayrak": bayrak(flag, mmsi), "flag3": flag, "firma": ek.get("firma") or [], "foto": ek.get("foto") or [],
-             "tip": tip, "dogrulandi": bool(tip), "seferler": seferler, "say": say, "duzey": best,
+             "tip": tip, "dogrulandi": dogru, "gfw_tip": gfw_tip, "seferler": seferler, "say": say, "duzey": best,
              "ceyhan": cy, "basin": bas,
              "ilk": min((s.get("t0") or s.get("t1") or "") for s in seferler),
              "son": max((s.get("t0") or s.get("t1") or "") for s in seferler)}
@@ -224,7 +241,7 @@ def dosyalar(cfg, con, recs: list[dict]) -> list[dict]:
         if gor_a[d["anahtar"]] > 1:
             d["anahtar"] += f"-{gor_a[d['anahtar']]}"
     out.sort(key=lambda d: (SIRA[d["duzey"]], not d["dogrulandi"], -len(d["seferler"]), -_ts(d["son"])))
-    return out
+    return out, dislanan
 
 
 def _ts(s: str) -> float:
@@ -237,7 +254,10 @@ def _ts(s: str) -> float:
 # --------------------------------------------------------------------------- metin
 def adimlar(cfg, r: dict) -> list[tuple[str | None, str, str]]:
     """Bir seferin seyir defteri satırları: (zaman, metin, tür)."""
-    out = [(r.get("t0"), f"{r.get('o') or 'Türk limanı'} çıkışı" + (f" ({r['ter']})" if r.get("ter") else ""), "cikis")]
+    o = r.get("o") or "Türk limanı"
+    if (o.endswith(" limanı") or "adsız demirleme" in o) and r.get("w"):
+        o = f"{o} ({yer(cfg, r['w'][0][1], r['w'][0][0])})"  # adı olmayan demirleme yeri: en yakın limana göre
+    out = [(r.get("t0"), f"{o} çıkışı" + (f" ({r['ter']})" if r.get("ter") else ""), "cikis")]
     ats = r.get("at") or []
     for i, x in enumerate(r.get("ara") or []):
         at = ats[i] if i < len(ats) and ats[i] else [None, None]
@@ -442,7 +462,7 @@ def _kimlik(E, d: dict) -> str:
     from .rapor import _kunye
     satir = [("Bayrak", d["bayrak"] or "bilinmiyor"), ("IMO", d["imo"] or "bilinmiyor"), ("MMSI", d["mmsi"] or "bilinmiyor"),
              ("Çağrı işareti", d.get("cagri") or "bilinmiyor"),
-             ("Tip", "; ".join(d["tip"]) if d["tip"] else "Doğrulanmadı. Ceyhan körfezinde kömür ve gübre iskeleleri de var.")]
+             ("Tip", "; ".join(d["tip"]) if d["tip"] else "Doğrulanmadı")]
     if d["adlar"]:
         satir.append(("Önceki adları", ", ".join(d["adlar"])))
     dl = "".join(f'<div{" class=genis" if k in ("Tip", "Önceki adları") else ""}><dt>{E(k)}</dt><dd>{E(v)}</dd></div>'
@@ -494,7 +514,7 @@ def _kart(cfg, E, d: dict) -> str:
                                  *[f["ad"] for f in d["firma"]], *[s.get("o") or "" for s in d["seferler"]],
                                  *[s.get("d") or "" for s in d["seferler"]]])).lower()
     tip = ('<span class="tip-dogru">Tanker</span>' if d["dogrulandi"]
-           else '<span class="tip-belirsiz">Tipi doğrulanmadı</span>')
+           else '<span class="tip-belirsiz">Muhtemel tanker</span>')
     basin = '<span class="basin-isaret">Basında adı geçiyor</span>' if d["basin"] else ""
     return (f'<article class="dosya" id="{E(d["anahtar"])}" data-duzey="{E(" ".join(sorted(d["say"])))}" '
             f'data-tip="{1 if d["dogrulandi"] else 0}" data-ara="{E(ara)}">'
@@ -519,7 +539,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> list[dict]:
         for f in tdir.iterdir():
             if f.is_file():
                 f.unlink()
-    ds = dosyalar(cfg, con, recs)
+    ds, dislanan = dosyalar(cfg, con, recs)
     directions = [f"{a}>{b}" for a, b in cfg.directions]
     adres = (cfg.pub.get("adres") or "").rstrip("/")
     b_ad = ", ".join(cfg.country_name(c) for c in sorted(cfg.dest_countries()))
@@ -557,7 +577,10 @@ def build(cfg, con, recs: list[dict], out: Path) -> list[dict]:
         giris = (f'<p class="giris">7 Ekim 2023’ten bu yana Türk petrol iskelelerinden, çoğu Ceyhan’daki BTC ve Kerkük-Ceyhan '
                  f'terminallerinden çıkıp {E(b_ad)}’e giden ya da {E(b_ad)} açıklarında AIS’i kapalı görülen '
                  f'<b>{_n(len(ds))} gemi, {_n(n_sefer)} sefer</b>. {_n(ceyhan_say)} gemi Ceyhan’dan. Liste en güçlü kanıttan '
-                 'en zayıfa sıralı.</p>')
+                 'en zayıfa sıralı.</p>'
+                 + (f'<p class="not">Ceyhan körfezinden İsrail’e giden ama Global Fishing Watch’ın kargo gemisi saydığı ve '
+                    f'başka tanker kanıtı olmayan {_n(dislanan)} gemi (kömür, gübre, çimento gemileri olabilir) bu listede '
+                    'yok; onların seferleri <a href="../raporlar/index.html">Raporlar</a>’da.</p>' if dislanan else ""))
         liste = (f'<div class="arac"><label class="ara"><span class="gizli">Gemi ara</span><input type="search" id="dosya-ara" '
                  f'placeholder="Gemi adı, IMO, bayrak, firma ya da liman" autocomplete="off"></label>'
                  f'<label class="tik"><input type="checkbox" id="yalniz-tanker"> Yalnızca tipi doğrulananlar</label>'
