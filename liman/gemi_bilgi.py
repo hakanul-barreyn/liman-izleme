@@ -134,6 +134,11 @@ def guncelle(cfg, budget_min: float = 3) -> dict:
                 if n["hata"] > 40:
                     break
             time.sleep(0.1)
+        kim = [json.loads(r[0]) for r in con.execute("SELECT data FROM gfw_cache WHERE key LIKE 'gkimlik:%'")]
+        fot = [json.loads(r[0]) for r in con.execute("SELECT data FROM gfw_cache WHERE key LIKE 'foto:%'")]
+        n.update({"gemi": len(vids), "imo_bilinen": sum(1 for k in kim if k.get("imo")),
+                  "sahibi_bilinen": sum(1 for k in kim if k.get("sahipler")), "foto_sorgulanan": len(fot),
+                  "fotografli": sum(1 for f in fot if f)})
     finally:
         con.close()
     log.info("Gemi bilgisi: %s", n)
