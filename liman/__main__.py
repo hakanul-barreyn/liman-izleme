@@ -9,6 +9,8 @@
   python -m liman tur --dakika 50     GitHub Actions modu: belirtilen süre toplar, sonra arşiv ve site üretir
   python -m liman durum-yukle KLASÖR  kayıtlı durumu geri yükler (Actions)
   python -m liman durum-kaydet KLASÖR durumu sıkıştırıp kaydeder (Actions)
+  python -m liman gecmis --baslangic 2024-05-02 [--dilim 8]
+                                      Global Fishing Watch ile geçmişe dönük tarama (kaldığı yerden devam eder)
 """
 from __future__ import annotations
 
@@ -25,11 +27,14 @@ from . import config
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m liman", description="Liman İzleme")
     ap.add_argument("komut", choices=["calistir", "kontrol", "saatlik", "gunluk", "dogrula", "demo",
-                                      "tur", "durum-yukle", "durum-kaydet", "ham-hazirla"])
+                                      "tur", "durum-yukle", "durum-kaydet", "ham-hazirla", "gecmis"])
     ap.add_argument("gun", nargs="?")
     ap.add_argument("--ayar", default="config.yaml")
     ap.add_argument("--gonder", action="store_true", help="GitHub'a gönder (gunluk)")
     ap.add_argument("--dakika", type=float, default=50, help="tur: kaç dakika veri toplanacak")
+    ap.add_argument("--baslangic", default="", help="gecmis: tarama başlangıç tarihi (YYYY-AA-GG)")
+    ap.add_argument("--bitis", default="", help="gecmis: tarama bitiş tarihi (varsayılan bugün)")
+    ap.add_argument("--dilim", type=float, default=None, help="gecmis: bu çalıştırmada en fazla kaç dakika sorgu")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -48,6 +53,10 @@ def main(argv=None) -> int:
         key = os.environ.get(cfg.ais["anahtar_degiskeni"])
         print("aisstream anahtarı:", "var" if key else "YOK (.env dosyasına ekle)")
         return 0 if key and cfg.ports else 1
+    if a.komut == "gecmis":
+        from . import gecmis
+        print(gecmis.run(cfg, a.baslangic or None, a.bitis or None, a.dilim))
+        return 0
     if a.komut == "ham-hazirla":
         from . import durum
         print(" ".join(durum.prepare_raw(cfg)))

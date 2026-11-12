@@ -18,11 +18,16 @@ NAME = "durum.tar.gz"
 
 def prune(cfg) -> None:
     """Eski ayrıntılı konumları siler (ziyaretler, olaylar, güzergâhlar ve arşiv kalır)."""
-    keep = cfg.raw.get("durum", {}).get("konum_saklama_gun", 21)
+    d = cfg.raw.get("durum", {})
+    keep = d.get("konum_saklama_gun", cfg.th.get("karanlik_sefer_gun", 30) + 6)
+    keep_port = d.get("liman_konum_saklama_gun", 3)
     con = connect(db_path(cfg))
     try:
-        cut = add_hours(iso(now_utc()), -24 * keep)
+        now = iso(now_utc())
+        cut = add_hours(now, -24 * keep)
         con.execute("DELETE FROM positions WHERE t < ?", (cut,))
+        # limanlardaki ayrıntılı konumlar ziyaretlere ve günlük haritalara işlendikten sonra gerekmez
+        con.execute("DELETE FROM positions WHERE port IS NOT NULL AND t < ?", (add_hours(now, -24 * keep_port),))
         con.execute("DELETE FROM statics WHERE t < ? AND id NOT IN (SELECT max(id) FROM statics GROUP BY mmsi)",
                     (add_hours(cut, -24 * 100),))
         con.commit()

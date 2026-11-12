@@ -1,0 +1,355 @@
+"""Geçmişe dönük tarama: Global Fishing Watch (GFW) API ile beyan tarihinden bugüne.
+
+GFW, AIS verisinden liman ziyaretlerini (tüm gemi tipleri) ve AIS boşluklarını (tüm gemi tipleri)
+üretip ücretsiz ve ticari olmayan kullanım için yayımlar. Bu modül:
+
+  1. Hedef ülke (B) limanlarının alanında belirtilen tarihlerdeki tüm liman ziyaretlerini çeker.
+  2. "Karanlık sefer" taraması işaretli A limanlarındaki ziyaretleri çeker.
+  3. Bu gemilerin her birinin bütün liman ziyaretlerini ve AIS boşluklarını çeker.
+  4. A ülkesinden çıkıp B ülkesine varan bacakları (doğrudan / ara duraklı / karanlık bacak) ve
+     A'dan çıkıp karanlık bölgede uzun süre AIS kapatan seferleri bulur.
+
+İş uzun sürebilir; her istek önbelleğe yazılır ve iş, süre bütçesi bitince kaldığı yerden devam eder.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import json
+import logging
+import os
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+from .db import connect, db_path, get_meta, set_meta
+from .util import add_hours, hours_between, iso, now_utc
+
+log = logging.getLogger("gecmis")
+API = "https://gateway.api.globalfishingwatch.org/v3/events"
+DS_PV = "public-global-port-visits-events:latest"
+DS_GAP = "public-global-gaps-events:latest"
+SKIP_TYPES = ("fishing", "passenger", "gear", "support", "seismic")
+CLASS_LABELS = {
+    "dogrudan": "Doğrudan",
+    "aktarmali": "Ara duraklı",
+    "karanlik_bacak": "Karanlık bacak (AIS boşluğu)",
+    "karanlik_sefer": "Karanlık sefer (varış limanı kayıtsız)",
+}
+
+
+class OutOfTime(Exception):
+    pass
+
+
+class Client:
+    def __init__(self, token: str, pause: float = 0.25):
+        self.token = token
+        self.pause = pause
+        self.requests = 0
+
+    def _req(self, method: str, url: str, body=None) -> dict:
+        data = json.dumps(body).encode() if body is not None else None
+        for attempt in range(6):
+            req = urllib.request.Request(url, data=data, method=method, headers={
+                "Authorization": f"Bearer {self.token}", "Content-Type": "application/json",
+                "User-Agent": "liman-izleme"})
+            try:
+                with urllib.request.urlopen(req, timeout=180) as r:
+                    self.requests += 1
+                    time.sleep(self.pause)
+                    return json.loads(r.read().decode())
+            except urllib.error.HTTPError as e:
+                detail = e.read().decode(errors="replace")[:500]
+                if e.code in (429, 500, 502, 503, 504) and attempt < 5:
+                    wait = int(e.headers.get("Retry-After") or 0) or 2 ** (attempt + 2)
+                    log.warning("GFW %s, %ss bekleniyor", e.code, wait)
+                    time.sleep(wait)
+                    continue
+                raise RuntimeError(f"GFW isteği başarısız ({e.code}): {detail}") from None
+            except urllib.error.URLError as e:
+                if attempt < 5:
+                    time.sleep(2 ** (attempt + 2))
+                    continue
+                raise RuntimeError(f"GFW'ye ulaşılamadı: {e}") from None
+        raise RuntimeError("GFW isteği tekrar tekrar başarısız oldu")
+
+    def _pages(self, fetch) -> list[dict]:
+        out, offset = [], 0
+        while True:
+            res = fetch(offset)
+            entries = res.get("entries") or []
+            out += entries
+            nxt = res.get("nextOffset")
+            total = res.get("total")
+            if not entries or nxt is None or nxt <= offset or (total is not None and len(out) >= total):
+                return out
+            offset = nxt
+
+    def area_events(self, dataset: str, geometry: dict, start: str, end: str, extra: dict | None = None) -> list[dict]:
+        body = {"datasets": [dataset], "startDate": start, "endDate": end, "geometry": geometry, **(extra or {})}
+        return self._pages(lambda off: self._req("POST", f"{API}?offset={off}&limit=500", body))
+
+    def vessel_events(self, dataset: str, vessel_id: str, start: str, end: str) -> list[dict]:
+        def fetch(off):
+            q = urllib.parse.urlencode({"datasets[0]": dataset, "vessels[0]": vessel_id, "start-date": start,
+                                        "end-date": end, "limit": 500, "offset": off})
+            return self._req("GET", f"{API}?{q}")
+        return self._pages(fetch)
+
+
+# --------------------------------------------------------------------------- yardımcılar
+def _t(s: str | None) -> str | None:
+    if not s:
+        return None
+    return s[:19] + "Z" if len(s) >= 19 else s
+
+
+def slim(e: dict) -> dict:
+    """Önbellek için gereksiz alanları atar."""
+    v = e.get("vessel") or {}
+    out = {"id": e.get("id"), "type": e.get("type"), "start": _t(e.get("start")), "end": _t(e.get("end")),
+           "position": e.get("position"),
+           "vessel": {k: v.get(k) for k in ("id", "name", "ssvid", "flag", "type")}}
+    pv = e.get("port_visit") or e.get("portVisit")
+    if pv:
+        def anch(a):
+            return {k: (a or {}).get(k) for k in ("name", "flag", "lat", "lon", "anchorageId", "topDestination")} if a else None
+        out["port_visit"] = {"durationHrs": pv.get("durationHrs"), "confidence": pv.get("confidence"),
+                             "startAnchorage": anch(pv.get("startAnchorage")),
+                             "endAnchorage": anch(pv.get("endAnchorage"))}
+    g = e.get("gap")
+    if g:
+        out["gap"] = {k: g.get(k) for k in ("durationHours", "distanceKm", "impliedSpeedKnots", "intentionalDisabling",
+                                             "offPosition", "onPosition")}
+    return out
+
+
+def geometry(area) -> dict:
+    ring = [[round(lon, 5), round(lat, 5)] for lat, lon in area.outline()]
+    if ring[0] != ring[-1]:
+        ring.append(ring[0])
+    return {"type": "Polygon", "coordinates": [ring]}
+
+
+def chunks(start: str, end: str, days: int = 90) -> list[tuple[str, str]]:
+    a = dt.date.fromisoformat(start)
+    b = dt.date.fromisoformat(end)
+    out = []
+    while a < b:
+        n = min(b, a + dt.timedelta(days=days))
+        out.append((a.isoformat(), n.isoformat()))
+        a = n
+    return out
+
+
+def _cached(con, key: str, fetch, deadline: float | None):
+    r = con.execute("SELECT data FROM gfw_cache WHERE key=?", (key,)).fetchone()
+    if r:
+        return json.loads(r[0])
+    if deadline is not None and time.time() > deadline:
+        raise OutOfTime()
+    data = [slim(e) for e in fetch()]
+    con.execute("INSERT OR REPLACE INTO gfw_cache(key,data,fetched) VALUES(?,?,?)",
+                (key, json.dumps(data, separators=(",", ":")), iso(now_utc())))
+    con.commit()
+    return data
+
+
+def _cache_get(con, key):
+    r = con.execute("SELECT data FROM gfw_cache WHERE key=?", (key,)).fetchone()
+    return json.loads(r[0]) if r else None
+
+
+# --------------------------------------------------------------------------- tarama
+def target(con) -> dict | None:
+    t = get_meta(con, "gecmis_hedef")
+    return json.loads(t) if t else None
+
+
+def set_target(con, start: str, end: str | None = None) -> dict:
+    t = {"baslangic": start, "bitis": end or dt.date.today().isoformat()}
+    set_meta(con, "gecmis_hedef", json.dumps(t))
+    con.commit()
+    return t
+
+
+def scan(cfg, con, client: Client | None, budget_min: float | None = None) -> dict:
+    """Önbellekte olmayan istekleri süre bütçesi içinde yapar; sonra sonuçları hesaplar."""
+    t = target(con)
+    if not t:
+        return {"durum": "hedef yok"}
+    start, end = t["baslangic"], t["bitis"]
+    deadline = time.time() + budget_min * 60 if budget_min else None
+    lookback = cfg.gecmis["onceki_gun"]
+    v_start = (dt.date.fromisoformat(start) - dt.timedelta(days=lookback)).isoformat()
+    targets = cfg.dest_countries()
+    dest_ports = [p for p in cfg.ports if p.country in targets and not p.approach]
+    dark_ports = [p for p in cfg.ports if p.retro_dark]
+    tasks_total = tasks_done = 0
+    complete = True
+    try:
+        if client is None:
+            raise OutOfTime()
+        vessel_ids: dict[str, dict] = {}
+        for ports, cap in ((dest_ports, None), (dark_ports, cfg.gecmis["max_gemi_liman"])):
+            for p in ports:
+                seen_here: dict[str, dict] = {}
+                for a, b in chunks(start, end):
+                    tasks_total += 1
+                    key = f"area_pv:{p.code}:{a}:{b}"
+                    evs = _cached(con, key, lambda: client.area_events(
+                        DS_PV, geometry(p.area), a, b, {"confidences": ["3", "4"]}), deadline)
+                    tasks_done += 1
+                    for e in evs:
+                        v = e["vessel"]
+                        if v.get("id") and not any(x in str(v.get("type") or "").lower() for x in SKIP_TYPES):
+                            seen_here.setdefault(v["id"], v)
+                ids = list(seen_here)
+                if cap and len(ids) > cap:
+                    log.warning("%s: %d gemi bulundu, ilk %d tanesi taranacak", p.name, len(ids), cap)
+                    ids = ids[:cap]
+                for vid in ids:
+                    vessel_ids.setdefault(vid, seen_here[vid])
+        for vid in vessel_ids:
+            for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
+                tasks_total += 1
+                _cached(con, f"{kind}:{vid}:{v_start}:{end}",
+                        lambda ds=ds: client.vessel_events(ds, vid, v_start, end), deadline)
+                tasks_done += 1
+        set_meta(con, "gecmis_gemiler", json.dumps(list(vessel_ids)))
+    except OutOfTime:
+        complete = False
+    except RuntimeError as e:
+        log.error("%s", e)
+        complete = False
+    n = compute(cfg, con, v_start, end)
+    status = {"hedef": t, "tamam": complete, "gorev": [tasks_done, tasks_total], "kayit": n,
+              "istek": client.requests if client else 0, "guncelleme": iso(now_utc())}
+    set_meta(con, "gecmis_durum", json.dumps(status))
+    con.commit()
+    return status
+
+
+# --------------------------------------------------------------------------- sonuç
+def _visit_place(cfg, e: dict) -> tuple[str | None, str, str | None]:
+    """(ülke kodu, liman adı, bizim liman kodumuz)"""
+    pos = e.get("position") or {}
+    pv = e.get("port_visit") or {}
+    anc = pv.get("startAnchorage") or pv.get("endAnchorage") or {}
+    lat, lon = pos.get("lat", anc.get("lat")), pos.get("lon", anc.get("lon"))
+    if lat is not None and lon is not None:
+        code, _ = cfg.locate(lat, lon)
+        if code and not cfg.port_by_code[code].approach:
+            p = cfg.port_by_code[code]
+            return p.country, p.name, code
+    c = cfg.country_from_iso3(anc.get("flag"))
+    name = (anc.get("name") or "?").title()
+    return c, f"{name} ({anc.get('flag') or '?'})", None
+
+
+def _gap_info(g: dict) -> dict:
+    gp = g.get("gap") or {}
+    off = gp.get("offPosition") or g.get("position") or {}
+    on = gp.get("onPosition") or {}
+    dur = gp.get("durationHours")
+    if dur is None and g.get("start") and g.get("end"):
+        dur = hours_between(g["start"], g["end"])
+    return {"baslangic": g.get("start"), "bitis": g.get("end"), "saat": round(dur or 0, 1),
+            "kapanis": [off.get("lat"), off.get("lon")], "acilis": [on.get("lat"), on.get("lon")],
+            "mesafe_km": gp.get("distanceKm")}
+
+
+def compute(cfg, con, v_start: str, end: str) -> int:
+    con.execute("DELETE FROM gecmis")
+    ids = json.loads(get_meta(con, "gecmis_gemiler", "[]") or "[]")
+    if not ids:
+        ids = sorted({r[0].split(":")[1] for r in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")})
+    th = cfg.th
+    max_h = th["guzergah_max_gun"] * 24
+    dark_h = th["karanlik_sefer_saat"]
+    dark_win = th["karanlik_sefer_gun"] * 24
+    n = 0
+    for vid in ids:
+        pvs = _cache_get(con, f"v_pv:{vid}:{v_start}:{end}")
+        if pvs is None:
+            continue
+        gaps = _cache_get(con, f"v_gap:{vid}:{v_start}:{end}") or []
+        visits = []
+        for e in sorted(pvs, key=lambda e: e["start"] or ""):
+            if not e.get("start"):
+                continue
+            c, name, code = _visit_place(cfg, e)
+            visits.append({"c": c, "name": name, "code": code, "start": e["start"], "end": e["end"] or e["start"],
+                           "vessel": e["vessel"]})
+        gl = [_gap_info(g) for g in gaps if g.get("start")]
+        for (A, B) in cfg.directions:
+            used = set()
+            for i, v in enumerate(visits):
+                if v["c"] != B:
+                    continue
+                mids, j = [], i - 1
+                while j >= 0:
+                    w = visits[j]
+                    if hours_between(w["end"], v["start"]) > max_h or w["c"] == B:
+                        j = -1
+                        break
+                    if w["c"] == A:
+                        break
+                    mids.append(w)
+                    j -= 1
+                if j < 0:
+                    continue
+                o = visits[j]
+                used.add(j)
+                legs = [g for g in gl if o["end"] <= g["baslangic"] < v["start"] and g["saat"] >= th["ais_bosluk_saat"]]
+                cls = "karanlik_bacak" if legs else ("aktarmali" if mids else "dogrudan")
+                _insert(con, A, B, cls, vid, v["vessel"], o, v, None, list(reversed(mids)), legs)
+                n += 1
+            for i, o in enumerate(visits):
+                if o["c"] != A or i in used:
+                    continue
+                nxt = visits[i + 1] if i + 1 < len(visits) else None
+                if nxt and nxt["c"] == B:
+                    continue
+                lim = add_hours(o["end"], dark_win)
+                if nxt and nxt["start"] < lim:
+                    lim = nxt["start"]
+                legs = [g for g in gl if o["end"] <= g["baslangic"] < lim and g["saat"] >= dark_h
+                        and cfg.in_dark_box(*g["kapanis"])]
+                if legs:
+                    _insert(con, A, B, "karanlik_sefer", vid, o["vessel"], o, None, nxt, [], legs)
+                    n += 1
+    con.commit()
+    return n
+
+
+def _insert(con, A, B, cls, vid, vessel, o, d, nxt, mids, gaps):
+    con.execute(
+        """INSERT INTO gecmis(direction,cls,vessel_id,ssvid,name,flag,vtype,origin,origin_country,t_dep,dest,
+           dest_country,t_arr,next_port,mids,gaps) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (f"{A}>{B}", cls, vid, vessel.get("ssvid"), vessel.get("name"), vessel.get("flag"), vessel.get("type"),
+         o["name"], o["c"], o["end"], d["name"] if d else None, d["c"] if d else None,
+         d["start"] if d else (gaps[0]["bitis"] if gaps else None), nxt["name"] if nxt else None,
+         json.dumps([{"liman": m["name"], "ulke": m["c"], "giris": m["start"], "cikis": m["end"]} for m in mids],
+                    ensure_ascii=False),
+         json.dumps(gaps, ensure_ascii=False)))
+
+
+def run(cfg, start: str | None, end: str | None, budget_min: float | None) -> dict:
+    con = connect(db_path(cfg))
+    try:
+        if start:
+            set_target(con, start, end)
+        if not target(con):
+            return {"durum": "hedef yok (ilk çalıştırmada --baslangic ver)"}
+        token = os.environ.get(cfg.gecmis["anahtar_degiskeni"], "").strip()
+        st = json.loads(get_meta(con, "gecmis_durum", "{}") or "{}")
+        if st.get("tamam") and not start:
+            return {"durum": "tamamlandı", **st}
+        client = Client(token) if token else None
+        if client is None:
+            log.warning("GFW anahtarı yok (%s); yalnızca önbellekteki veriler işlenecek", cfg.gecmis["anahtar_degiskeni"])
+        return scan(cfg, con, client, budget_min)
+    finally:
+        con.close()

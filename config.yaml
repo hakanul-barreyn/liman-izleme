@@ -1,69 +1,161 @@
 # ============================================================================
-#  Liman İzleme – ayar dosyası
-#  Bu dosyayı GitHub'da doğrudan düzenleyebilirsin (kalem simgesi).
-#  Sunucu her gün değişiklikleri kendisi çeker ve yeni ayarlarla yeniden başlar.
-#  Koordinatlar [enlem, boylam] sırasıyla, ondalık derece olarak yazılır.
+#  Liman İzleme – ayar dosyası (Türkiye → İsrail)
+#  GitHub'da kalem simgesiyle düzenlenebilir; bir sonraki saatlik çalıştırma yeni ayarı kullanır.
+#  Koordinatlar [enlem, boylam] sırasıyla, ondalık derece. Alanlar bilerek geniş çizildi
+#  (demirleme sahaları dahil); ilk haftanın verisine bakılarak daraltılabilir.
 # ============================================================================
 
 proje:
-  ad: "Liman İzleme"
-  aciklama: "Seçilen limanlara uğrayan gemilerin açık ve doğrulanabilir arşivi."
+  ad: "Liman İzleme: Türkiye → İsrail"
+  aciklama: >-
+    Türk limanlarından çıkıp İsrail limanlarına doğrudan veya dolaylı yoldan giden gemilerin
+    açık ve doğrulanabilir kaydı. Kayıtlar gemilerin kendi yayınladığı AIS verisine dayanır.
   saat_dilimi: "Europe/Istanbul"
 
-# --- Test edilecek hükümet beyanı -------------------------------------------
-# yonler: "A>B" = A ülkesinin limanlarından B ülkesinin limanlarına giden gemiler.
-# Ülkeler iki harfli kodla yazılır (TR, GR, RU ...). Boş bırakılırsa beyan testi kapalıdır.
+# --- Test edilen resmî açıklamalar ---------------------------------------------
 beyan:
-  yonler: []            # ör. ["XX>YY", "YY>XX"]
-  metin: ""             # beyanın tam metni, tırnak içinde
-  tarih: ""             # ör. "2026-10-01"
-  kaynak: ""            # ör. "Bakanlık açıklaması, resmi web sitesi"
+  yonler: ["TR>IL", "IL>TR"]   # Türkiye'den İsrail'e ve İsrail'den Türkiye'ye
+  aciklamalar:
+    - metin: "İsrail'le ilgili ihracat ve ithalat işlemleri tüm ürünleri kapsayacak şekilde durdurulmuştur."
+      kim: "T.C. Ticaret Bakanlığı"
+      tarih: "2 Mayıs 2024"
+      kaynak: "Bloomberg HT"
+      url: "https://www.bloomberght.com/israille-ticaret-tamamen-durduruldu-2352057"
+    - metin: "İsrail ile ticaretimizi tamamen kestik. Türk gemilerinin İsrail limanlarına gitmesine izin vermiyoruz."
+      kim: "Dışişleri Bakanı Hakan Fidan, TBMM olağanüstü oturumu (İngilizce aktarımdan çeviri)"
+      tarih: "29 Ağustos 2025"
+      kaynak: "Al Jazeera"
+      url: "https://www.aljazeera.com/news/2025/8/29/turkiye-closes-airspace-to-israel-entirely-cutting-ties-over-gaza-war"
+  karsi_gorus: >-
+    Türkiye, BTC boru hattıyla Ceyhan'a gelen Azerbaycan petrolünün satışını kendisinin yapmadığını ve
+    alıcısını belirlemediğini söylüyor; Enerji Bakanlığı BOTAŞ'ın bu satışlarda yer almadığını belirtti.
+    Ağustos 2025'te limanlarda uygulandığı bildirilen kısıtlamalar (İsrail bağlantılı gemiler, İsrail'e
+    askerî veya tehlikeli yük ve Türkiye üzerinden aktarma) resmî bir yazılı duyuruyla değil, liman
+    yetkililerinin acentelere sözlü bildirimiyle uygulandı. Bu sitedeki kayıtlar gemi hareketini gösterir;
+    yükün sahibini, satıcısını veya hukuki durumunu göstermez.
 
-# --- Ülkeler ------------------------------------------------------------------
-# varis_anahtarlari: gemilerin AIS'e yazdığı varış noktasında bu ülkeyi gösteren kelimeler.
-ulkeler: {}
-#  XX:
-#    ad: "X ülkesi"
-#    varis_anahtarlari: ["XLAND"]
+# --- Ülkeler --------------------------------------------------------------------
+# varis_anahtarlari: gemilerin AIS'e yazdığı varış noktasında bu ülkeyi gösteren kelimeler
+ulkeler:
+  TR: {ad: "Türkiye", iso3: "TUR", varis_anahtarlari: ["TURKEY", "TURKIYE", "CEYHAN", "ISKENDERUN", "MERSIN", "ALIAGA", "ISTANBUL", "AMBARLI", "IZMIT"]}
+  IL: {ad: "İsrail", iso3: "ISR", varis_anahtarlari: ["ISRAEL", "HAIFA", "HAYFA", "ASHDOD", "ASHKELON", "ASKELON", "EILAT", "HADERA"]}
+  EG: {ad: "Mısır", iso3: "EGY", varis_anahtarlari: ["EGYPT", "PORT SAID", "PORTSAID", "SAID", "DAMIETTA", "ALEXANDRIA", "DEKHEILA", "SUEZ"]}
+  CY: {ad: "Kıbrıs (GKRY)", iso3: "CYP", varis_anahtarlari: ["CYPRUS", "LIMASSOL", "LARNACA", "VASILIKO"]}
+  GR: {ad: "Yunanistan", iso3: "GRC", varis_anahtarlari: ["GREECE", "PIRAEUS", "PIREAUS", "THESSALONIKI", "ELEFSIS"]}
+  BG: {ad: "Bulgaristan", iso3: "BGR", varis_anahtarlari: ["BULGARIA", "BURGAS", "BOURGAS", "VARNA"]}
 
-# --- Limanlar -------------------------------------------------------------------
-# rol: izlenen -> uğrayan her gemi takibe alınır ve günlük arşivi tutulur (en fazla 3 önerilir)
-#      varis   -> sadece "gemi buraya vardı mı" kontrolü (karşı ülkenin limanları, aktarma limanları)
-# Alan: ya merkez + yaricap_km (daire) ya da alan: [[enlem, boylam], ...] (poligon, demirleme sahasını da içersin)
-# Terminaller isteğe bağlıdır; yük çıkarımını güçlendirir.
-#   yuk değerleri: sivi_dokme, gaz, kuru_dokme, konteyner, ro_ro, genel_kargo
-limanlar: []
-#  - kod: "LIMAN1"
-#    ad: "Örnek Liman"
-#    ulke: "XX"
-#    rol: "izlenen"
-#    merkez: [41.00, 29.00]
-#    yaricap_km: 6
-#    terminaller:
-#      - ad: "Petrol iskelesi"
-#        yuk: "sivi_dokme"
-#        merkez: [41.01, 29.02]
-#        yaricap_km: 1
+# --- Limanlar ---------------------------------------------------------------------
+# Sıra önemli: bir nokta birden çok alana düşerse ilk sıradaki geçerlidir (kıyı alanı limanlardan sonra gelmeli).
+limanlar:
+  # ---------- Türkiye: izlenen limanlar (uğrayan her gemi takibe alınır) ----------
+  - kod: ISK
+    ad: "İskenderun Körfezi (Ceyhan, Dörtyol, İskenderun)"
+    ulke: TR
+    rol: izlenen
+    gecmis_karanlik_tara: true
+    alan: [[36.97, 35.62], [36.97, 36.30], [36.50, 36.30], [36.50, 35.82], [36.72, 35.62]]
+    terminaller:
+      - {ad: "Ceyhan petrol terminalleri (BTC, Kerkük-Ceyhan)", yuk: sivi_dokme, merkez: [36.875, 35.925], yaricap_km: 4}
+      - {ad: "Dörtyol petrol terminali", yuk: sivi_dokme, merkez: [36.83, 36.16], yaricap_km: 3}
+      - {ad: "İsdemir / Payas", yuk: kuru_dokme, merkez: [36.75, 36.19], yaricap_km: 3}
+      - {ad: "İskenderun limanı", yuk: genel_kargo, merkez: [36.59, 36.18], yaricap_km: 2.5}
+  - kod: ALG
+    ad: "Aliağa – Nemrut Körfezi"
+    ulke: TR
+    rol: izlenen
+    gecmis_karanlik_tara: true
+    alan: [[38.88, 26.82], [38.88, 27.00], [38.72, 27.00], [38.72, 26.82]]
+    terminaller:
+      - {ad: "Rafineri ve petrokimya iskeleleri (Tüpraş, STAR, Petkim)", yuk: sivi_dokme, merkez: [38.80, 26.92], yaricap_km: 3}
+  - kod: MER
+    ad: "Mersin"
+    ulke: TR
+    rol: izlenen
+    gecmis_karanlik_tara: true
+    merkez: [36.78, 34.64]
+    yaricap_km: 7
+  - kod: IST
+    ad: "İstanbul – Ambarlı"
+    ulke: TR
+    rol: izlenen
+    merkez: [40.965, 28.69]
+    yaricap_km: 5
+  - kod: IZM
+    ad: "İzmit Körfezi (Kocaeli)"
+    ulke: TR
+    rol: izlenen
+    alan: [[40.80, 29.35], [40.80, 29.95], [40.68, 29.95], [40.68, 29.35]]
+    terminaller:
+      - {ad: "Tüpraş İzmit rafinerisi iskeleleri", yuk: sivi_dokme, merkez: [40.75, 29.83], yaricap_km: 2.5}
+
+  # ---------- İsrail: varış limanları ----------
+  - {kod: HFA, ad: "Hayfa", ulke: IL, rol: varis, merkez: [32.82, 34.99], yaricap_km: 8}
+  - {kod: HAD, ad: "Hadera (Orot Rabin)", ulke: IL, rol: varis, merkez: [32.47, 34.87], yaricap_km: 4,
+     terminaller: [{ad: "Kömür iskelesi", yuk: kuru_dokme, merkez: [32.47, 34.87], yaricap_km: 2}]}
+  - {kod: ASD, ad: "Aşdod", ulke: IL, rol: varis, merkez: [31.82, 34.63], yaricap_km: 6}
+  - {kod: ASK, ad: "Aşkelon (EAPC petrol terminali)", ulke: IL, rol: varis, merkez: [31.67, 34.51], yaricap_km: 7,
+     terminaller: [{ad: "EAPC petrol şamandıraları", yuk: sivi_dokme, merkez: [31.68, 34.50], yaricap_km: 4}]}
+  - {kod: ETH, ad: "Eilat", ulke: IL, rol: varis, merkez: [29.53, 34.95], yaricap_km: 6}
+
+  # ---------- Ara ülkeler (aktarma / sahte varış noktası olarak kullanılanlar) ----------
+  - {kod: PSD, ad: "Port Said", ulke: EG, rol: varis, merkez: [31.27, 32.31], yaricap_km: 12}
+  - {kod: DAM, ad: "Dimyat (Damietta)", ulke: EG, rol: varis, merkez: [31.47, 31.76], yaricap_km: 6}
+  - {kod: ALX, ad: "İskenderiye ve Dekheila", ulke: EG, rol: varis, merkez: [31.17, 29.85], yaricap_km: 9}
+  - {kod: LMS, ad: "Limasol", ulke: CY, rol: varis, merkez: [34.65, 33.03], yaricap_km: 7}
+  - {kod: LCA, ad: "Larnaka", ulke: CY, rol: varis, merkez: [34.91, 33.64], yaricap_km: 7}
+  - {kod: VAS, ad: "Vasiliko", ulke: CY, rol: varis, merkez: [34.71, 33.32], yaricap_km: 5}
+  - {kod: PIR, ad: "Pire", ulke: GR, rol: varis, merkez: [37.93, 23.60], yaricap_km: 8}
+  - {kod: SKG, ad: "Selanik", ulke: GR, rol: varis, merkez: [40.62, 22.92], yaricap_km: 6}
+  - {kod: BOJ, ad: "Burgaz", ulke: BG, rol: varis, merkez: [42.48, 27.48], yaricap_km: 6}
+  - {kod: VAR, ad: "Varna", ulke: BG, rol: varis, merkez: [43.19, 27.92], yaricap_km: 6}
+
+  # ---------- İsrail kıyı yaklaşma alanı (limanlardan SONRA gelmeli) ----------
+  # Kıyıya ~25 km'ye kadar. Buraya girip hiçbir limana uğramadan sinyali kesilen gemiler işaretlenir.
+  - kod: ILK
+    ad: "İsrail kıyı yaklaşma alanı"
+    ulke: IL
+    rol: varis
+    yaklasma: true
+    alan: [[33.09, 35.15], [33.09, 34.80], [32.80, 34.70], [32.40, 34.60], [32.00, 34.48], [31.70, 34.28],
+           [31.59, 34.22], [31.59, 34.60], [32.00, 34.85], [32.50, 34.95], [33.00, 35.15]]
+
+# --- Ek dinleme alanları (liman değil) --------------------------------------------
+# Bu alanlardaki bütün gemiler dinlenir; böylece takipteki bir gemi burada başka bir gemiyle
+# buluşursa diğer gemi de görülür ve takibe alınır.
+izleme_alanlari:
+  - {ad: "Lakonya Körfezi (gemiden gemiye aktarma bölgesi)", alan: [[36.80, 22.50], [36.80, 23.10], [36.40, 23.10], [36.40, 22.50]]}
 
 # --- Hangi gemiler takibe alınsın ------------------------------------------------
-# tipler: kargo, tanker, yolcu, balikci, romorkor, askeri, gezi, diger, bilinmiyor
 gemi_filtresi:
   tipler: ["kargo", "tanker", "bilinmiyor"]
-  min_boy_m: 0
+  min_boy_m: 80
+
+aisstream:
+  # Bu kelimelerden biri varış noktasında geçen gemiler canlı takipte öncelik alır
+  oncelikli_varis: ["FOR ORDERS", "ORDERS", "IL", "EG", "CY", "ISRAEL", "HAIFA", "ASHDOD", "ASHKELON", "EILAT",
+                    "PORT SAID", "PORTSAID", "SAID", "DAMIETTA", "ALEXANDRIA", "CYPRUS", "LIMASSOL", "LARNACA"]
 
 # --- Eşikler (değiştirmek zorunda değilsin) -----------------------------------------
 esikler:
-  ziyaret_min_dakika: 60       # limanda en az bu kadar kalan ve duran gemi ziyaret sayılır
-  takip_gun: 30                # takip süresi
-  guzergah_max_gun: 90         # çıkıştan varışa en fazla bu kadar gün
-  ais_bosluk_saat: 6           # açık denizde bu kadar sinyal yoksa işaretlenir
-  sts_mesafe_m: 500            # denizde buluşma mesafesi
-  sts_sure_saat: 2             # denizde buluşma süresi
-  draft_degisim_m: 1.0         # limansız su çekimi değişimi eşiği
+  ziyaret_min_dakika: 60
+  takip_gun: 45                # takip süresi (karanlık seferler haftalar sürebiliyor)
+  guzergah_max_gun: 90
+  ais_bosluk_saat: 6
+  karanlik_sefer_saat: 24      # bu kadar saatten uzun AIS boşluğu "karanlık sefer" adayı
+  karanlik_sefer_gun: 30
+  karanlik_bolge: [[30.0, 25.0], [37.6, 36.6]]   # Doğu Akdeniz: Rodos'un doğusu ve güneyi
+  yaklasma_sessizlik_saat: 6
+  sts_mesafe_m: 500
+  sts_sure_saat: 2
+  draft_degisim_m: 1.0
+
+# --- Geçmiş tarama (Global Fishing Watch) -----------------------------------------
+gecmis:
+  onceki_gun: 120              # her geminin geçmişine bu kadar gün daha geriden bakılır
+  max_gemi_liman: 400          # karanlık sefer taramasında liman başına en fazla gemi
 
 yayin:
-  ham_veri_yayinla: true       # ham AIS mesajlarını arşivde yayımla (doğrulanabilirlik için önerilir)
-  git_push: true               # sunucu her gün siteyi GitHub'a göndersin
-  opentimestamps: true         # gün hash'ini Bitcoin blok zincirine damgala
+  ham_veri_yayinla: true
+  opentimestamps: true
   site_guncelleme_dakika: 60
   gunluk_saat: "00:05"

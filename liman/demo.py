@@ -6,7 +6,10 @@ Senaryo (XX = 'X ülkesi', YY = 'Y ülkesi', ZZ = üçüncü ülke; koordinatlar
   CEREN   tanker  XX-1'de yükler, açık denizde 10 saat AIS kapatır, YY-1'de boşaltır          → karanlık bacak
   DENIZ   tanker  XX-3'te yükler, açık denizde EFES ile 6 saat yan yana durur, boşalır        → denizde buluşma
   EFES    tanker  XX-2'ye boş uğrar, DENIZ'den yük alır, YY-1'de boşaltır                    → dolaylı + denizde buluşma
-  FENER   kargo   XX-1 alanından durmadan geçer                                              → ziyaret sayılmaz
+  FENER   kargo   XX-1 alanından durmadan geçer, bir kez sahte konum yayınlar                → ziyaret sayılmaz + konum tutarsızlığı
+  GOKCE   tanker  XX-1'de yükler, varış ZZ-1 yazar, açık denizde ~2 gün AIS kapatır, su çekimi düşmüş
+                  olarak döner, ZZ-1'e uğrar                                                   → karanlık sefer
+  HAZAL   kargo   XX-2'de yükler, YY kıyı alanına girer, hiçbir limana girmeden sinyali kesilir  → kıyıda AIS kapandı
 """
 from __future__ import annotations
 
@@ -27,7 +30,8 @@ DEMO_CONFIG = {
     "proje": {"ad": "Liman İzleme (demo)", "kurgusal": True, "saat_dilimi": "Europe/Istanbul",
               "aciklama": "Kurgusal verilerle sistemin nasıl çalıştığını gösteren deneme sitesi."},
     "beyan": {"aktif": True, "yonler": ["XX>YY"], "tarih": "2026-10-01", "kaynak": "Kurgusal açıklama",
-              "metin": "X ülkesinden Y ülkesine hiçbir gemi gönderilmemektedir."},
+              "metin": "X ülkesinden Y ülkesine hiçbir gemi gönderilmemektedir.",
+              "karsi_gorus": "Kurgusal örnek: X hükümeti, limanlarından geçen yükün alıcısını kendisinin belirlemediğini söylüyor."},
     "ulkeler": {"XX": {"ad": "X ülkesi", "varis_anahtarlari": ["XLAND"]},
                 "YY": {"ad": "Y ülkesi", "varis_anahtarlari": ["YLAND", "YY-1"]},
                 "ZZ": {"ad": "Z ülkesi", "varis_anahtarlari": ["ZLAND", "ZZ-1"]}},
@@ -41,8 +45,10 @@ DEMO_CONFIG = {
         {"kod": "YY1", "ad": "YY-1 Ana Liman", "ulke": "YY", "rol": "varis", "merkez": [10.0, 66.0], "yaricap_km": 7,
          "terminaller": [{"ad": "Boşaltma iskelesi", "yuk": "sivi_dokme", "merkez": [10.0, 66.0], "yaricap_km": 1.5}]},
         {"kod": "ZZ1", "ad": "ZZ-1 Aktarma Limanı", "ulke": "ZZ", "rol": "varis", "merkez": [12.0, 64.0], "yaricap_km": 6},
+        {"kod": "YYK", "ad": "YY kıyı yaklaşma alanı", "ulke": "YY", "rol": "varis", "yaklasma": True,
+         "alan": [[10.6, 65.4], [10.6, 66.6], [9.4, 66.6], [9.4, 65.4]]},
     ],
-    "esikler": {"anomali_pencere_gun": 12},
+    "esikler": {"anomali_pencere_gun": 12, "karanlik_bolge": [[8.5, 58.0], [16.5, 68.5]]},
     "yayin": {"opentimestamps": False},
 }
 
@@ -111,6 +117,15 @@ class Ship:
             self.stay(h)
         return self
 
+    def spoof(self, lat, lon):
+        """Tek bir sahte konum yayınla (GPS karıştırma örneği)."""
+        self.t += dt.timedelta(minutes=1)
+        real = (self.lat, self.lon)
+        self.lat, self.lon = lat, lon
+        self._pos(12)
+        self.lat, self.lon = real
+        return self
+
     def go_dark(self, on=True):
         self.dark = on
         return self
@@ -137,8 +152,17 @@ def scenario(start: dt.datetime) -> list[dict]:
     e.sail(14.6, 61.2).stay(8, new_dest="OMAN").sail(STS_POINT[0] + 0.002, STS_POINT[1] + 0.002).until(meet).stay(6, new_draught=13.5).sail(10.0, 66.0).stay(16, new_draught=8.0).sail(9.0, 64.5)
     ships.append(e)
     f = Ship(999000006, 9000006, "DEMO FENER", 70, 150, 14.3, 59.8, T(30), 6.0, "ZLAND")
-    f.sail(13.7, 60.2, knots=13)
+    f.sail(14.0, 60.05, knots=13).spoof(2.0, 75.0).sail(13.7, 60.2, knots=13)
     ships.append(f)
+    g = Ship(999000007, 9000007, "DEMO GOKCE", 80, 245, 14.4, 59.5, T(40), 9.2, "XX-1")
+    g.sail(14.0, 60.02).stay(18, new_draught=15.0, new_dest="ZZ-1").sail(12.0, 62.5)
+    g.go_dark().sail(10.5, 65.0).stay(20).sail(12.2, 62.4)
+    g.draught = 9.0
+    g.go_dark(False).sail(12.0, 64.0).stay(10).sail(13.0, 63.0)
+    ships.append(g)
+    h = Ship(999000008, 9000008, "DEMO HAZAL", 70, 190, 15.0, 61.6, T(50), 7.5, "XX-2")
+    h.sail(14.6, 61.2).stay(14, new_draught=11.0, new_dest="ZLAND").sail(10.45, 65.6)
+    ships.append(h)
     msgs = [m for s in ships for m in s.msgs]
     msgs.sort(key=lambda m: m["MetaData"]["time_utc"])
     return msgs

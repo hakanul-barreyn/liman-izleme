@@ -21,7 +21,7 @@ URL = "wss://stream.aisstream.io/v0/stream"
 
 def port_boxes(cfg) -> list:
     margin = cfg.ais["liman_kenar_payi_km"]
-    return [p.area.bbox(margin) for p in cfg.ports]
+    return [p.area.bbox(margin) for p in cfg.ports] + [a.bbox(0) for _, a in cfg.watch_areas]
 
 
 class Collector:

@@ -19,7 +19,9 @@ DEFAULTS: dict = {
         "site_klasoru": "site",
         "kurgusal": False,
     },
-    "beyan": {"aktif": False, "yonler": [], "metin": "", "tarih": "", "kaynak": ""},
+    "beyan": {"aktif": False, "yonler": [], "metin": "", "tarih": "", "kaynak": "", "aciklamalar": [],
+              "karsi_gorus": ""},
+    "izleme_alanlari": [],
     "ulkeler": {},
     "limanlar": [],
     "esikler": {
@@ -36,6 +38,11 @@ DEFAULTS: dict = {
         "draft_degisim_m": 1.0,
         "durak_sure_saat": 6,
         "anomali_pencere_gun": 4,
+        "karanlik_sefer_saat": 24,
+        "karanlik_sefer_gun": 30,
+        # [[güney enlem, batı boylam], [kuzey enlem, doğu boylam]]: karanlık seferlerin arandığı deniz
+        "karanlik_bolge": [[30.0, 25.0], [37.6, 36.6]],
+        "yaklasma_sessizlik_saat": 6,
     },
     "gemi_filtresi": {"tipler": ["kargo", "tanker", "bilinmiyor"], "min_boy_m": 0},
     "aisstream": {
@@ -44,7 +51,9 @@ DEFAULTS: dict = {
         "takip_baglanti_sayisi": 2,
         "mmsi_baglanti_basina": 50,
         "sessizlik_dakika": 15,
+        "oncelikli_varis": [],
     },
+    "gecmis": {"anahtar_degiskeni": "GFW_API_TOKEN", "onceki_gun": 120, "max_gemi_liman": 400},
     "yayin": {
         "ham_veri_yayinla": True,
         "git_push": False,
@@ -80,7 +89,14 @@ class Port:
     role: str  # "izlenen" | "varis"
     area: Area
     terminals: list[Terminal] = field(default_factory=list)
+    approach: bool = False      # kıyı yaklaşma alanı (liman değil)
+    retro_dark: bool = False    # geçmiş taramada bu limandan çıkan karanlık seferler aransın
 
+
+ISO3 = {"TR": "TUR", "IL": "ISR", "GR": "GRC", "BG": "BGR", "EG": "EGY", "CY": "CYP", "MT": "MLT",
+        "IT": "ITA", "LB": "LBN", "SY": "SYR", "RO": "ROU", "GE": "GEO", "AZ": "AZE", "RU": "RUS",
+        "UA": "UKR", "JO": "JOR", "SA": "SAU", "AE": "ARE", "LY": "LBY", "TN": "TUN", "ES": "ESP",
+        "FR": "FRA", "XX": "XXX", "YY": "YYY", "ZZ": "ZZZ"}
 
 CARGO_LABELS = {
     "sivi_dokme": "Sıvı dökme (ham petrol / ürün / kimyasal)",
@@ -122,8 +138,12 @@ class Config:
             ]
             self.ports.append(
                 Port(code, spec.get("ad", code), str(spec.get("ulke", "")).upper(),
-                     spec.get("rol", "izlenen"), Area(spec), terms)
+                     spec.get("rol", "izlenen"), Area(spec), terms,
+                     bool(spec.get("yaklasma")), bool(spec.get("gecmis_karanlik_tara")))
             )
+        self.watch_areas = [(a.get("ad", "alan"), Area(a)) for a in self.raw["izleme_alanlari"] or []]
+        self.gecmis = self.raw["gecmis"]
+        self.dark_box = self.th["karanlik_bolge"]
         self.port_by_code = {p.code: p for p in self.ports}
         self.directions: list[tuple[str, str]] = []
         for d in self.declaration.get("yonler") or []:
@@ -146,6 +166,48 @@ class Config:
 
     def country_name(self, code: str) -> str:
         return (self.countries.get(code) or {}).get("ad", code)
+
+    def iso3(self, code: str) -> str:
+        return (self.countries.get(code) or {}).get("iso3") or ISO3.get(code, code)
+
+    def country_from_iso3(self, iso3: str | None) -> str | None:
+        if not iso3:
+            return None
+        for c in self.countries:
+            if self.iso3(c) == iso3:
+                return c
+        return None
+
+    def target_countries(self) -> set[str]:
+        return {b for _, b in self.directions}
+
+    def dest_countries(self) -> set[str]:
+        """Hedef ülkelerden, izlenen limanı olmayanlar (ör. TR>IL ve IL>TR için yalnızca IL)."""
+        origin = {p.country for p in self.ports if p.role == "izlenen"}
+        return self.target_countries() - origin
+
+    def in_dark_box(self, lat, lon) -> bool:
+        if lat is None or lon is None:
+            return False
+        (la0, lo0), (la1, lo1) = self.dark_box
+        return la0 <= lat <= la1 and lo0 <= lon <= lo1
+
+    def dest_has_keyword(self, dest: str | None, keywords) -> bool:
+        if not dest:
+            return False
+        d = dest.upper()
+        tokens = [t for t in "".join(ch if ch.isalnum() else " " for ch in d).split()]
+        for k in keywords or []:
+            k = str(k).upper().strip()
+            if not k:
+                continue
+            if " " in k and k in d:
+                return True
+            if k in tokens:
+                return True
+            if len(k) == 2 and any(len(t) == 5 and t.isalpha() and t.startswith(k) for t in tokens):
+                return True  # UN/LOCODE
+        return False
 
     def terminal_cargo(self, port_code: str | None, terminal: str | None) -> str | None:
         if not port_code or not terminal:

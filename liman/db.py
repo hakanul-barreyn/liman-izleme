@@ -53,6 +53,12 @@ CREATE TABLE IF NOT EXISTS routes(
 
 CREATE TABLE IF NOT EXISTS seen_offport(mmsi INTEGER, hour TEXT, PRIMARY KEY(mmsi, hour));
 
+CREATE TABLE IF NOT EXISTS gfw_cache(key TEXT PRIMARY KEY, data TEXT, fetched TEXT);
+CREATE TABLE IF NOT EXISTS gecmis(
+  id INTEGER PRIMARY KEY, direction TEXT, cls TEXT, vessel_id TEXT, ssvid TEXT, name TEXT, flag TEXT,
+  vtype TEXT, origin TEXT, origin_country TEXT, t_dep TEXT, dest TEXT, dest_country TEXT, t_arr TEXT,
+  next_port TEXT, mids TEXT, gaps TEXT);
+
 CREATE TABLE IF NOT EXISTS archived_days(day TEXT PRIMARY KEY, day_hash TEXT, created TEXT);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
 """
@@ -65,7 +71,16 @@ def connect(path: Path) -> sqlite3.Connection:
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA synchronous=NORMAL")
     con.executescript(SCHEMA)
+    _migrate(con)
     return con
+
+
+def _migrate(con) -> None:
+    """Eski veritabanlarına yeni sütunları ekler."""
+    cols = {r[1] for r in con.execute("PRAGMA table_info(tracking)")}
+    if "prio" not in cols:
+        con.execute("ALTER TABLE tracking ADD COLUMN prio INTEGER DEFAULT 0")
+    con.commit()
 
 
 def get_meta(con, k: str, default=None):

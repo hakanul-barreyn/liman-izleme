@@ -3,7 +3,7 @@
 data/
 demo/
 _durum/
-_durum_cikis/
+
 .venv/
 __pycache__/
 *.pyc

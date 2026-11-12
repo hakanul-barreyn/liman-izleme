@@ -39,6 +39,14 @@ def test_end_to_end(tmp_path):
     assert ("DEMO EFES", "denizde_aktarma") in routes
     assert routes[("DEMO EFES", "dolayli_sts")]["via_name"] == "DEMO DENIZ"
     assert routes[("DEMO ATLAS", "dogrudan")]["cargo_conf"] == "yüksek"
+    gokce = routes[("DEMO GOKCE", "karanlik_sefer")]
+    assert gokce["dest_port"] is None and '"draft_dustu": true' in gokce["flags"]
+    assert ("DEMO HAZAL", "kiyida_kayboldu") in routes
+    assert not any(n in ("DEMO GOKCE", "DEMO HAZAL") and c not in ("karanlik_sefer", "kiyida_kayboldu")
+                   for n, c in routes)
+    assert con.execute("SELECT count(*) FROM events WHERE kind='spoof' AND mmsi=999000006").fetchone()[0] == 1
+    # sahte konum analizde kullanılmamalı
+    assert con.execute("SELECT count(*) FROM positions WHERE mmsi=999000006 AND lat < 5").fetchone()[0] == 0
     fener = con.execute("SELECT transit FROM visits v JOIN vessels s USING(mmsi) WHERE s.name='DEMO FENER'").fetchone()
     assert fener["transit"] == 1
     assert con.execute("SELECT count(*) FROM tracking WHERE mmsi=999000006").fetchone()[0] == 0
@@ -77,3 +85,16 @@ def test_state_roundtrip_and_raw_rebuild(tmp_path):
     assert not proof.verify(cfg, day)[0]
     assert day in durum.prepare_raw(cfg)
     assert proof.verify(cfg, day)[0]
+
+
+def test_outage_hours(tmp_path):
+    from liman.anomaly import outage_hours
+    from liman.db import connect
+    con = connect(tmp_path / "x.db")
+    con.executemany("INSERT INTO outages(conn,t_start,t_end) VALUES(?,?,?)", [
+        ("tumu", "2026-01-01T01:00:00Z", "2026-01-01T01:10:00Z"),
+        ("tumu", "2026-01-01T02:00:00Z", "2026-01-01T02:10:00Z"),
+        ("liman", "2026-01-01T02:05:00Z", "2026-01-01T02:20:00Z"),
+    ])
+    h = outage_hours(con, "2026-01-01T00:00:00Z", "2026-01-01T10:00:00Z")
+    assert abs(h - (10 + 20) / 60) < 1e-6

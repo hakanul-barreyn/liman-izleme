@@ -1,6 +1,7 @@
 # Liman İzleme – GitHub Actions ile ücretsiz çalıştırma
-# Her saat: ~52 dakika AIS verisi toplar, analiz eder, biten günleri arşivleyip mühürler,
-# ham veriyi Releases'a yükler, siteyi GitHub Pages'e yayımlar ve durumu 'durum' dalına kaydeder.
+# Her saat: ~48 dakika AIS verisi toplar, analiz eder, biten günleri arşivleyip mühürler,
+# ham veriyi Releases'a yükler, siteyi GitHub Pages'e yayımlar ve durumu Actions önbelleğine kaydeder.
+# GFW_API_TOKEN gizli anahtarı varsa geçmişe dönük taramayı da her çalıştırmada biraz ilerletir.
 name: Liman izleme
 
 on:
@@ -10,7 +11,10 @@ on:
     inputs:
       dakika:
         description: "Kaç dakika veri toplansın"
-        default: "52"
+        default: "48"
+      gecmis_baslangic:
+        description: "Geçmiş taramayı başlat: başlangıç tarihi (ör. 2024-05-02). Boş bırak = devam et"
+        default: ""
 
 permissions:
   contents: write
@@ -24,7 +28,9 @@ concurrency:
 jobs:
   topla:
     runs-on: ubuntu-latest
-    timeout-minutes: 80
+    timeout-minutes: 85
+    env:
+      GFW_API_TOKEN: ${{ secrets.GFW_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -36,14 +42,20 @@ jobs:
       - name: Kütüphaneleri kur
         run: pip install -q -r requirements.txt
 
+      - name: Önceki durumu önbellekten al
+        uses: actions/cache/restore@v4
+        with:
+          path: _durum
+          key: durum-${{ github.run_id }}
+          restore-keys: durum-
+
       - name: Önceki durumu geri yükle
-        run: |
-          mkdir -p _durum
-          if git ls-remote --exit-code --heads origin durum >/dev/null 2>&1; then
-            git fetch -q --depth=1 origin durum
-            git archive FETCH_HEAD | tar -x -C _durum
-          fi
-          python -m liman durum-yukle _durum
+        id: yukle
+        run: python -m liman durum-yukle _durum
+
+      - name: Geçmiş tarama (Global Fishing Watch)
+        if: env.GFW_API_TOKEN != ''
+        run: python -m liman gecmis --baslangic "${{ inputs.gecmis_baslangic }}" --dilim "${{ inputs.gecmis_baslangic != '' && '25' || '7' }}" || true
 
       - name: Veri topla, analiz et, arşivle
         id: tur
@@ -52,10 +64,11 @@ jobs:
           LIMAN_HAM_URL: https://github.com/${{ github.repository }}/releases/download/arsiv-{gun}/ham.jsonl.gz
         run: |
           set +e
-          python -m liman tur --dakika "${{ inputs.dakika || '52' }}"
+          python -m liman tur --dakika "${{ inputs.dakika || '48' }}"
           echo "rc=$?" >> "$GITHUB_OUTPUT"
 
       - name: Ham veriyi GitHub Releases'a yükle
+        if: always() && steps.yukle.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -79,6 +92,7 @@ jobs:
           done
 
       - name: Arşivi ve kanıt zincirini depoya kaydet
+        if: always() && steps.yukle.outcome == 'success'
         run: |
           git config user.name "liman-izleme-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -89,17 +103,18 @@ jobs:
           fi
 
       - name: Durumu kaydet
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python -m liman durum-kaydet _durum_cikis
-          cd _durum_cikis
-          git init -q -b durum
-          git add .
-          git -c user.name=liman-izleme-bot -c user.email=bot@users.noreply.github.com commit -q -m "durum $(date -u +%FT%TZ)"
-          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" durum
+        if: always() && steps.yukle.outcome == 'success'
+        run: python -m liman durum-kaydet _durum
+
+      - name: Durumu önbelleğe yaz
+        if: always() && steps.yukle.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: _durum
+          key: durum-${{ github.run_id }}-${{ github.run_attempt }}
 
       - uses: actions/upload-pages-artifact@v3
+        if: always() && steps.yukle.outcome == 'success'
         with:
           path: site
 
