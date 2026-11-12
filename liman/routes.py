@@ -119,11 +119,15 @@ def compute(cfg, con) -> int:
                         if vs[k]["port"] not in approach and hours_between(w["last_in"], vs[k]["t_in"]) <= 72:
                             j, w = k, vs[k]
                             break
-                if hours_between(v["t_out"], w["t_in"]) > max_h:
+                span = hours_between(v["t_out"], w["t_in"])
+                if span > max_h:
                     continue
-                used.add((A, B, v["id"]))
                 mids = [{"liman": cfg.port_by_code[x["port"]].name, "ulke": country[x["port"]],
                          "giris": x["t_in"], "cikis": x["t_out"]} for x in vs[i + 1:j] if x["port"] not in approach]
+                if (mids and (len(mids) > th["aktarma_max_liman"] or span > th["aktarma_max_gun"] * 24)) or \
+                        (not mids and span > th["dogrudan_max_gun"] * 24):
+                    continue  # bağ zayıf: çok fazla ara liman ya da çok uzun süre
+                used.add((A, B, v["id"]))
                 evs = events_between(mmsis, v["t_out"], w["t_in"])
                 kinds = {e["kind"] for e in evs}
                 was_tracked = tracked(mmsis, v["t_out"], w["t_in"])

@@ -19,11 +19,15 @@ beyan:
     - metin: "İsrail'le ilgili ihracat ve ithalat işlemleri tüm ürünleri kapsayacak şekilde durdurulmuştur."
       kim: "T.C. Ticaret Bakanlığı"
       tarih: "2 Mayıs 2024"
+      gun: "2024-05-02"
+      etiket: "Ticaret durduruldu"
       kaynak: "Bloomberg HT"
       url: "https://www.bloomberght.com/israille-ticaret-tamamen-durduruldu-2352057"
     - metin: "İsrail ile ticaretimizi tamamen kestik. Türk gemilerinin İsrail limanlarına gitmesine izin vermiyoruz."
       kim: "Dışişleri Bakanı Hakan Fidan, TBMM olağanüstü oturumu (İngilizce aktarımdan çeviri)"
       tarih: "29 Ağustos 2025"
+      gun: "2025-08-29"
+      etiket: "Liman kısıtlamaları"
       kaynak: "Al Jazeera"
       url: "https://www.aljazeera.com/news/2025/8/29/turkiye-closes-airspace-to-israel-entirely-cutting-ties-over-gaza-war"
   karsi_gorus: >-
@@ -152,7 +156,7 @@ esikler:
 # --- Geçmiş tarama (Global Fishing Watch) -----------------------------------------
 gecmis:
   onceki_gun: 120              # her geminin geçmişine bu kadar gün daha geriden bakılır
-  max_gemi_liman: 400          # karanlık sefer taramasında liman başına en fazla gemi
+  max_gemi_liman: 8000         # karanlık sefer taramasında liman başına en fazla gemi (tarama saatlik dilimlerle ilerler)
 
 yayin:
   ham_veri_yayinla: true

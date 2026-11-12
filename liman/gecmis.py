@@ -14,6 +14,7 @@ GFW, AIS verisinden liman ziyaretlerini (tüm gemi tipleri) ve AIS boşlukların
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import logging
 import os
@@ -23,6 +24,7 @@ import urllib.parse
 import urllib.request
 
 from .db import connect, db_path, get_meta, set_meta
+from .geo import haversine_km
 from .util import add_hours, hours_between, iso, now_utc
 
 log = logging.getLogger("gecmis")
@@ -174,6 +176,15 @@ def set_target(con, start: str, end: str | None = None) -> dict:
     return t
 
 
+def _imza(cfg, t: dict | None) -> str:
+    """Taramanın kapsamı; ayarlar değişince (ör. gemi sınırı artınca) tamamlanmış tarama yeniden açılır."""
+    targets = cfg.dest_countries()
+    k = {"hedef": t, "sinir": cfg.gecmis["max_gemi_liman"],
+         "varis": sorted(p.code for p in cfg.ports if p.country in targets and not p.approach),
+         "karanlik": sorted(p.code for p in cfg.ports if p.retro_dark)}
+    return hashlib.sha1(json.dumps(k, sort_keys=True).encode()).hexdigest()[:12]
+
+
 def scan(cfg, con, client: Client | None, budget_min: float | None = None) -> dict:
     """Önbellekte olmayan istekleri süre bütçesi içinde yapar; sonra sonuçları hesaplar."""
     t = target(con)
@@ -224,7 +235,7 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None) -> di
         log.error("%s", e)
         complete = False
     n = compute(cfg, con, v_start, end)
-    status = {"hedef": t, "tamam": complete, "gorev": [tasks_done, tasks_total], "kayit": n,
+    status = {"hedef": t, "tamam": complete, "imza": _imza(cfg, t), "gorev": [tasks_done, tasks_total], "kayit": n,
               "istek": client.requests if client else 0, "guncelleme": iso(now_utc())}
     set_meta(con, "gecmis_durum", json.dumps(status))
     con.commit()
@@ -238,14 +249,30 @@ def _visit_place(cfg, e: dict) -> tuple[str | None, str, str | None, float | Non
     pv = e.get("port_visit") or {}
     anc = pv.get("startAnchorage") or pv.get("endAnchorage") or {}
     lat, lon = pos.get("lat", anc.get("lat")), pos.get("lon", anc.get("lon"))
+    c = cfg.country_from_iso3(anc.get("flag"))
     if lat is not None and lon is not None:
         code, _ = cfg.locate(lat, lon)
         if code and not cfg.port_by_code[code].approach:
             p = cfg.port_by_code[code]
             return p.country, p.name, code, lat, lon
-    c = cfg.country_from_iso3(anc.get("flag"))
-    name = (anc.get("name") or "?").title()
-    return c, f"{name} ({anc.get('flag') or '?'})", None, lat, lon
+        # liman alanımızın biraz dışındaki demirleme yerleri: aynı ülkedeki en yakın limanımız (40 km)
+        best = None
+        for p in cfg.ports:
+            if p.approach or (c and p.country != c):
+                continue
+            d = haversine_km(lat, lon, *p.area.center)
+            if d <= 40 and (best is None or d < best[0]):
+                best = (d, p)
+        if best:
+            p = best[1]
+            return p.country, p.name, p.code, lat, lon
+    nm = (anc.get("name") or "").strip()
+    ulke = cfg.country_name(c) if c else (anc.get("flag") or "")
+    if nm:
+        name = f"{nm.title()}, {ulke}" if ulke else nm.title()
+    else:
+        name = f"{ulke} limanı" if ulke else "Bilinmeyen liman"
+    return c, name, None, lat, lon
 
 
 def _gap_info(g: dict) -> dict:
@@ -262,13 +289,19 @@ def _gap_info(g: dict) -> dict:
 
 def compute(cfg, con, v_start: str, end: str) -> int:
     con.execute("DELETE FROM gecmis")
-    ids = json.loads(get_meta(con, "gecmis_gemiler", "[]") or "[]")
-    if not ids:
-        ids = sorted({r[0].split(":")[1] for r in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")})
+    # tarama sürerken de önbelleğe girmiş bütün gemiler hesaba katılsın
+    ids = set(json.loads(get_meta(con, "gecmis_gemiler", "[]") or "[]"))
+    ids |= {r[0].split(":")[1] for r in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")}
+    ids = sorted(ids)
     th = cfg.th
     max_h = th["guzergah_max_gun"] * 24
     dark_h = th["karanlik_sefer_saat"]
     dark_win = th["karanlik_sefer_gun"] * 24
+    max_mids = th["aktarma_max_liman"]
+    via_h = th["aktarma_max_gun"] * 24
+    direct_h = th["dogrudan_max_gun"] * 24
+    t = target(con)
+    period = f"{t['baslangic']}T00:00:00Z" if t else ""
     n = 0
     for vid in ids:
         pvs = _cache_get(con, f"v_pv:{vid}:{v_start}:{end}")
@@ -299,16 +332,19 @@ def compute(cfg, con, v_start: str, end: str) -> int:
                         break
                     mids.append(w)
                     j -= 1
-                if j < 0:
+                if j < 0 or v["start"] < period:
                     continue
                 o = visits[j]
+                span = hours_between(o["end"], v["start"])
+                if (mids and (len(mids) > max_mids or span > via_h)) or (not mids and span > direct_h):
+                    continue  # bağ zayıf: çok fazla ara liman ya da çok uzun süre
                 used.add(j)
                 legs = [g for g in gl if o["end"] <= g["baslangic"] < v["start"] and g["saat"] >= th["ais_bosluk_saat"]]
                 cls = "karanlik_bacak" if legs else ("aktarmali" if mids else "dogrudan")
                 _insert(con, A, B, cls, vid, v["vessel"], o, v, None, list(reversed(mids)), legs)
                 n += 1
             for i, o in enumerate(visits):
-                if o["c"] != A or i in used:
+                if o["c"] != A or i in used or o["end"] < period:
                     continue
                 nxt = visits[i + 1] if i + 1 < len(visits) else None
                 if nxt and nxt["c"] == B:
@@ -351,7 +387,7 @@ def run(cfg, start: str | None, end: str | None, budget_min: float | None) -> di
             return {"durum": "hedef yok (ilk çalıştırmada --baslangic ver)"}
         token = os.environ.get(cfg.gecmis["anahtar_degiskeni"], "").strip()
         st = json.loads(get_meta(con, "gecmis_durum", "{}") or "{}")
-        if st.get("tamam") and not start:
+        if st.get("tamam") and not start and (st.get("imza") == _imza(cfg, target(con)) or not token):
             # tarama bitti: yalnızca önbellekten yeniden hesapla (kurallar değişmiş olabilir)
             t = target(con)
             lookback = cfg.gecmis["onceki_gun"]

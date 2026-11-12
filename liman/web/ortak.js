@@ -135,11 +135,12 @@
   }
 
   /* ---------- harita çizim yardımcıları ---------- */
-  LI.yay = function (a, b, n) {
+  LI.yay = function (a, b, n, k) {
     n = n || 24;
+    k = k == null ? 0.16 : k;
     const dx = b[0] - a[0], dy = b[1] - a[1];
     if (!dx && !dy) return [a, b];
-    const k = 0.16, cx = (a[0] + b[0]) / 2 - dy * k, cy = (a[1] + b[1]) / 2 + dx * k;
+    const cx = (a[0] + b[0]) / 2 - dy * k, cy = (a[1] + b[1]) / 2 + dx * k;
     const out = [];
     for (let i = 0; i <= n; i++) {
       const t = i / n, u = 1 - t;

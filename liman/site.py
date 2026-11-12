@@ -169,8 +169,11 @@ def _index(cfg, recs, meta) -> str:
         f'<span class="rota">{E(r.get("o") or "")} → {E(r.get("d") or "varış kayıtsız")}</span></button></li>' for r in son)
     hedef = json.loads(get_meta(cfg._con, "gecmis_hedef", "null") or "null")
     ts = sorted(x for x in ((r.get("t1") or r.get("t0")) for r in recs) if x)
-    ayar = {"kok": "", "surum": cfg._surum, "yonler": yonler or [""],
+    isaretler = [{"gun": str(a["gun"])[:10], "etiket": a["etiket"]}
+                 for a in cfg.declaration.get("aciklamalar") or [] if a.get("gun") and a.get("etiket")]
+    ayar = {"kok": "", "surum": cfg._surum, "yonler": yonler or [""], "isaretler": isaretler,
             "baslangic": (hedef or {}).get("baslangic") or (ts[0][:10] if ts else iso(now_utc())[:10])}
+    kaynak = Counter(r["s"] for r in sel)
     body = f'''<main class="uygulama" id="icerik">
 <aside class="panel" id="panel" aria-label="Seferler">
   <div class="panel-bas"><button type="button" class="cekme" id="cekme" aria-expanded="false" aria-controls="panel">
@@ -181,14 +184,16 @@ def _index(cfg, recs, meta) -> str:
       {f'<div class="dugmeler" role="group" aria-label="Yön">{yon_btn}</div>' if len(yonler) > 1 else ""}
       <div class="siniflar" id="siniflar" role="group" aria-label="Sefer türleri">{aileler}</div>
       <div class="dugmeler" role="group" aria-label="Kaynak">
-        <button type="button" data-k="c" aria-pressed="true">Canlı kayıt</button>
-        <button type="button" data-k="g" aria-pressed="true">Geçmiş tarama</button></div>
+        <button type="button" data-k="c" aria-pressed="true">Canlı kayıt <span class="sayi">{_n(kaynak.get("c", 0))}</span></button>
+        <button type="button" data-k="g" aria-pressed="true">Geçmiş tarama <span class="sayi">{_n(kaynak.get("g", 0))}</span></button></div>
       <label class="ara"><span class="gizli">Gemi ara</span><input type="search" id="ara" placeholder="Gemi adı, IMO ya da MMSI" autocomplete="off"></label>
+      <div class="hat" id="hat" hidden></div>
     </div>
     <div id="liste"><ul class="liste">{satirlar}</ul></div>
     <div id="detay" hidden></div>
-    <footer class="panel-alt">Çizgi rengi sefer türünü gösterir. Düz çizgi bu sitenin kaydettiği gerçek AIS izi, kesik çizgi geçmiş
-    taramadaki limanlar arası bağlantıdır. Macenta noktalı çizgi AIS sinyalinin kesildiği aralıktır.<br><br>
+    <footer class="panel-alt">Renk sefer türünü, kavisli çizginin kalınlığı o iki liman arasındaki sefer sayısını gösterir.
+    Kavisli çizgi limanlar arası bağlantıdır, gerçek güzergâh değil; ince düz çizgi bu sitenin kaydettiği gerçek AIS izidir.
+    Macenta noktalı çizgi AIS sinyalinin kesildiği aralıktır. Bir hatta tıklarsan yalnızca o hattan geçen seferler listelenir.<br><br>
     Veri: AIS (aisstream.io). Geçmiş tarama: <a href="https://globalfishingwatch.org">Powered by Global Fishing Watch.</a>
     Harita: OpenFreeMap, OpenStreetMap. Son güncelleme: {E(_tarih(cfg, meta["olusturma"], True))}.
     <a href="kanit.html">Kanıt zinciri</a>, <a href="yontem.html">yöntem</a>.</footer>

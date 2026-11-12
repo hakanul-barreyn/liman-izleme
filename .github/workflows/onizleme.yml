@@ -42,7 +42,12 @@ jobs:
           cp -r site/vendor demo/site/vendor
 
       - name: Tarayıcıda aç ve ekran görüntüsü al
-        run: python kurulum/onizleme.py
+        run: |
+          python kurulum/onizleme.py
+          # yerelde deneme için harita kütüphanesi ve haritanın veri dosyaları da dala yazılır
+          mkdir -p _onizleme/ek
+          cp -r site/vendor _onizleme/ek/vendor
+          cp -r site/veri/harita _onizleme/ek/harita
 
       - name: Sonuçları 'onizleme' dalına yaz
         env:

@@ -43,6 +43,9 @@ DEFAULTS: dict = {
         # [[güney enlem, batı boylam], [kuzey enlem, doğu boylam]]: karanlık seferlerin arandığı deniz
         "karanlik_bolge": [[30.0, 25.0], [37.6, 36.6]],
         "yaklasma_sessizlik_saat": 6,
+        "aktarma_max_liman": 2,      # ara limanlı sayılmak için en fazla ara liman
+        "aktarma_max_gun": 30,       # ara limanlı seferde çıkıştan varışa en fazla gün
+        "dogrudan_max_gun": 45,      # doğrudan seferde çıkıştan varışa en fazla gün
     },
     "gemi_filtresi": {"tipler": ["kargo", "tanker", "bilinmiyor"], "min_boy_m": 0},
     "aisstream": {

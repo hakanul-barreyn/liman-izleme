@@ -191,7 +191,8 @@ def events(cfg, con, now: str) -> dict:
 def relevant_keys(con) -> dict[str, list[int]]:
     """Kendi sayfası olacak gemiler: takip edilmiş, bir sefere veya olaya karışmış olanlar."""
     m2k, k2m = vessel_keys(con)
-    mm = {r[0] for r in con.execute("SELECT mmsi FROM tracking")}
+    mm = {r[0] for r in con.execute(
+        "SELECT mmsi FROM tracking WHERE coalesce(end_reason,'') != 'gemi tipi filtre dışı'")}
     mm |= {r[0] for r in con.execute("SELECT mmsi FROM routes")}
     mm |= {r[0] for r in con.execute("SELECT via_mmsi FROM routes WHERE via_mmsi IS NOT NULL")}
     mm |= {r[0] for r in con.execute("SELECT mmsi FROM events WHERE kind != 'spoof'")}
