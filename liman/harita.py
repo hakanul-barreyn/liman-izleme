@@ -143,6 +143,9 @@ def voyages(cfg, con) -> list[dict]:
         if r["via_mmsi"]:
             rec["via"] = _clean({"n": r["via_name"], "m": r["via_mmsi"], "g": r["via_vkey"]})
         out.append(_clean(rec))
+    from .db import get_meta
+    hedef = json.loads(get_meta(con, "gecmis_hedef", "null") or "null") or {}
+    beyan_gunu = f"{hedef['baslangic']}T00:00:00Z" if hedef.get("baslangic") else None
     for r in con.execute("SELECT * FROM gecmis ORDER BY t_arr"):
         r = dict(r)
         gaps = json.loads(r["gaps"] or "[]")
@@ -169,7 +172,9 @@ def voyages(cfg, con) -> list[dict]:
         tk = ship_group(vt) == "tanker" if vt else False
         if not ter and la is not None and r["origin_country"] in cfg_home(cfg) and haversine_km(la, lo, *CEYHAN) <= 11:
             ter = "Ceyhan terminalleri ve demirleme alanı"
-        out.append(_clean({"ter": ter, "sv": 1 if (sv or tk) else None, "tk": 1 if tk else None,
+        t_tr = r["t_dep"] if home else r["t_arr"]
+        out.append(_clean({"on": 1 if beyan_gunu and t_tr and t_tr < beyan_gunu else None,
+                           "ter": ter, "sv": 1 if (sv or tk) else None, "tk": 1 if tk else None,
                            "yuk": CARGO_LABELS["sivi_dokme"] if (sv or tk) else None,
                            "gv": ("yüksek" if sv and tk else "orta") if (sv or tk) else None,
                            "dy": [x for x in [f"{'Çıkış' if home else 'Varış'} terminali: {ter} (yalnızca sıvı dökme yük iskelesi)" if sv else None,

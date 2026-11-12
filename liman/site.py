@@ -180,10 +180,13 @@ def _index(cfg, recs, meta) -> str:
         f'<span class="rota">{E(r.get("o") or "")} → {E(r.get("d") or "varış kayıtsız")}</span></button></li>' for r in son)
     hedef = json.loads(get_meta(cfg._con, "gecmis_hedef", "null") or "null")
     ts = sorted(x for x in ((r.get("t1") or r.get("t0")) for r in recs) if x)
-    isaretler = [{"gun": str(a["gun"])[:10], "etiket": a["etiket"]}
-                 for a in cfg.declaration.get("aciklamalar") or [] if a.get("gun") and a.get("etiket")]
+    isaretler = sorted([{"gun": str(a["gun"])[:10], "etiket": a["etiket"]}
+                        for a in (cfg.declaration.get("aciklamalar") or []) + (cfg.declaration.get("isaretler") or [])
+                        if a.get("gun") and a.get("etiket")], key=lambda x: x["gun"])
     ayar = {"kok": "", "surum": cfg._surum, "yonler": yonler or [""], "isaretler": isaretler,
-            "baslangic": (hedef or {}).get("baslangic") or (ts[0][:10] if ts else iso(now_utc())[:10])}
+            "beyan": (hedef or {}).get("baslangic"),
+            "baslangic": min(filter(None, [str(cfg.gecmis.get("erken_baslangic") or ""), (hedef or {}).get("baslangic")]),
+                             default=None) or (ts[0][:10] if ts else iso(now_utc())[:10])}
     kaynak = Counter(r["s"] for r in sel)
     body = f'''<main class="uygulama" id="icerik">
 <aside class="panel" id="panel" aria-label="Seferler">

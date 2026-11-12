@@ -136,6 +136,8 @@
     } else donem = '';
     let alt = n ? `${donem}, AIS kayıtlarına göre.` : 'Seçili filtrelerle eşleşen sefer yok. Filtreleri genişlet ya da tüm dönemi seç.';
     if (karanlik) alt += ` ${LI.sayi(karanlik)} seferde gemi yolda sinyalini kapattı ya da varış limanı kayıtsız kaldı.`;
+    const once = list.filter((r) => r.on).length;
+    if (once && ayar.beyan) alt += ` ${LI.sayi(once)} sefer ${LI.tarih(ayar.beyan)} beyanından önce.`;
     $('#manset-alt').textContent = alt;
   }
 
@@ -303,6 +305,7 @@
     kutu.innerHTML = `<div class="detay"><button type="button" class="geri" id="geri">← Listeye dön</button>
       <h2>${esc(r.n || 'Adı bilinmiyor')}</h2><p class="kimlik">${esc(kimlik)}</p>${via}
       <span class="rozet" style="--c:var(--c-${r.a})">${esc((VERI.siniflar || {})[r.k] || r.k)}</span>
+      ${r.on && ayar.beyan ? `<p class="not">Bu sefer ${LI.tarih(ayar.beyan)} beyanından önce.</p>` : ''}
       ${adimlar(r)}${beyan}${yuk}${uyduBlok(r)}
       <div class="eylemler">${r.g ? `<a class="eylem ana" href="${KOK}gemiler/${esc(r.g)}.html">Geminin tüm geçmişi</a>` : ''}
         <button type="button" class="eylem" id="kopyala">Bağlantıyı kopyala</button></div>

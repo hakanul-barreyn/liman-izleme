@@ -30,6 +30,9 @@ beyan:
       etiket: "Liman kısıtlamaları"
       kaynak: "Al Jazeera"
       url: "https://www.aljazeera.com/news/2025/8/29/turkiye-closes-airspace-to-israel-entirely-cutting-ties-over-gaza-war"
+  isaretler:
+    - {gun: "2023-10-07", etiket: "7 Ekim"}
+    - {gun: "2024-04-09", etiket: "54 üründe kısıtlama"}
   karsi_gorus: >-
     Türkiye, BTC boru hattıyla Ceyhan'a gelen Azerbaycan petrolünün satışını kendisinin yapmadığını ve
     alıcısını belirlemediğini söylüyor; Enerji Bakanlığı BOTAŞ'ın bu satışlarda yer almadığını belirtti.
@@ -156,6 +159,7 @@ esikler:
 # --- Geçmiş tarama (Global Fishing Watch) -----------------------------------------
 gecmis:
   onceki_gun: 120              # her geminin geçmişine bu kadar gün daha geriden bakılır
+  erken_baslangic: "2023-10-07"  # beyandan önceki dönem de taranır; bu seferler haritada ve raporlarda "beyandan önce" diye ayrılır
   max_gemi_liman: 8000         # karanlık sefer taramasında liman başına en fazla gemi (tarama saatlik dilimlerle ilerler)
 
 yayin:

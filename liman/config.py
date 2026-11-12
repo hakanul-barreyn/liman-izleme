@@ -64,7 +64,7 @@ DEFAULTS: dict = {
         "sessizlik_dakika": 15,
         "oncelikli_varis": [],
     },
-    "gecmis": {"anahtar_degiskeni": "GFW_API_TOKEN", "onceki_gun": 120, "max_gemi_liman": 400},
+    "gecmis": {"anahtar_degiskeni": "GFW_API_TOKEN", "onceki_gun": 120, "max_gemi_liman": 400, "erken_baslangic": None},
     "yayin": {
         "ham_veri_yayinla": True,
         "git_push": False,

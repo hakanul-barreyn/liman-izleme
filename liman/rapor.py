@@ -303,6 +303,11 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 f' Ceyhan terminalleri çevresinden taranan {_n(len(cik))} çıkıştan {_n(say.get(B, 0))} tanesi doğrudan {E(b_ad)}’e gitti.'
                 + ("" if petrol else f' <a href="{sl}-petrol.html">Petrol tankerleri raporu</a>') + '</p>')
 
+        once = [r for r in sel if r.get("on")]
+        hd = json.loads(get_meta(con, "gecmis_hedef", "null") or "null") or {}
+        once_not = (f' Bunların {_n(len(once))} tanesi {E(_tarih(cfg, hd["baslangic"] + "T12:00:00Z"))} beyanından önce.'
+                    if once and hd.get("baslangic") else "")
+
         def liste(sh_):
             top_ = max((x["n"] for x in sh_), default=1)
             return (f'<div class="arac"><label class="ara"><span class="gizli">Gemi ya da liman ara</span>'
@@ -322,7 +327,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 + (f'<nav class="dugmeler yon" aria-label="Yön">{yon}</nav>' if len(directions) > 1 or dunya else "")
                 + f'<h2 class="rapor-baslik">{_n(len(sh))} gemi, {_n(len(sel))} sefer</h2>'
                 f'<p class="not">{E(donem)}{", " if donem else ""}canlı kayıt ve geçmiş tarama birlikte. Varış ayına göre '
-                f'<a href="#aylik">aylık raporlar</a> sayfanın sonunda.</p>{petrol_not}'
+                f'<a href="#aylik">aylık raporlar</a> sayfanın sonunda.{once_not}</p>{petrol_not}'
                 f'<p class="eylemler"><a class="eylem ana" href="{sl}-seferler.html">Bütün seferler tek listede</a>'
                 f'<a class="eylem" href="{sl}-gemiler.csv" download>Gemi listesi (CSV)</a>'
                 f'<a class="eylem" href="{sl}-seferler.csv" download>Bütün seferler (CSV)</a></p>'

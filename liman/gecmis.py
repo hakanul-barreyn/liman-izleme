@@ -223,10 +223,16 @@ def set_target(con, start: str, end: str | None = None) -> dict:
     return t
 
 
+def erken_bas(cfg, t: dict) -> str:
+    """Kayıtların başladığı gün: beyan tarihinden önceki erken dönem varsa onun başı (ör. 7 Ekim 2023)."""
+    e = cfg.gecmis.get("erken_baslangic")
+    return min(str(e), t["baslangic"]) if e else t["baslangic"]
+
+
 def _imza(cfg, t: dict | None) -> str:
     """Taramanın kapsamı; ayarlar değişince (ör. gemi sınırı artınca) tamamlanmış tarama yeniden açılır."""
     targets = cfg.dest_countries()
-    k = {"hedef": t, "sinir": cfg.gecmis["max_gemi_liman"],
+    k = {"hedef": t, "sinir": cfg.gecmis["max_gemi_liman"], "erken": cfg.gecmis.get("erken_baslangic"),
          "varis": sorted(p.code for p in cfg.ports if p.country in targets and not p.approach),
          "karanlik": sorted(p.code for p in cfg.ports if p.retro_dark)}
     return hashlib.sha1(json.dumps(k, sort_keys=True).encode()).hexdigest()[:12]
@@ -361,15 +367,36 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
             if ports is dest_ports:
                 dest_ids = set(vessel_ids)
         # sıra: varış limanlarına uğrayanlar, sonra Ceyhan petrol terminallerine uğrayanlar, sonra diğerleri
-        sirali = list(vessel_ids)
-        ilk = len([v for v in sirali if v in dest_ids])
-        sirali = sirali[:ilk] + sorted(sirali[ilk:], key=lambda v: v not in ceyhan_ids)
-        for vid in sirali:
-            for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
-                plan.ensure(f"{kind}:{vid}:{v_start}:{end}",
-                            lambda ds=ds, vid=vid: client.vessel_events(ds, vid, v_start, end))
+        # gemi sorguları öncelik sırasıyla: varış limanlarına uğrayanlar, Ceyhan'a uğrayanlar, diğerleri
+        gorev: list[tuple] = []
+        for i, vid in enumerate(vessel_ids):
+            gorev.append(((0 if vid in dest_ids else 2 if vid in ceyhan_ids else 4), i, vid, v_start, end))
         if not partial:
             set_meta(con, "gecmis_gemiler", json.dumps(list(vessel_ids)))
+        # 1b) erken dönem (ör. 7 Ekim 2023 – beyan tarihi): aynı sorgular, ayrı pencereyle
+        e0 = erken_bas(cfg, t)
+        if e0 < start:
+            ew0 = (dt.date.fromisoformat(e0) - dt.timedelta(days=lookback)).isoformat()
+            erken_ids: dict[str, dict] = {}
+            dest_e: set = set()
+            for ports in (dest_ports, dark_ports):
+                for p in ports:
+                    for a, b in chunks(e0, start):
+                        evs = plan.area(f"area_pv:{p.code}:{a}:{b}",
+                                        lambda p=p, a=a, b=b: client.area_events(DS_PV, geometry(p.area), a, b, pv_extra))
+                        _vessels_in(evs, erken_ids)
+                        for e in evs or []:
+                            pos = e.get("position") or {}
+                            if pos.get("lat") is not None and haversine_km(pos["lat"], pos["lon"], *CEYHAN) <= CEYHAN_KM:
+                                ceyhan_ids.add((e.get("vessel") or {}).get("id"))
+                if ports is dest_ports:
+                    dest_e = set(erken_ids)
+            for i, vid in enumerate(erken_ids):
+                gorev.append(((1 if vid in dest_e else 3 if vid in ceyhan_ids else 5), i, vid, ew0, start))
+        for _p, _i, vid, w0, w1 in sorted(gorev):
+            for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
+                plan.ensure(f"{kind}:{vid}:{w0}:{w1}",
+                            lambda ds=ds, vid=vid, w0=w0, w1=w1: client.vessel_events(ds, vid, w0, w1))
         # 2) haftalık güncelleme dilimleri
         dark_hist: list[set[str]] = []
         for a, b in segs:
@@ -393,7 +420,7 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
         # 3) hedef ülkenin kıyı açıkları: limana girmeden bekleyen gemiler (şamandıra boşaltması, aktarma)
         son = (today - dt.timedelta(days=3)).isoformat()
         for z in offshore_zones(cfg):
-            for a, b in chunks(start, son, days=30):
+            for a, b in chunks(erken_bas(cfg, t), son, days=30):
                 evs = plan.area(f"pres:{z.code}:{a}:{b}",
                                 lambda z=z, a=a, b=b: client.presence(geometry(z.area), a, b), ham=True)
                 bilinen = {k.split(":")[1] for (k,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")}
@@ -503,7 +530,7 @@ def compute(cfg, con, *_eski) -> int:
     via_h = th["aktarma_max_gun"] * 24
     direct_h = th["dogrudan_max_gun"] * 24
     t = target(con)
-    period = f"{t['baslangic']}T00:00:00Z" if t else ""
+    period = f"{erken_bas(cfg, t)}T00:00:00Z" if t else ""
     # beyanı veren ülke (izlenen limanların ülkesi): dönem kuralı o ülkedeki uğrağa bakar
     home = {p.country for p in cfg.ports if p.role == "izlenen"}
     # ara liman sayılan ülkeler: yapılandırmadaki diğer ülkeler (Yunanistan, Bulgaristan, Mısır, Kıbrıs).
