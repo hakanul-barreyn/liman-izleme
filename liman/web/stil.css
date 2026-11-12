@@ -552,6 +552,9 @@ svg.aylik .eksik-yazi{font:11.5px var(--font);fill:var(--ink-3)}
 .kunye-rapor dd{margin:2px 0 0;font-weight:600}
 .kunye-rapor code{font-size:12px;font-weight:400;word-break:break-all}
 .pdf-satir{margin:8px 0 0;font-family:var(--font);font-size:14px}
+.paylas-satir{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:10px 0 0;font-family:var(--font);font-size:14px}
+.kopyala-link{border:1px solid var(--rule);background:var(--paper);border-radius:6px;padding:3px 10px;font-size:13.5px;cursor:pointer}
+.kopyala-link:hover{background:var(--hover)}
 .pdf-satir:empty{display:none}
 .ozet-kutu{margin:22px 0 8px;padding:4px 24px 14px;background:var(--paper);border:1px solid var(--rule);border-radius:10px}
 .ozet-kutu h2{margin-top:18px}
@@ -571,7 +574,7 @@ svg.aylik .eksik-yazi{font:11.5px var(--font);fill:var(--ink-3)}
   :root{color-scheme:light;--plane:#fff;--paper:#fff;--paper-2:#f5f7f9;--ink:#111c28;--ink-2:#3b4b5c;--ink-3:#66778a;
     --rule:#c9d2da;--rule-2:#e1e7ec;--magenta:#a3105f}
   body{background:#fff}
-  .ust,.alt-bilgi,.kurgu,.atla,.dil,.pdf-satir,.tema,.eylemler{display:none!important}
+  .ust,.alt-bilgi,.kurgu,.atla,.dil,.pdf-satir,.paylas-satir,.tema,.eylemler{display:none!important}
   .makale{max-width:none;padding:0;font-size:10.5pt;line-height:1.5}
   .makale h1{font-size:21pt}
   .makale h2{font-size:14pt;margin-top:20pt;break-after:avoid}

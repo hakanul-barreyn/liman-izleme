@@ -866,10 +866,25 @@ def build(cfg, o: dict, out: Path) -> None:
                f"{_n(d.get('sonra'))} sefer: yöntem, bulgular, sınırlar.")
     desc_en = (f"After Türkiye declared a halt to trade with Israel on 2 May 2024, {_n(d.get('sonra'), True)} voyages went from "
                "Turkish to Israeli ports: method, findings, limitations.")
-    _write(rdir / "index.html", _page(cfg, "Rapor: Beyan ve kayıt", f'<main class="makale" id="icerik">{tr}</main>{PDF_JS}', 1,
+    adres = (cfg.pub.get("adres") or "").rstrip("/")
+    from urllib.parse import urlencode
+
+    def paylas(metin, url, yazi, kopya):
+        x = "https://x.com/intent/post?" + urlencode({"text": metin, "url": url})
+        return (f'<p class="paylas-satir"><a href="{E(x)}" target="_blank" rel="noopener">{yazi}</a> '
+                f'<button type="button" class="kopyala-link" data-url="{E(url)}">{kopya}</button></p>')
+    kopya_js = ('<script>document.addEventListener("click",function(e){var b=e.target.closest(".kopyala-link");if(!b)return;'
+                '(navigator.clipboard?navigator.clipboard.writeText(b.dataset.url):Promise.reject()).then(function(){'
+                'b.textContent=document.documentElement.lang==="en"?"Copied":"Kopyalandı"},function(){})});</script>')
+    if adres:
+        tr = tr.replace('<p class="pdf-satir"', paylas(desc_tr, f"{adres}/rapor/", "X’te paylaş", "Bağlantıyı kopyala")
+                        + '<p class="pdf-satir"', 1)
+        en = en.replace('<p class="pdf-satir"', paylas(desc_en, f"{adres}/rapor/en.html", "Share on X", "Copy link")
+                        + '<p class="pdf-satir"', 1)
+    _write(rdir / "index.html", _page(cfg, "Rapor: Beyan ve kayıt", f'<main class="makale" id="icerik">{tr}</main>{PDF_JS}{kopya_js}', 1,
                                       "rapor", desc=desc_tr))
-    sayfa = _page(cfg, "Report: Declaration and record", f'<main class="makale" id="icerik">{en}</main>{PDF_JS}', 1, "rapor",
-                  desc=desc_en)
+    sayfa = _page(cfg, "Report: Declaration and record", f'<main class="makale" id="icerik">{en}</main>{PDF_JS}{kopya_js}', 1,
+                  "rapor", desc=desc_en)
     _write(rdir / "en.html", sayfa.replace('<html lang="tr">', '<html lang="en">', 1))
     veri = {k: v for k, v in o.items() if k not in ("kesit",)}
     _write(out / "veri" / "rapor-ozet.json", json.dumps(veri, ensure_ascii=False, default=str, indent=1))
