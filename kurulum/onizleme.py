@@ -113,6 +113,22 @@ def tanker_tani(con, cached: set) -> dict:
                              for x in cik if x.get("vid") == vid][:12]
             b["kayitlar"] = [list(r) for r in con.execute(
                 "SELECT cls, origin, t_dep, dest, t_arr, next_port FROM gecmis WHERE vessel_id=? ORDER BY t_dep", (vid,))]
+            # bütün AIS boşlukları ve liman ziyaretleri (sıralı), geçmişi alınmışsa
+            bos, zi = [], []
+            for key, data in con.execute("SELECT key, data FROM gfw_cache WHERE key LIKE ? OR key LIKE ?",
+                                         (f"v_gap:{vid}:%", f"v_pv:{vid}:%")):
+                for e in _j.loads(data) or []:
+                    if key.startswith("v_gap"):
+                        g = e.get("gap") or {}
+                        off, on = g.get("offPosition") or {}, g.get("onPosition") or {}
+                        bos.append([e.get("start"), e.get("end"), g.get("durationHours"), off.get("lat"), off.get("lon"),
+                                    on.get("lat"), on.get("lon"), g.get("intentionalDisabling")])
+                    else:
+                        a = ((e.get("port_visit") or {}).get("startAnchorage") or {})
+                        zi.append([e.get("start"), e.get("end"), a.get("name"), a.get("flag"),
+                                   (e.get("position") or {}).get("lat"), (e.get("position") or {}).get("lon")])
+            b["bosluklar"] = sorted({tuple(x) for x in bos}, key=lambda x: x[0] or "")
+            b["ziyaretler"] = sorted({tuple(x) for x in zi}, key=lambda x: x[0] or "")
     out["basindaki"] = bul
     out["basinda_bulunmayan"] = sorted(isimler - set(bul))
     return out
