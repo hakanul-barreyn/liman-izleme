@@ -99,6 +99,13 @@ def test_retro_scan(tmp_path):
     assert dark["s"] == "g" and dark["kp"] and dark["w"][0] == [35.93, 36.87] and "d" not in dark
     via = [r for r in rec.values() if r["k"] == "aktarmali"][0]
     assert len(via["w"]) == 3 and via["ara"]
+    # raporlar: gemi gemi liste, aylık rapor ve CSV
+    rd = cfg.site_dir / "raporlar"
+    rp = (rd / "index.html").read_text()
+    # örnek gemilerin hepsi aynı MMSI'yi (111) taşıyor: gemiler MMSI ile gruplanır
+    assert rp.count('<details class="gemi"') == 1 and "1 gemi, 3 sefer" in rp
+    assert (rd / "tr-il-seferler.csv").read_bytes().startswith("\ufeff".encode())
+    assert list(rd.glob("tr-il-2025-0*.html"))
 
 
 def test_guncelleme_bogaz_ve_donem(tmp_path):

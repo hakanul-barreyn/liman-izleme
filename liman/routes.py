@@ -24,7 +24,7 @@ from .util import add_hours, hours_between
 CLASS_LABELS = {
     "dogrudan": "Doğrudan",
     "dogrudan_izlenmedi": "Doğrudan (ara güzergâh izlenemedi)",
-    "aktarmali": "Ara duraklı",
+    "aktarmali": "Ara limanlı",
     "karanlik_bacak": "Karanlık bacak (AIS boşluğu)",
     "denizde_aktarma": "Denizde buluşma (olası aktarma)",
     "dolayli_sts": "Dolaylı: denizde gemiden gemiye",
@@ -32,7 +32,7 @@ CLASS_LABELS = {
     "karanlik_sefer": "Karanlık sefer (varış limanı kayıtsız)",
 }
 CLASS_ORDER = list(CLASS_LABELS)
-CLASS_SHORT = {"dogrudan": "Doğrudan", "dogrudan_izlenmedi": "Doğrudan*", "aktarmali": "Ara duraklı",
+CLASS_SHORT = {"dogrudan": "Doğrudan", "dogrudan_izlenmedi": "Doğrudan*", "aktarmali": "Ara limanlı",
                "karanlik_bacak": "Karanlık", "denizde_aktarma": "Denizde buluşma", "dolayli_sts": "Dolaylı",
                "kiyida_kayboldu": "Kıyıda kayıp", "karanlik_sefer": "Karanlık sefer"}
 

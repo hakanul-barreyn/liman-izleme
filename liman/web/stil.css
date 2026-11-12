@@ -273,4 +273,74 @@ td.sayi,th.sayi{text-align:right}
 .alt-bilgi a{color:var(--ink-2)}
 code,.kod{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;word-break:break-all}
 ol.adim-liste li{margin-bottom:6px}
+/* ---------- raporlar ---------- */
+.rapor .rapor-baslik{margin:22px 0 4px;font-size:30px;font-stretch:75%}
+.rapor .rapor-baslik+.not{margin:0}
+.yon{max-width:440px}
+.yon a{flex:1;text-align:center;padding:6px 8px;border-radius:6px;font-size:13.5px;text-decoration:none;color:var(--ink-2)}
+.yon a[aria-current]{background:var(--paper);color:var(--ink);font-weight:600;box-shadow:0 0 0 1px var(--rule)}
+.arac{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:26px 0 12px}
+.arac .ara{flex:1 1 300px}
+.arac .dugmeler{flex:0 1 330px}
+.arac output{font-size:13.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;min-width:12ch}
+.lejant{display:flex;flex-wrap:wrap;gap:4px 18px;margin:0 0 10px;font-size:13px;color:var(--ink-2)}
+.gemi-liste{background:var(--paper);border:1px solid var(--rule);border-radius:10px}
+.gemi-bas,details.gemi>summary{display:grid;grid-template-columns:minmax(0,1.25fr) 190px 96px minmax(0,1.5fr);
+  gap:4px 20px;align-items:center;padding:10px 16px}
+.gemi-bas{font-size:12.5px;color:var(--ink-2);background:var(--paper-2);border-bottom:1px solid var(--rule);
+  border-radius:10px 10px 0 0;position:sticky;top:0;z-index:1}
+details.gemi{border-bottom:1px solid var(--rule-2)}
+details.gemi:last-child{border-bottom:0}
+details.gemi>summary{cursor:pointer;list-style:none}
+details.gemi>summary::-webkit-details-marker{display:none}
+details.gemi>summary:hover{background:var(--hover)}
+details.gemi[open]>summary{background:var(--paper-2)}
+details.gemi>summary:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.gemi .ad b{display:block;font-weight:600;font-stretch:87.5%;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gemi .ad small,.gemi .rota-ozet{display:block;font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gemi .rota-ozet small{color:var(--ink-3);font-size:12.5px}
+.gemi .adet{display:flex;align-items:center;gap:10px}
+.gemi .adet b{font-variant-numeric:tabular-nums;font-size:15px;min-width:3ch;text-align:right;order:-1}
+.bar{flex:1;display:flex;gap:2px;height:8px}
+.bar i{display:block;height:100%;min-width:3px;border-radius:2px}
+.bar .dogrudan,.seferler .dogrudan{--c:var(--c-dogrudan)}
+.bar .liman,.seferler .liman{--c:var(--c-liman)}
+.bar .sts,.seferler .sts{--c:var(--c-sts)}
+.bar .karanlik,.seferler .karanlik{--c:var(--c-karanlik)}
+.bar i{background:var(--c)}
+.gemi .son{font-size:13.5px;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.gemi .son small{display:none}
+.gemi .govde{padding:2px 16px 14px;background:var(--paper-2);border-top:1px solid var(--rule-2)}
+.gemi .govde p{margin:10px 0 8px;font-size:13.5px;color:var(--ink-2)}
+.gemi .govde p a{margin-left:12px;color:var(--ink)}
+.seferler{list-style:none;margin:0;padding:0;font-size:13.5px}
+.seferler li{display:grid;grid-template-columns:168px minmax(0,1fr) 150px auto;gap:2px 16px;padding:6px 0;
+  border-top:1px solid var(--rule-2);align-items:baseline;max-width:none}
+.seferler .t{color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.seferler em{font-style:normal;font-size:12.5px;color:var(--ink-2);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.seferler em::before{content:"";flex:none;width:12px;height:4px;border-radius:2px;background:var(--c)}
+.seferler a{color:var(--ink)}
+#aylik{margin-top:44px}
+.aylar{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px}
+.aylar li{max-width:none}
+.aylar a{display:block;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);text-decoration:none}
+.aylar a:hover{background:var(--hover)}
+.aylar b{display:block;font-weight:600}
+.aylar span{font-size:13px;color:var(--ink-2)}
+.ay-gecis{display:flex;justify-content:space-between;gap:12px;margin:0 0 14px;font-size:14px}
+.yol{margin:0 0 6px;font-size:13.5px;color:var(--ink-2)}
+.rapor td .tarih{white-space:nowrap}
+@media (max-width:760px){
+  .gemi-bas{display:none}
+  details.gemi>summary{grid-template-columns:minmax(0,1fr) 96px;gap:4px 12px;padding:10px 12px}
+  .gemi .ad{grid-column:1;grid-row:1}
+  .gemi .adet{grid-column:2;grid-row:1}
+  .gemi .son{grid-column:1/-1;grid-row:2}
+  .gemi .son small{display:inline}
+  .gemi .rota-ozet{grid-column:1/-1;grid-row:3;white-space:normal}
+  .gemi .govde{padding:2px 12px 12px}
+  .seferler li{grid-template-columns:minmax(0,1fr) auto}
+  .seferler .t{grid-column:1/-1}
+  .gemi .govde p a{display:inline-block;margin:6px 12px 0 0}
+}
 @media (max-width:600px){.sayfa{padding:24px 16px 56px}.sayfa h1{font-size:30px}th,td{padding:8px 9px}.mini-harita{height:340px}}

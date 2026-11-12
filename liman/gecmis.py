@@ -26,6 +26,7 @@ import urllib.request
 
 from .db import connect, db_path, get_meta, set_meta
 from .geo import haversine_km
+from .ulkeler import ISO3_AD
 from .util import add_hours, hours_between, iso, now_utc
 
 log = logging.getLogger("gecmis")
@@ -34,15 +35,7 @@ DS_PV = "public-global-port-visits-events:latest"
 DS_GAP = "public-global-gaps-events:latest"
 SKIP_TYPES = ("fishing", "passenger", "gear", "support", "seismic")
 # Ülke kodu yapılandırmada olmayan limanlar için Türkçe ülke adları (GFW ISO3 kullanır)
-ULKE_ADLARI = {
-    "ALB": "Arnavutluk", "ARE": "BAE", "AZE": "Azerbaycan", "BEL": "Belçika", "BGR": "Bulgaristan", "BHR": "Bahreyn",
-    "CHN": "Çin", "CYP": "Kıbrıs", "DEU": "Almanya", "DZA": "Cezayir", "EGY": "Mısır", "ESP": "İspanya", "FRA": "Fransa",
-    "GBR": "Birleşik Krallık", "GEO": "Gürcistan", "GRC": "Yunanistan", "HRV": "Hırvatistan", "IND": "Hindistan",
-    "IRN": "İran", "IRQ": "Irak", "ISR": "İsrail", "ITA": "İtalya", "JOR": "Ürdün", "KWT": "Kuveyt", "LBN": "Lübnan",
-    "LBY": "Libya", "MAR": "Fas", "MLT": "Malta", "MNE": "Karadağ", "NLD": "Hollanda", "OMN": "Umman", "PAK": "Pakistan",
-    "PRT": "Portekiz", "QAT": "Katar", "ROU": "Romanya", "RUS": "Rusya", "SAU": "Suudi Arabistan", "SVN": "Slovenya",
-    "SYR": "Suriye", "TUN": "Tunus", "TUR": "Türkiye", "UKR": "Ukrayna", "USA": "ABD", "XXX": "X ülkesi",
-}
+ULKE_ADLARI = ISO3_AD
 # GFW liman adları ASCII; sık görülen Türk limanlarının doğru yazımı
 TR_ADLAR = {
     "Aliaga": "Aliağa", "Ambarli": "Ambarlı", "Bandirma": "Bandırma", "Bartin": "Bartın", "Botas": "Botaş",
@@ -53,7 +46,7 @@ TR_ADLAR = {
 }
 CLASS_LABELS = {
     "dogrudan": "Doğrudan",
-    "aktarmali": "Ara duraklı",
+    "aktarmali": "Ara limanlı",
     "karanlik_bacak": "Karanlık bacak (AIS boşluğu)",
     "karanlik_sefer": "Karanlık sefer (varış limanı kayıtsız)",
 }
@@ -429,9 +422,14 @@ def compute(cfg, con, *_eski) -> int:
             c, name, code, lat, lon = _visit_place(cfg, e)
             if code is None and lat is not None and cfg.in_transit_zone(lat, lon):
                 continue  # boğaz geçişi için bekleme: liman uğrağı değil
+            end = e["end"] or e["start"]
+            prev = visits[-1] if visits else None
+            if prev and prev["name"] == name and prev["c"] == c and hours_between(prev["end"], e["start"]) <= 72:
+                # aynı limanda art arda iki kayıt (demirleme, sonra rıhtım): tek uğrak
+                prev["end"] = max(prev["end"], end)
+                continue
             visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon,
-                           "start": e["start"], "end": e["end"] or e["start"],
-                           "vessel": e["vessel"]})
+                           "start": e["start"], "end": end, "vessel": e["vessel"]})
         gl = [_gap_info(g) for g in gaps if g.get("start")]
         for (A, B) in cfg.directions:
             used = set()

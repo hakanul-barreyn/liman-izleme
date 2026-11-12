@@ -1,0 +1,254 @@
+"""Raporlar: hedef ülkeye giden gemilerin gemi gemi listesi, aylık raporlar ve CSV dosyaları.
+
+raporlar/index.html             ilk yön (ör. Türkiye → İsrail): bütün gemiler ve her birinin seferleri
+raporlar/<yön>.html             diğer yönler (ör. il-tr.html)
+raporlar/<yön>-<YYYY-AA>.html   aylık rapor: o ay varan seferler, gemi gemi
+raporlar/<yön>-gemiler.csv      gemi listesi
+raporlar/<yön>-seferler.csv     bütün seferler
+"""
+from __future__ import annotations
+
+import csv
+import io
+from collections import Counter, defaultdict
+from pathlib import Path
+from urllib.parse import quote
+from zoneinfo import ZoneInfo
+
+from . import harita
+from .ulkeler import bayrak
+from .util import parse_iso
+
+KISA_AY = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
+
+
+def slug(y: str) -> str:
+    return y.replace(">", "-").lower()
+
+
+def sayfa(directions: list[str], y: str) -> str:
+    return "index.html" if y == directions[0] else f"{slug(y)}.html"
+
+
+def _zaman(r: dict) -> str:
+    return r.get("t1") or r.get("t0") or ""
+
+
+def _yerel(cfg, s: str):
+    return parse_iso(s).astimezone(ZoneInfo(cfg.tz))
+
+
+def _kisa(cfg, s: str | None, yil: bool = True) -> str:
+    if not s:
+        return "?"
+    t = _yerel(cfg, s)
+    return f"{t.day} {KISA_AY[t.month - 1]}" + (f" {t.year}" if yil else "")
+
+
+def _aralik(cfg, a: str | None, b: str | None) -> str:
+    if not a or not b:
+        return _kisa(cfg, a or b)
+    ta, tb = _yerel(cfg, a), _yerel(cfg, b)
+    return f"{_kisa(cfg, a, ta.year != tb.year)} – {_kisa(cfg, b)}"
+
+
+def _rota(r: dict) -> str:
+    return " → ".join([r.get("o") or "?", *(r.get("ara") or []), r.get("d") or "varış kayıtsız"])
+
+
+def ships(recs: list[dict], y: str, vessels: dict, m2k: dict, pages: set[str]) -> list[dict]:
+    """Bir yöndeki seferleri gemi gemi toplar (gemi = MMSI; yoksa ad)."""
+    by: dict = defaultdict(list)
+    for r in recs:
+        if r["y"] == y:
+            by[r.get("m") or f"ad:{r.get('n')}"].append(r)
+    out = []
+    for key, rs in by.items():
+        rs.sort(key=_zaman, reverse=True)
+        mmsi = key if isinstance(key, int) else None
+        v = vessels.get(mmsi) or {}
+        imo = next((r["imo"] for r in rs if r.get("imo")), None) or v.get("imo")
+        flag = next((r["b"] for r in rs if r.get("b")), None)
+        page = next((r["g"] for r in rs if r.get("g")), None) or (m2k.get(mmsi) if mmsi else None)
+        hat = Counter((r.get("o") or "?", r.get("d") or "varış kayıtsız") for r in rs)
+        out.append({
+            "ad": rs[0].get("n") or (f"MMSI {mmsi}" if mmsi else "Adı bilinmiyor"),
+            "adlar": sorted({r.get("n") for r in rs if r.get("n")} - {rs[0].get("n")}),
+            "mmsi": mmsi, "imo": imo, "bayrak": bayrak(flag, mmsi),
+            "sayfa": page if page in pages else None,
+            "n": len(rs), "aile": Counter(r["a"] for r in rs),
+            "ilk": _zaman(rs[-1]), "son": _zaman(rs[0]),
+            "hatlar": hat.most_common(), "seferler": rs,
+        })
+    out.sort(key=lambda s: (-s["n"], s["ad"]))
+    return out
+
+
+def _harita_link(directions, r) -> str:
+    y = "" if r["y"] == directions[0] else f"y={quote(r['y'])}&"
+    return f"../index.html#{y}sec={r['id']}"
+
+
+def _sefer_li(cfg, E, directions, r) -> str:
+    return (f'<li><span class="t">{E(_aralik(cfg, r.get("t0"), r.get("t1")))}</span>'
+            f'<span class="r">{E(_rota(r))}</span>'
+            f'<em class="{r["a"]}">{E(harita.ALL_LABELS.get(r["k"], r["k"]))}</em>'
+            f'<a href="{_harita_link(directions, r)}">Haritada</a></li>')
+
+
+def _satir(cfg, E, directions, s: dict, top: int) -> str:
+    kimlik = [f"{s['bayrak']} bayraklı" if s["bayrak"] else None,
+              f"IMO {s['imo']}" if s["imo"] else None, f"MMSI {s['mmsi']}" if s["mmsi"] else None]
+    bar = "".join(f'<i class="{a}" style="width:{100 * s["aile"][a] / top:.2f}%"></i>'
+                  for a in harita.FAMILY_ORDER if s["aile"].get(a))
+    hat = ", ".join(f"{E(a)} → {E(b)}" + (f" <small>({n})</small>" if len(s["hatlar"]) > 1 else "")
+                    for (a, b), n in s["hatlar"][:2])
+    if len(s["hatlar"]) > 2:
+        hat += f', <small>{len(s["hatlar"]) - 2} hat daha</small>'
+    ailesi = ", ".join(f'{harita.FAMILY_LABELS[a].lower()} {s["aile"][a]}' for a in harita.FAMILY_ORDER if s["aile"].get(a))
+    baglanti = [f'<a href="../index.html#q={quote(str(s["mmsi"] or s["ad"]))}">Haritada bütün seferleri</a>']
+    if s["sayfa"]:
+        baglanti.append(f'<a href="../gemiler/{E(s["sayfa"])}.html">Gemi sayfası</a>')
+    eski = f' Önceki adları: {E(", ".join(s["adlar"]))}.' if s["adlar"] else ""
+    ara = " ".join(filter(None, [s["ad"], *s["adlar"], str(s["mmsi"] or ""), str(s["imo"] or ""), s["bayrak"]]))
+    return (f'<details class="gemi" data-n="{s["n"]}" data-son="{E(s["son"])}" data-ad="{E(s["ad"])}" '
+            f'data-ara="{E(ara.lower())}"><summary>'
+            f'<span class="ad"><b>{E(s["ad"])}</b><small>{E(", ".join(filter(None, kimlik)))}</small></span>'
+            f'<span class="adet"><span class="bar" aria-hidden="true">{bar}</span><b>{s["n"]}</b></span>'
+            f'<span class="son"><small>Son sefer </small>{E(_kisa(cfg, s["son"]))}</span>'
+            f'<span class="rota-ozet">{hat}</span></summary>'
+            f'<div class="govde"><p>{s["n"]} sefer: {E(ailesi)}. İlk sefer {E(_kisa(cfg, s["ilk"]))}.{eski} '
+            f'{" ".join(baglanti)}</p><ol class="seferler">'
+            + "".join(_sefer_li(cfg, E, directions, r) for r in s["seferler"]) + "</ol></div></details>")
+
+
+def _csv(rows: list[list]) -> bytes:
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
+    w.writerows(rows)
+    return ("﻿" + buf.getvalue()).encode("utf-8")
+
+
+ARAC = '''<script>(function(){
+var liste=document.getElementById("gemi-liste"),ara=document.getElementById("rapor-ara"),say=document.getElementById("rapor-say");
+var hepsi=[].slice.call(liste.querySelectorAll("details.gemi")),zaman=null;
+function goster(){var q=ara.value.trim().toLocaleLowerCase("tr"),n=0;
+hepsi.forEach(function(d){var u=!q||d.dataset.ara.indexOf(q)>=0||d.textContent.toLocaleLowerCase("tr").indexOf(q)>=0;d.hidden=!u;if(u)n++});
+say.textContent=q?n+" gemi bulundu":hepsi.length+" gemi";}
+ara.addEventListener("input",function(){clearTimeout(zaman);zaman=setTimeout(goster,120)});
+document.querySelectorAll("[data-sirala]").forEach(function(b){b.addEventListener("click",function(){
+var k=b.dataset.sirala;document.querySelectorAll("[data-sirala]").forEach(function(x){x.setAttribute("aria-pressed",String(x===b))});
+hepsi.sort(function(a,c){if(k==="ad")return a.dataset.ad.localeCompare(c.dataset.ad,"tr");
+if(k==="son")return c.dataset.son.localeCompare(a.dataset.son);return c.dataset.n-a.dataset.n||a.dataset.ad.localeCompare(c.dataset.ad,"tr")});
+hepsi.forEach(function(d){liste.appendChild(d)});});});
+goster();})();</script>'''
+
+
+def build(cfg, con, recs: list[dict], out: Path) -> None:
+    from .routes import vessel_keys
+    from .site import E, _ay, _n, _page, _tarih, _tbl, _write
+
+    directions = [f"{a}>{b}" for a, b in cfg.directions]
+    rdir = out / "raporlar"
+    if rdir.exists():
+        for f in rdir.iterdir():
+            if f.is_file():
+                f.unlink()
+    if not directions:
+        _write(rdir / "index.html", _page(cfg, "Raporlar", '<main class="sayfa" id="icerik"><h1>Raporlar</h1>'
+                                          '<p class="not">Beyan testi kapalı; rapor yok.</p></main>', 1, "raporlar"))
+        return
+    vessels = {r["mmsi"]: dict(r) for r in con.execute("SELECT mmsi, imo, name FROM vessels")}
+    m2k, _ = vessel_keys(con)
+    pages = {f.stem for f in (out / "gemiler").glob("*.html")}
+    legend = "".join(f'<span class="isaret" style="--c:var(--c-{k})">{E(harita.FAMILY_LABELS[k])}</span>'
+                     for k in harita.FAMILY_ORDER)
+    for y in directions:
+        A, B = y.split(">")
+        a_ad, b_ad = cfg.country_name(A), cfg.country_name(B)
+        sl = slug(y)
+        sh = ships(recs, y, vessels, m2k, pages)
+        sel = [r for r in recs if r["y"] == y]
+        top = max((s["n"] for s in sh), default=1)
+        ts = sorted(_zaman(r) for r in sel if _zaman(r))
+        yon = "".join(f'<a href="{sayfa(directions, x)}"{" aria-current=page" if x == y else ""}>'
+                      f'{E(cfg.country_name(x.split(">")[0]))} → {E(cfg.country_name(x.split(">")[1]))}</a>' for x in directions)
+        aylar = defaultdict(list)
+        for r in sel:
+            if _zaman(r):
+                aylar[_zaman(r)[:7]].append(r)
+        ay_li = "".join(f'<li><a href="{sl}-{m}.html"><b>{E(_ay(m))}</b>'
+                        f'<span>{_n(len(rs))} sefer, {_n(len({x.get("m") or x.get("n") for x in rs}))} gemi</span></a></li>'
+                        for m, rs in sorted(aylar.items(), reverse=True))
+        donem = f"{_tarih(cfg, ts[0])} ile {_tarih(cfg, ts[-1])} arasında" if ts else ""
+        body = (f'<main class="sayfa rapor" id="icerik"><header><h1>Raporlar</h1>'
+                f'<p class="giris">{E(a_ad)} limanlarından {E(b_ad)} limanlarına doğrudan ya da dolaylı giden gemiler, '
+                'gemi gemi. Bir gemiye tıklayınca bütün seferleri açılır.</p></header>'
+                + (f'<nav class="dugmeler yon" aria-label="Yön">{yon}</nav>' if len(directions) > 1 else "")
+                + f'<h2 class="rapor-baslik">{_n(len(sh))} gemi, {_n(len(sel))} sefer</h2>'
+                f'<p class="not">{E(donem)}{", " if donem else ""}canlı kayıt ve geçmiş tarama birlikte. Varış ayına göre '
+                f'<a href="#aylik">aylık raporlar</a> sayfanın sonunda.</p>'
+                f'<p class="eylemler"><a class="eylem" href="{sl}-gemiler.csv" download>Gemi listesi (CSV)</a>'
+                f'<a class="eylem" href="{sl}-seferler.csv" download>Bütün seferler (CSV)</a></p>'
+                f'<div class="arac"><label class="ara"><span class="gizli">Gemi ya da liman ara</span>'
+                '<input type="search" id="rapor-ara" placeholder="Gemi adı, IMO, MMSI, bayrak ya da liman" autocomplete="off"></label>'
+                '<div class="dugmeler" role="group" aria-label="Sıralama"><button type="button" data-sirala="n" aria-pressed="true">'
+                'Sefer sayısı</button><button type="button" data-sirala="son" aria-pressed="false">Son sefer</button>'
+                '<button type="button" data-sirala="ad" aria-pressed="false">Ad</button></div>'
+                f'<output id="rapor-say" aria-live="polite">{_n(len(sh))} gemi</output></div>'
+                f'<p class="lejant">{legend}</p>'
+                '<div class="gemi-liste" id="gemi-liste"><div class="gemi-bas" aria-hidden="true"><span>Gemi</span>'
+                '<span>Sefer</span><span>Son sefer</span><span>Başlıca hat</span></div>'
+                + "".join(_satir(cfg, E, directions, s, top) for s in sh)
+                + "</div>"
+                + (f'<section id="aylik"><h2>Aylık raporlar</h2><p class="not">Aylar varış tarihine göre.</p>'
+                   f'<ul class="aylar">{ay_li}</ul></section>' if ay_li else "")
+                + (ARAC if sh else "") + "</main>")
+        if not sh:
+            body = body.replace('<div class="gemi-liste" id="gemi-liste">', '<p class="not">Henüz sefer yok.</p>'
+                                '<div class="gemi-liste" id="gemi-liste" hidden>', 1)
+        _write(rdir / sayfa(directions, y), _page(cfg, "Raporlar", body, 1, "raporlar",
+                                                   desc=f"{a_ad} limanlarından {b_ad} limanlarına giden {len(sh)} gemi, {len(sel)} sefer."))
+
+        # aylık raporlar
+        sirali = sorted(aylar)
+        for i, m in enumerate(sirali):
+            rs = sorted(aylar[m], key=lambda r: r.get("t0") or _zaman(r))
+            onceki = f'<a href="{sl}-{sirali[i - 1]}.html">{E(_ay(sirali[i - 1]))}</a>' if i else "<span></span>"
+            sonraki = f'<a href="{sl}-{sirali[i + 1]}.html">{E(_ay(sirali[i + 1]))}</a>' if i + 1 < len(sirali) else ""
+            rows = []
+            for r in rs:
+                mm = r.get("m")
+                ad = E(r.get("n") or "Adı bilinmiyor")
+                rows.append([
+                    f'<b>{ad}</b><br><span class="not">{E(bayrak(r.get("b"), mm))}{", MMSI " + str(mm) if mm else ""}</span>',
+                    f'{E(r.get("o") or "?")}<br><span class="not tarih">{E(_kisa(cfg, r.get("t0")))}</span>',
+                    E(", ".join(r.get("ara") or [])) or "–",
+                    (f'{E(r["d"])}<br><span class="not tarih">{E(_kisa(cfg, r.get("t1")))}</span>' if r.get("d")
+                     else '<span class="uyari">Kayıtsız</span>'),
+                    f'<span class="isaret" style="--c:var(--c-{r["a"]})">{E(harita.ALL_LABELS.get(r["k"], r["k"]))}</span>',
+                    f'<a href="{_harita_link(directions, r)}">Haritada</a>'])
+            n_gemi = len({x.get("m") or x.get("n") for x in rs})
+            mbody = (f'<main class="sayfa rapor" id="icerik"><header><p class="yol"><a href="{sayfa(directions, y)}">Raporlar</a>'
+                     f', {E(a_ad)} → {E(b_ad)}</p><h1>{E(_ay(m))}</h1>'
+                     f'<p class="giris">{E(a_ad)} limanlarından {E(b_ad)} limanlarına {_n(len(rs))} sefer, {_n(n_gemi)} gemi. '
+                     'Varış tarihine göre; satırlar çıkış tarihine göre sıralı.</p></header>'
+                     f'<nav class="ay-gecis" aria-label="Aylar">{onceki}{sonraki}</nav>'
+                     + _tbl(["Gemi", "Çıkış", "Ara liman", "Varış", "Tür", ""], rows) + "</main>")
+            _write(rdir / f"{sl}-{m}.html", _page(cfg, f"{_ay(m)} raporu", mbody, 1, "raporlar",
+                                                   desc=f"{_ay(m)}: {a_ad} limanlarından {b_ad} limanlarına {len(rs)} sefer."))
+
+        # CSV
+        (rdir / f"{sl}-gemiler.csv").write_bytes(_csv(
+            [["Gemi", "Önceki adları", "MMSI", "IMO", "Bayrak", "Sefer", *[harita.FAMILY_LABELS[k] for k in harita.FAMILY_ORDER],
+              "İlk sefer (varış)", "Son sefer (varış)", "Başlıca hat"]]
+            + [[s["ad"], ", ".join(s["adlar"]), s["mmsi"] or "", s["imo"] or "", s["bayrak"], s["n"],
+                *[s["aile"].get(k, 0) for k in harita.FAMILY_ORDER], s["ilk"], s["son"],
+                f'{s["hatlar"][0][0][0]} → {s["hatlar"][0][0][1]}' if s["hatlar"] else ""] for s in sh]))
+        (rdir / f"{sl}-seferler.csv").write_bytes(_csv(
+            [["Gemi", "MMSI", "IMO", "Bayrak", "Tür", "Çıkış limanı", "Çıkış tarihi", "Ara limanlar", "Varış limanı",
+              "Varış tarihi", "Kaynak", "Kayıt"]]
+            + [[r.get("n") or "", r.get("m") or "", r.get("imo") or "", bayrak(r.get("b"), r.get("m")),
+                harita.ALL_LABELS.get(r["k"], r["k"]), r.get("o") or "", r.get("t0") or "", ", ".join(r.get("ara") or []),
+                r.get("d") or "", r.get("t1") or "", "Canlı kayıt" if r["s"] == "c" else "Geçmiş tarama (GFW)", r["id"]]
+               for r in sorted(sel, key=lambda r: r.get("t0") or "")]))
