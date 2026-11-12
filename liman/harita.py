@@ -14,6 +14,7 @@ from pathlib import Path
 
 from . import tracks
 from .config import CARGO_LABELS
+from .geo import haversine_km
 from .gecmis import CLASS_LABELS as RETRO_LABELS
 from .routes import CLASS_LABELS, vessel_keys
 from .util import SHIP_GROUP_LABELS, add_hours, iso, now_utc, ship_group
@@ -75,6 +76,9 @@ def _port_by_name(cfg):
     return {p.name: p for p in cfg.ports}
 
 
+CEYHAN = (36.875, 35.925)  # BTC ve Kerkük-Ceyhan terminalleri
+
+
 def cfg_home(cfg) -> set[str]:
     return {p.country for p in cfg.ports if p.role == "izlenen"}
 
@@ -123,7 +127,8 @@ def voyages(cfg, con) -> list[dict]:
                          (r["origin_port"], r["t_dep"])).fetchone()
         ter = tv[0] if tv else None
         sv = cfg.terminal_cargo(r["origin_port"], ter) == "sivi_dokme" if ter else False
-        rec = {"ter": ter, "sv": 1 if sv else None, "id": f"c{r['id']}", "s": "c", "y": r["direction"], "k": r["cls"], "a": FAMILY[r["cls"]],
+        tk = ship_group(v.get("type")) == "tanker"
+        rec = {"ter": ter, "sv": 1 if (sv or tk) else None, "tk": 1 if tk else None, "id": f"c{r['id']}", "s": "c", "y": r["direction"], "k": r["cls"], "a": FAMILY[r["cls"]],
                "n": r["name"], "m": r["mmsi"], "imo": v.get("imo"),
                "tip": SHIP_GROUP_LABELS[ship_group(v.get("type"))],
                "o": o.name if o else r["origin_port"], "oc": o.country if o else None, "t0": r["t_dep"],
@@ -159,11 +164,17 @@ def voyages(cfg, con) -> list[dict]:
         ter = cfg.locate(la, lo)[1] if la is not None and lo is not None else None
         tcode = cfg.locate(la, lo)[0] if ter else None
         sv = cfg.terminal_cargo(tcode, ter) == "sivi_dokme" if ter else False
-        out.append(_clean({"ter": ter, "sv": 1 if sv else None,
-                           "yuk": CARGO_LABELS["sivi_dokme"] if sv else None, "gv": "orta" if sv else None,
-                           "dy": [f"{'Çıkış' if home else 'Varış'} terminali: {ter} (yalnızca sıvı dökme yük iskelesi)"] if sv else None,
+        vt = (vessels.get(mmsi) or {}).get("type") if isinstance(mmsi, int) else None
+        tk = ship_group(vt) == "tanker" if vt else False
+        if tk and not ter and la is not None and haversine_km(la, lo, *CEYHAN) <= 12:
+            ter = "Ceyhan petrol terminalleri çevresi"
+        out.append(_clean({"ter": ter, "sv": 1 if (sv or tk) else None, "tk": 1 if tk else None,
+                           "yuk": CARGO_LABELS["sivi_dokme"] if (sv or tk) else None,
+                           "gv": ("yüksek" if sv and tk else "orta") if (sv or tk) else None,
+                           "dy": [x for x in [f"{'Çıkış' if home else 'Varış'} terminali: {ter} (yalnızca sıvı dökme yük iskelesi)" if sv else None,
+                                              "Gemi AIS'te kendini tanker olarak bildiriyor" if tk else None] if x] or None,
                            "id": f"g{r['id']}", "s": "g", "y": r["direction"], "k": r["cls"], "a": FAMILY[r["cls"]],
-                           "n": r["name"], "m": mmsi, "b": r["flag"], "tip": r["vtype"],
+                           "n": r["name"], "m": mmsi, "b": r["flag"], "tip": "Tanker (AIS)" if tk else r["vtype"],
                            "o": r["origin"], "oc": r["origin_country"], "t0": r["t_dep"],
                            "d": r["dest"], "dc": r["dest_country"], "t1": r["t_arr"],
                            "ara": [m["liman"] for m in mids], "at": [[m.get("giris"), m.get("cikis")] for m in mids],

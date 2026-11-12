@@ -254,7 +254,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
         petrol_not = ""
         if petrol:
             petrol_not = (f'<p class="petrol-ozet">Bunların <b>{_n(len(petrol))} seferi ({_n(gemi_say(petrol))} gemi)</b> '
-                          f'petrol ve akaryakıt iskelelerinden; <b>{_n(len(ceyhan))} seferi ({_n(gemi_say(ceyhan))} gemi)</b> '
+                          f'petrol tankeri ya da petrol iskelesinden; <b>{_n(len(ceyhan))} seferi ({_n(gemi_say(ceyhan))} gemi)</b> '
                           f'Ceyhan petrol terminallerinden (BTC ve Kerkük-Ceyhan). <a href="{sl}-petrol.html">Petrol tankerleri raporu</a></p>')
 
         def liste(sh_):
@@ -322,11 +322,12 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
             ter_rows = [[E(t), _n(n), _n(gemi_say([r for r in petrol if r.get("ter") == t]))] for t, n in ter_say.most_common()]
             _write(rdir / f"{sl}-petrol.html", _page(cfg, "Petrol tankerleri", (
                 f'<main class="sayfa rapor" id="icerik"><header>{yol}<h1>Petrol ve akaryakıt tankerleri</h1>'
-                f'<p class="giris">{E(a_ad)} tarafında petrol ya da akaryakıt iskelesinde yanaşıp {E(b_ad)} limanlarına '
-                f'giden {_n(len(sh_p))} gemi, {_n(len(petrol))} sefer. Bu iskelelere yalnızca sıvı dökme yük gemileri '
-                'yanaşır; yükün türü (ham petrol, ürün, kimyasal) AIS verisinden kesin bilinemez.</p></header>'
+                f'<p class="giris">{E(a_ad)} tarafında petrol ya da akaryakıt iskelesine yanaşan ya da AIS’te kendini tanker '
+                f'olarak bildiren ve {E(b_ad)} limanlarına giden {_n(len(sh_p))} gemi, {_n(len(petrol))} sefer. Yükün türü '
+                '(ham petrol, akaryakıt, kimyasal) AIS verisinden kesin bilinemez.</p></header>'
                 '<p class="not">Ceyhan’daki BTC (Bakü-Tiflis-Ceyhan) ve Kerkük-Ceyhan terminalleri birbirine bir iki kilometre '
-                'uzaklıkta; AIS konumuyla ayırt edilemedikleri için birlikte sayılır.</p>'
+                'uzaklıkta; AIS konumuyla ayırt edilemedikleri için birlikte sayılır. Geçmiş taramada geminin tipi bilinmez; '
+                'tip, gemi canlı kayıtta bir kez görüldüğünde öğrenilir. Bu yüzden liste zamanla uzar.</p>'
                 + _tbl(["İskele", "Sefer", "Gemi"], ter_rows, num=(1, 2)) + "<h2>Gemiler</h2>" + liste(sh_p)
                 + "<h2>Seferler</h2>" + _tbl(bas, [sefer_satiri(r) for r in sorted(petrol, key=lambda r: r.get("t0") or "", reverse=True)])
                 + "</main>"), 1, "raporlar", desc=f"{a_ad} petrol iskelelerinden {b_ad} limanlarına {len(petrol)} sefer."))
