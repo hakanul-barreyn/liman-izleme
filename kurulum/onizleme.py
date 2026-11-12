@@ -84,6 +84,9 @@ def main() -> int:
         ("gercek-mobil-koyu", "gercek", "index.html", 390, 844, "dark", True),
         ("demo-gemi", "demo", "gemiler/imo9000003.html", 1280, 1100, "light", False),
         ("gercek-beyan", "gercek", "beyan.html", 1280, 1300, "light", False),
+        ("gercek-yontem", "gercek", "yontem.html", 1280, 1800, "light", False),
+        ("gercek-limanlar", "gercek", "limanlar/index.html", 1280, 1300, "light", False),
+        ("gercek-gecmis-sayfa", "gercek", "gecmis.html", 1280, 1100, "light", False),
     ]
     if real_ship:
         shots.append(("gercek-gemi", "gercek", f"gemiler/{real_ship}.html", 1280, 1100, "light", False))
@@ -105,7 +108,8 @@ def main() -> int:
             try:
                 page.goto(url, wait_until="load", timeout=60000)
                 try:
-                    page.wait_for_function("window.__haritaHazir", timeout=25000)
+                    page.wait_for_function("window.__haritaHazir || !document.querySelector('#harita, #gemi-harita')",
+                                           timeout=25000)
                 except Exception:  # noqa: BLE001
                     logs.append("harita 25 sn içinde hazır olmadı")
                 page.wait_for_timeout(1500)
