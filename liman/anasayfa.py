@@ -124,8 +124,9 @@ def build(cfg, o: dict, E) -> str:
         ("liman", "Üçüncü ülke limanı üzerinden", aile.get("liman", 0),
          f"Arada Mısır, Yunanistan, Kıbrıs ya da Bulgaristan limanına uğruyor. En sık: {ara}." if ara else
          "Arada Mısır, Yunanistan, Kıbrıs ya da Bulgaristan limanına uğruyor."),
-        ("karanlik", "AIS kapatılarak", karanlik,
-         f"Yolda konum sinyalini kapatıyor, {B} açıklarında sinyali kesiliyor ya da limana girmeden kıyı açığında bekliyor."),
+        ("karanlik", "AIS kapatılarak ya da gizlenerek", karanlik,
+         f"Yolda konum sinyalini kapatıyor, sinyali {B} açıklarında kesiliyor, konumu GPS karıştırmasının sahte noktasında "
+         "görünüyor ya da limana girmeden kıyı açığında bekliyor."),
     ]
     nasil = ('<section class="nasil" aria-labelledby="n-baslik"><h2 id="n-baslik">Gemiler nasıl gidiyor?</h2><div class="yollar">'
              + "".join(f'<div class="yol-tur" style="--c:var(--c-{k})">{YON_SVG[k]}<h3>{E(ad)}</h3>'

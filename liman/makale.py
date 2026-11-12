@@ -44,7 +44,7 @@ ULKE_EN = {"Türkiye": "Türkiye", "İsrail": "Israel", "Mısır": "Egypt", "Yun
            "Ukrayna": "Ukraine", "Lübnan": "Lebanon", "Malta": "Malta", "İspanya": "Spain", "Fransa": "France",
            "Hırvatistan": "Croatia", "Slovenya": "Slovenia", "Arnavutluk": "Albania", "Karadağ": "Montenegro"}
 DUZEY_EN = {"kayitli": "Recorded arrival at an Israeli port", "aktarma": "Via a third-country port",
-            "acik": "AIS off near Israel", "bekleme": "Waited off the Israeli coast", "sts": "Ship-to-ship",
+            "acik": "AIS off near Israel", "iz": "Position off Israel or under GPS interference", "bekleme": "Waited off the Israeli coast", "sts": "Ship-to-ship",
             "karanlik": "Long AIS gap"}
 
 
@@ -137,6 +137,9 @@ def _kaynakca(o, en=False) -> list[tuple[str, str]]:
         ("Greek City Times (7 October 2025). Greek ship transports oil from Turkey to Israel." if en else
          "Greek City Times (7 Ekim 2025). Greek ship transports oil from Turkey to Israel.",
          "https://greekcitytimes.com/2025/10/07/greek-ship-transports-oil-turkey/"),
+        ("NPR (22 April 2024). Israel fakes GPS locations to deter attacks, but it also throws off planes and ships." if en else
+         "NPR (22 Nisan 2024). Israel fakes GPS locations to deter attacks, but it also throws off planes and ships.",
+         "https://npr.org/2024/04/22/1245847903/israel-gps-spoofing"),
         ("Kroodsma, D. A. et al. (2018). Tracking the global footprint of fisheries. Science, 359(6378), 904–908.",
          "https://doi.org/10.1126/science.aao5646"),
         ("Welch, H. et al. (2022). Hot spots of unseen fishing vessels. Science Advances, 8(44), eabq2109.",
@@ -315,6 +318,13 @@ en fazla {th["aktarma_max_gun"]} gün. Başka bir ülkenin limanına uğrayan ge
 <li><b>İsrail açıklarında AIS kapalı</b>: gemi Türk limanından çıktı, hiçbir limana uğramadan AIS sinyali en az
 {th.get("hedef_acik_bosluk_saat") or 12} saat kesildi ve sinyalin kesildiği ya da yeniden geldiği nokta İsrail’in açık denizinde
 ({E(kutu_s)}). GFW kıyıya yakın kesintileri çoğu zaman “kasıtlı kapatma” saymaz; bu kural GFW’nin bu işaretine bakmaz.</li>
+<li><b>Konumu İsrail açıklarında ya da GPS karıştırma izinde</b>: gemi Türk limanından çıktı ve bir sonraki liman uğrağından önce, AIS
+açıkken, konumu İsrail’in açık denizinde ya da Beyrut havalimanında göründü (GFW AIS varlık verisi). İsrail yakınındaki gemi ve uçakların
+sahte konumu çoğunlukla Beyrut havalimanında görünür (NPR, 2024); kara üzerindeki bu noktada konumu görünen gemi İsrail’in GPS karıştırma
+menzilindedir. Karıştırma, gemi İsrail limanına girse bile GFW’nin bu ziyareti kaydetmesini engelleyebilir.</li>
+<li><b>Limansız Ceyhan dönüşü</b>: gemi Ceyhan’dan çıkıp hiçbir limana uğramadan {th.get("limansiz_donus_gun") or 20} gün içinde
+Ceyhan’a döndü. Yüklediği petrolü nereye boşalttığı kayıtta yoktur. Bu tek başına İsrail’e gidildiğini göstermez; tanker dosyalarında
+ayrıca sayılır.</li>
 <li><b>Kıyı açığında bekleme</b>: gemi İsrail kıyısının yaklaşık 25 km yakınında, hiçbir limana girmeden, ardışık günlerde en az 12 saat
 bulundu (GFW AIS varlık verisi) ve bir önceki uğrağı Türk limanıydı (olası şamandıra boşaltması).</li>
 <li><b>Karanlık sefer</b>: Türk limanından çıkan gemi Doğu Akdeniz’de en az {th["karanlik_sefer_saat"]} saat sinyal vermedi ve varış
@@ -371,7 +381,11 @@ değiştirmiş olabilir.</p>
 <h3>4.6 Ceyhan ve petrol tankerleri</h3>
 <p>Geçmiş taramada Ceyhan terminallerinin önündeki demirleme alanından {n(cy["cikis"])} çıkış ({n(cy["gemi"])} gemi) işlendi. Bunların
 {n(cy["il"])} tanesinde bir sonraki uğrak İsrail limanıydı; {n(cy["il_acik"])} tanesinde gemi hiçbir limana uğramadan AIS sinyali
-İsrail açıklarında kesildi ya da orada yeniden geldi. Tanker dosyalarında {n(tk["gemi"])} gemi ve {n(tk["sefer"])} sefer var; bunların
+İsrail açıklarında kesildi ya da orada yeniden geldi. {n(cy["donus"])} çıkışta ({n(cy["donus_gemi"])} gemi) gemi hiçbir limana
+uğramadan {th.get("limansiz_donus_gun") or 20} gün içinde Ceyhan’a döndü: yüklenen petrolün boşaltıldığı yer kayıtsız. {n(cy["iz"])}
+çıkışta geminin AIS konumu bir sonraki liman uğrağından önce İsrail açıklarında ya da Beyrut havalimanındaki sahte konum noktasında
+göründü{(", bunların " + n(cy["iz_donus"]) + " tanesi limansız dönüş") if cy.get("iz_donus") else ""}. Tanker dosyalarında
+{n(tk["gemi"])} gemi ve {n(tk["sefer"])} sefer var; bunların
 {n(tk["dogrulanan"])} gemisinin tanker olduğu AIS tipi, iskele, rota ya da basın kaydıyla doğrulandı (Tablo 7). {_basin_tr(o)}</p>
 {tablo_tanker}
 <h3>4.7 İsrail’den Türkiye’ye seferler</h3>
@@ -639,6 +653,13 @@ may have changed there.</li>
 <li><b>AIS off near Israel</b>: the vessel left a Turkish port and, without calling at any port, its AIS signal was off for at least
 {th.get("hedef_acik_bosluk_saat") or 12} hours, with the point where the signal stopped or resumed in Israel’s offshore waters
 ({E(kutu_s)}). GFW often does not flag gaps close to the coast as intentional disabling; this rule therefore does not rely on that flag.</li>
+<li><b>Position off Israel or under GPS interference</b>: the vessel left a Turkish port and, before its next port call and with AIS on,
+its position appeared in Israel’s offshore waters or at Beirut airport (GFW AIS presence data). Spoofed positions of ships and aircraft
+near Israel mostly appear at Beirut airport (NPR, 2024); a vessel whose position appears at this point on land is within range of
+Israel’s GPS interference. The interference can also prevent GFW from recording a visit to an Israeli port.</li>
+<li><b>Return to Ceyhan without a port call</b>: the vessel left Ceyhan and came back to Ceyhan within
+{th.get("limansiz_donus_gun") or 20} days without calling at any port. Where it discharged the oil is not recorded. This alone does not
+show a voyage to Israel; it is counted separately in the tanker files.</li>
 <li><b>Waiting offshore</b>: the vessel spent at least 12 hours on consecutive days within about 25 km of the Israeli coast without
 entering any port (GFW AIS presence data), and its previous call was a Turkish port (possible buoy discharge).</li>
 <li><b>Dark voyage</b>: a vessel leaving a Turkish port transmitted no signal for at least {th["karanlik_sefer_saat"]} hours in the
@@ -696,7 +717,11 @@ the <a href="../raporlar/index.html">vessels page</a> and in the CSV files.</p>
 <h3>4.6 Ceyhan and oil tankers</h3>
 <p>The historical scan processed {n(cy["cikis"])} departures ({n(cy["gemi"])} vessels) from the anchorage area off the Ceyhan terminals.
 In {n(cy["il"])} of them the next call was an Israeli port; in {n(cy["il_acik"])} the vessel called at no port and its AIS signal stopped
-or resumed near Israel. The tanker files contain {n(tk["gemi"])} vessels and {n(tk["sefer"])} voyages; for {n(tk["dogrulanan"])} of these
+or resumed near Israel. In {n(cy["donus"])} departures ({n(cy["donus_gemi"])} vessels) the vessel came back to Ceyhan within
+{th.get("limansiz_donus_gun") or 20} days without calling at any port: where the oil loaded was discharged is not recorded. In
+{n(cy["iz"])} departures the vessel’s AIS position appeared off Israel or at the spoofed position at Beirut airport before its next port
+call{(", " + n(cy["iz_donus"]) + " of them returns without a port call") if cy.get("iz_donus") else ""}. The tanker files contain
+{n(tk["gemi"])} vessels and {n(tk["sefer"])} voyages; for {n(tk["dogrulanan"])} of these
 vessels the tanker type is confirmed by AIS type, berth, route or press record (Table 7). {_basin_en(o)}</p>
 {t_tank}
 <h3>4.7 Voyages from Israel to Türkiye</h3>

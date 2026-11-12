@@ -70,6 +70,7 @@ CLASS_LABELS = {
     "karanlik_sefer": "Karanlık sefer (varış limanı kayıtsız)",
     "kiyida_bosaltma": "Limana girmeden kıyı açığında bekledi (olası şamandıra boşaltması)",
     "karanlik_acik": "AIS varış ülkesinin açıklarında kapalı (limana girişi kayıtsız)",
+    "iz_hedef": "Konumu varış ülkesinin açıklarında ya da GPS karıştırmasının sahte konum noktasında (limana girişi kayıtsız)",
 }
 
 
@@ -94,7 +95,7 @@ class Client:
                     return raw if ham else json.loads(raw.decode())
             except urllib.error.HTTPError as e:
                 detail = e.read().decode(errors="replace")[:500]
-                if e.code in (429, 500, 502, 503, 504) and attempt < 5:
+                if (e.code in (429, 500, 502, 503, 504) and attempt < 5) or (e.code == 524 and attempt < 1):
                     wait = int(e.headers.get("Retry-After") or 0) or 2 ** (attempt + 2)
                     log.warning("GFW %s, %ss bekleniyor", e.code, wait)
                     time.sleep(wait)
@@ -290,7 +291,8 @@ class _Plan:
         self.total += 1
         data = _cache_get(self.con, key)
         if data is None and self._time_left():
-            data = _store(self.con, key, fetch(), ham=ham)
+            sonuc = fetch()
+            data = _store(self.con, key, sonuc, ham=ham) if sonuc is not None else None
         if data is not None:
             self.done += 1
         return data
@@ -308,6 +310,19 @@ class _Plan:
 def offshore_zones(cfg) -> list:
     """Hedef ülkenin kıyı yaklaşma alanları (ör. İsrail kıyı açıkları)."""
     return [p for p in cfg.ports if p.approach and p.country in cfg.dest_countries()]
+
+
+def iz_bolgeleri(cfg) -> list[tuple[str, str, dict]]:
+    """Konum izi aranan bölgeler: (kod, tür, GeoJSON). 'IZK' varış ülkesinin açık denizi, 'IZS<n>' sahte konum noktaları."""
+    from .geo import Area
+    out = []
+    box = cfg.th.get("hedef_acik_deniz")
+    if box:
+        (la0, lo0), (la1, lo1) = box
+        out.append(("IZK", "acik", {"type": "Polygon", "coordinates": [[[lo0, la0], [lo1, la0], [lo1, la1], [lo0, la1], [lo0, la0]]]}))
+    for i, n in enumerate(cfg.th.get("sahte_konum_noktalari") or []):
+        out.append((f"IZS{i}", "sahte", geometry(Area({"merkez": n["merkez"], "yaricap_km": n.get("yaricap_km", 4)}))))
+    return out
 
 
 def _episodes(rows: list[dict], min_saat: float = 12) -> list[tuple[str, tuple]]:
@@ -453,6 +468,17 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                     w1 = (dt.date.fromisoformat(k1) + dt.timedelta(days=2)).isoformat()
                     gorev.append((1, -1, vid, w0, w1))
                     bilinen.add(vid)
+        # 1d) konum izi: varış ülkesinin açık denizinde ya da GPS karıştırmasının sahte konum noktasında görünen gemiler.
+        # Açık deniz kutusu kalabalık: 15 günlük dilimler. Zaman aşımına uğrayan dilim atlanır, sonraki çalıştırmada denenir.
+        def iz_sorgu(geom, a, b):
+            try:
+                return client.presence(geom, a, b)
+            except RuntimeError as e:
+                log.warning("Konum izi sorgusu atlandı (%s – %s): %s", a, b, str(e)[:160])
+                return None
+        for kod, tur, geom in iz_bolgeleri(cfg):
+            for a, b in chunks(erken_bas(cfg, t), son, days=15 if tur == "acik" else 30):
+                plan.area(f"pres:{kod}:{a}:{b}", lambda geom=geom, a=a, b=b: iz_sorgu(geom, a, b), ham=True)
         yurut(gorev)
         # 2) haftalık güncelleme dilimleri
         dark_hist: list[set[str]] = []
@@ -579,6 +605,20 @@ def compute(cfg, con, *_eski) -> int:
     # ara liman sayılan ülkeler: yapılandırmadaki diğer ülkeler (Yunanistan, Bulgaristan, Mısır, Kıbrıs).
     # Başka bir ülkenin limanına uğrayan geminin yükü oradan gelmiş olabilir (ör. Ambarlı → Novorossiysk → Hayfa).
     aktarma = set(th.get("aktarma_ulkeleri") or []) or (set(cfg.countries) - home - cfg.dest_countries())
+    # konum izi: gemi gemi, varış ülkesinin açık denizinde (acik) ve sahte konum noktalarında (sahte) görüldüğü günler
+    iz_gun: dict[str, dict[str, dict[str, float]]] = {"acik": {}, "sahte": {}}
+    for kod, tur, _g in iz_bolgeleri(cfg):
+        for (key,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE ?", (f"pres:{kod}:%",)):
+            for r in _cache_get(con, key) or []:
+                if r.get("vid") and r.get("date") and (r.get("hours") or 0) > 0:
+                    g = iz_gun[tur].setdefault(r["vid"], {})
+                    g[r["date"]] = round(g.get(r["date"], 0) + (r.get("hours") or 0), 1)
+
+    def izler(vid_, a_, b_):
+        """a_ ile b_ arasında (gün) geminin iz günleri."""
+        return {tur: sorted((gun_, h) for gun_, h in (iz_gun[tur].get(vid_) or {}).items() if a_[:10] <= gun_ <= b_[:10])
+                for tur in ("acik", "sahte")}
+    donus_h = (th.get("limansiz_donus_gun") or 20) * 24
     # hedef ülke kıyı açığındaki bekleme dönemleri, gemi gemi (Ceyhan çıkışlarıyla eşleştirmek için)
     acik: dict[str, list] = {}
     for z in offshore_zones(cfg):
@@ -642,14 +682,20 @@ def compute(cfg, con, *_eski) -> int:
                 # tanker dosyaları için: sonraki uğraklar (45 gün), yoldaki AIS boşlukları, kıyı açığında bekleme
                 bit = nx["start"] if nx else add_hours(v["end"], dark_win)
                 sonra = [w for w in visits[i + 1:i + 6] if hours_between(v["end"], w["start"]) <= 45 * 24]
-                bos = [{**g, "il": cfg.in_dest_offshore(*g["kapanis"]) or cfg.in_dest_offshore(*g["acilis"])}
+                bos = [{**g, "il": cfg.hedef_izi(*g["kapanis"]) or cfg.hedef_izi(*g["acilis"]),
+                        "sahte": cfg.spoof_point(*g["kapanis"]) or cfg.spoof_point(*g["acilis"])}
                        for g in gl if v["end"] <= g["baslangic"] < bit and g["saat"] >= acik_h]
                 bekle = [e for e in acik.get(vid, []) if v["end"][:10] <= e["bas"] <= bit[:10]]
+                # Ceyhan'dan çıkıp hiçbir limana uğramadan Ceyhan'a dönüş: yükün boşaltıldığı yer kayıtsız
+                donus = None
+                if nx and nx["lat"] is not None and haversine_km(nx["lat"], nx["lon"], *CEYHAN) <= CEYHAN_KM and \
+                        hours_between(v["end"], nx["start"]) <= donus_h:
+                    donus = round(hours_between(v["end"], nx["start"]) / 24, 1)
                 ceyhan.append({"vid": vid, "ad": v["vessel"].get("name"), "m": v["vessel"].get("ssvid"),
                                "t0": v["start"], "nokta": [round(v["lat"], 3), round(v["lon"], 3)],
                                "sonrakiler": [{"ad": w["name"], "c": w["c"], "giris": w["start"], "cikis": w["end"],
                                                "lat": w["lat"], "lon": w["lon"]} for w in sonra],
-                               "bosluk": bos, "acik": bekle,
+                               "bosluk": bos, "acik": bekle, "donus": donus, "iz": izler(vid, v["end"], bit),
                                "tip": v["vessel"].get("type"),
                                "b": v["vessel"].get("flag"), "t": v["end"], "sonraki": nx["name"] if nx else None,
                                "ulke": nx["c"] if nx else None, "t1": nx["start"] if nx else None,
@@ -701,13 +747,33 @@ def compute(cfg, con, *_eski) -> int:
                 # basında adı geçen Ceyhan tankerleri AIS'i yolda kapatıp Aşkelon'dan ayrılınca açıyor
                 if B in hedef:
                     ac = [g for g in gl if o["end"] <= g["baslangic"] < lim and g["saat"] >= acik_h
-                          and (cfg.in_dest_offshore(*g["kapanis"]) or cfg.in_dest_offshore(*g["acilis"]))]
+                          and (cfg.hedef_izi(*g["kapanis"]) or cfg.hedef_izi(*g["acilis"]))]
                     if ac:
                         g = ac[0]
-                        yer, tt = (g["acilis"], g["bitis"]) if cfg.in_dest_offshore(*g["acilis"]) else (g["kapanis"], g["baslangic"])
-                        d = {"name": f"{cfg.country_name(B)} açıkları (AIS kapalıyken)", "c": B, "start": tt or g["baslangic"],
-                             "lat": yer[0], "lon": yer[1]}
+                        yer, tt = (g["acilis"], g["bitis"]) if cfg.hedef_izi(*g["acilis"]) else (g["kapanis"], g["baslangic"])
+                        sp = cfg.spoof_point(*yer)
+                        d = {"name": (f"{cfg.country_name(B)} yakınında, sahte konum: {sp} (AIS kapalıyken)" if sp else
+                                      f"{cfg.country_name(B)} açıkları (AIS kapalıyken)"),
+                             "c": B, "start": tt or g["baslangic"], "lat": yer[0], "lon": yer[1]}
                         _insert(con, A, B, "karanlik_acik", vid, o["vessel"], o, d, nxt, [], ac)
+                        n += 1
+                        continue
+                    # AIS açıkken konum izi: gemi limana girmeden varış ülkesinin açık denizinde ya da sahte konum
+                    # noktasında görüldü (GPS karıştırması limana girişin kaydını da bozabilir)
+                    iz = izler(vid, o["end"], lim)
+                    if iz["acik"] or iz["sahte"]:
+                        gun0 = (iz["acik"] or iz["sahte"])[0][0]
+                        sp = next((nm.get("ad") for nm in th.get("sahte_konum_noktalari") or []), None)
+                        if iz["acik"]:
+                            (la0, lo0), (la1, lo1) = th["hedef_acik_deniz"]
+                            yer_ = ((la0 + la1) / 2, (lo0 + lo1) / 2)
+                            ad_ = f"{cfg.country_name(B)} açıkları ({len(iz['acik'])} gün konum, limana girişi kayıtsız)"
+                        else:
+                            nm0 = (th.get("sahte_konum_noktalari") or [{}])[0]
+                            yer_ = tuple(nm0.get("merkez") or (None, None))
+                            ad_ = f"{cfg.country_name(B)} yakınında, sahte konum: {sp} ({len(iz['sahte'])} gün)"
+                        d = {"name": ad_, "c": B, "start": f"{gun0}T00:00:00Z", "lat": yer_[0], "lon": yer_[1], "iz": iz}
+                        _insert(con, A, B, "iz_hedef", vid, o["vessel"], o, d, nxt, [], [])
                         n += 1
                         continue
                 # GFW'nin "kasıtlı kapatma" saydığı, liman yakınında olmayan uzun boşluklar
@@ -789,6 +855,8 @@ def _insert(con, A, B, cls, vid, vessel, o, d, nxt, mids, gaps):
     # kaynak: seferin dayandığı GFW olaylarının kimlikleri (çıkış ve varış liman ziyareti, ara uğraklar, AIS boşlukları)
     kaynak = {"cikis": o.get("eid_son") or o.get("eid"), "varis": d.get("eid") if d else None,
               "ara": [m.get("eid") for m in mids if m.get("eid")], "bosluk": [g.get("eid") for g in gaps if g.get("eid")]}
+    if d and d.get("iz"):
+        kaynak["iz"] = d["iz"]  # GFW AIS varlık verisinde iz günleri ve saatleri
     con.execute(
         """INSERT INTO gecmis(direction,cls,vessel_id,ssvid,name,flag,vtype,origin,origin_country,t_dep,dest,
            dest_country,t_arr,next_port,mids,gaps,o_lat,o_lon,d_lat,d_lon,kaynak)

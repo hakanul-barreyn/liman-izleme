@@ -198,6 +198,11 @@ esikler:
   # Doğu Akdeniz'de kapatıp Aşkelon'dan ayrılınca açıyor; kapanma ya da açılma noktası bu kutuya düşer.
   hedef_acik_deniz: [[31.2, 34.0], [33.1, 35.2]]
   hedef_acik_bosluk_saat: 12
+  # İsrail'in GPS karıştırması: İsrail yakınındaki gemi ve uçakların sahte konumu çoğunlukla Beyrut havalimanında görünür
+  # (NPR, 22 Nisan 2024; Lloyd's List). Kara üzerindeki bu noktada AIS konumu görünen gemi karıştırma menzilindedir.
+  sahte_konum_noktalari:
+    - {ad: "Beyrut havalimanı", merkez: [33.8209, 35.4884], yaricap_km: 4}
+  limansiz_donus_gun: 20
   yaklasma_sessizlik_saat: 6
   sts_mesafe_m: 500
   sts_sure_saat: 2

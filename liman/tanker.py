@@ -30,6 +30,9 @@ DUZEYLER = [
      "Türk limanından çıktı, Mısır, Kıbrıs, Yunanistan ya da Bulgaristan limanına uğradı, oradan İsrail limanına girdi.", "liman"),
     ("acik", "AIS İsrail açıklarında kapalı",
      "Limana girişi kayıtsız; AIS sinyali İsrail açıklarında kesildi ya da orada yeniden geldi.", "karanlik"),
+    ("iz", "Konumu İsrail açıklarında ya da GPS karıştırma izinde",
+     "Limana girişi kayıtsız; AIS açıkken konumu İsrail açık denizinde ya da İsrail’in GPS karıştırmasının bilinen sahte konum "
+     "noktasında (Beyrut havalimanı) göründü.", "karanlik"),
     ("bekleme", "İsrail kıyı açığında bekledi",
      "Limana girmeden İsrail kıyısı açığında en az 12 saat bekledi (olası şamandıra boşaltması).", "karanlik"),
     ("sts", "Denizde gemiden gemiye",
@@ -41,7 +44,7 @@ SIRA = {k: i for i, (k, *_x) in enumerate(DUZEYLER)}
 AD = {k: a for k, a, *_x in DUZEYLER}
 AILE = {k: f for k, _a, _b, f in DUZEYLER}
 SINIF_DUZEY = {"dogrudan": "kayitli", "dogrudan_izlenmedi": "kayitli", "karanlik_bacak": "kayitli",
-               "aktarmali": "aktarma", "karanlik_acik": "acik", "kiyida_kayboldu": "acik",
+               "aktarmali": "aktarma", "karanlik_acik": "acik", "kiyida_kayboldu": "acik", "iz_hedef": "iz",
                "kiyida_bosaltma": "bekleme", "denizde_aktarma": "sts", "dolayli_sts": "sts",
                "karanlik_sefer": "karanlik"}
 # GFW'nin gemi sınıfları: tankerler "kargo" değil, "other_non_fishing" (ve yakıt ikmal gemisi "bunker") sınıfındadır
@@ -85,6 +88,9 @@ def yer(cfg, lat, lon) -> str:
     """Bir deniz noktasını en yakın limana göre anlatır: "Aşkelon’un 38 km batısı"."""
     if lat is None or lon is None:
         return "konum yok"
+    sp = cfg.spoof_point(lat, lon)
+    if sp:
+        return f"{sp} (gemi orada olamaz: GPS karıştırmasının sahte konumu)"
     best = None
     for p in cfg.ports:
         if p.approach:
@@ -241,6 +247,7 @@ def dosyalar(cfg, con, recs: list[dict]) -> tuple[list[dict], int]:
              "ceyhan": cy, "basin": bas,
              "ilk": min((s.get("t0") or s.get("t1") or "") for s in seferler),
              "son": max((s.get("t0") or s.get("t1") or "") for s in seferler)}
+        d["donus"] = sum(1 for x in cy if x.get("donus"))
         d["anahtar"] = anahtar(d)
         out.append(d)
     # aynı anahtar iki kez çıkmasın (aynı IMO, farklı MMSI)
@@ -280,17 +287,24 @@ def adimlar(cfg, r: dict) -> list[tuple[str | None, str, str]]:
         out.append((t0, f"AIS sinyali kesildi: {yer(cfg, lat0, lon0)} ({koordinat(lat0, lon0)})", "kapandi-il" if il0 else "kapandi"))
         out.append((t1, f"AIS sinyali yeniden geldi: {yer(cfg, lat1, lon1)} ({koordinat(lat1, lon1)})"
                     + (f", {_sayi(saat)} saat sonra" if saat else ""), "acildi-il" if il1 else "acildi"))
+    if r.get("iz"):
+        for tur, ad in (("acik", "İsrail açık denizinde AIS konumu"), ("sahte", "Sahte konum, Beyrut havalimanı (İsrail’in GPS karıştırması)")):
+            gunler = [(g, h) for t, g, h in r["iz"] if t == tur]
+            if gunler:
+                ozet_ = ", ".join(f"{int(g[8:10])} {KISA_AY[int(g[5:7]) - 1]} ({_sayi(h, 0)} sa)" for g, h in gunler[:6])
+                out.append((f"{gunler[0][0]}T00:00:00Z", f"{ad}: {len(gunler)} gün, {ozet_}" + (" …" if len(gunler) > 6 else ""),
+                            "kapandi-il"))
     if r["k"] == "kiyida_bosaltma":
         out.append((r.get("t1"), f"{r.get('d')}", "bekleme"))
     elif r["k"] == "kiyida_kayboldu":
         out.append((r.get("t1"), f"{r.get('d') or 'Kıyı alanı'}: sinyal kesildi, hiçbir limanda kaydı yok", "kapandi-il"))
-    elif r["k"] == "karanlik_acik":
-        pass  # boşluk satırları yeterli
+    elif r["k"] in ("karanlik_acik", "iz_hedef"):
+        pass  # boşluk ve iz satırları yeterli
     elif r.get("d"):
         out.append((r.get("t1"), f"Varış: {r['d']}", "varis"))
     else:
         out.append((None, "Varış limanı kayıtsız", "bilinmez"))
-    if r.get("sl") and r["k"] in ("karanlik_acik", "karanlik_sefer", "kiyida_bosaltma"):
+    if r.get("sl") and r["k"] in ("karanlik_acik", "karanlik_sefer", "kiyida_bosaltma", "iz_hedef"):
         out.append((None, f"Sonraki kayıtlı liman: {r['sl']}", "sonraki"))
     return out
 
@@ -309,6 +323,8 @@ def ozet(cfg, r: dict) -> str:
         nokta = yer(cfg, k[3], k[2]) if il1 else yer(cfg, k[1], k[0])
         ne = "yeniden geldi" if il1 else "kesildi"
         return f"{t}: {o} çıkışı. AIS {_sayi(k[4] or 0)} saat kapalı; sinyal {nokta} {ne}."
+    if r["k"] == "iz_hedef":
+        return f"{t}: {o} çıkışı. {r.get('d')}; sonraki liman {r.get('sl') or 'kayıtsız'}."
     if r["k"] == "kiyida_bosaltma":
         return f"{t}: {o} çıkışı. {gun(cfg, r.get('t1'))}: {r.get('d')}."
     if r["k"] == "karanlik_sefer":
@@ -331,9 +347,11 @@ def paylasim(cfg, d: dict, url: str) -> str:
         k = kp[0]
         satir.append(f"AIS kesildi: {gun(cfg, k[5], yil=False)}, {yer(cfg, k[1], k[0])}")
         satir.append(f"AIS geldi: {gun(cfg, k[6], yil=False)}, {yer(cfg, k[3], k[2])}")
+    if r["k"] == "iz_hedef":
+        satir.append(f"{gun(cfg, r.get('t1'), yil=False)}: {r.get('d')}")
     if r["k"] == "kiyida_bosaltma":
         satir.append(f"{gun(cfg, r.get('t1'), yil=False)}: İsrail kıyı açığında limana girmeden bekledi")
-    elif r.get("d") and r["k"] not in ("karanlik_acik",):
+    elif r.get("d") and r["k"] not in ("karanlik_acik", "iz_hedef"):
         satir.append(f"Varış: {kisa_ad(r['d'])}, {gun(cfg, r.get('t1'), yil=False)}")
     elif not r.get("d"):
         satir.append("Varış limanı kayıtsız")
@@ -387,6 +405,7 @@ def _rozet(E, dz: str) -> str:
 
 
 SAYIM = {"kayitli": "kayıtlı varış", "aktarma": "üçüncü ülke limanı üzerinden", "acik": "AIS İsrail açıklarında kapalı",
+         "iz": "konumu İsrail açıklarında ya da GPS karıştırma izinde",
          "bekleme": "İsrail kıyı açığında bekleme", "sts": "gemiden gemiye", "karanlik": "AIS uzun süre kapalı"}
 
 
@@ -453,12 +472,21 @@ def _ceyhan_tablo(cfg, E, d: dict) -> str:
         kal = ""
         if x.get("t0") and x.get("t"):
             kal = _sayi(hours_between(x["t0"], x["t"]), 0)
-        son = ", ".join(f'{w["ad"]} ({gun(cfg, w["giris"], yil=False)})' for w in (x.get("sonrakiler") or [])[:3]) \
-            or (x.get("sonraki") or "kayıt yok")
-        bos = "; ".join(f'{_sayi(g["saat"], 0)} sa' + (" (İsrail açığı)" if g.get("il") else "") for g in x.get("bosluk") or [])
+        son = E(", ".join(f'{w["ad"]} ({gun(cfg, w["giris"], yil=False)})' for w in (x.get("sonrakiler") or [])[:3])
+                or (x.get("sonraki") or "kayıt yok"))
+        if x.get("donus"):
+            son = (f'<span class="uyari">Hiçbir limana uğramadan {_sayi(x["donus"])} gün sonra Ceyhan’a döndü; '
+                   'yükün boşaltıldığı yer kayıtsız</span>')
+        izx = x.get("iz") or {}
+        if izx.get("acik") or izx.get("sahte"):
+            son += (f'<br><span class="uyari">{"İsrail açıklarında konum: " + str(len(izx["acik"])) + " gün" if izx.get("acik") else ""}'
+                    f'{"; " if izx.get("acik") and izx.get("sahte") else ""}'
+                    f'{"Beyrut havalimanında sahte konum: " + str(len(izx["sahte"])) + " gün" if izx.get("sahte") else ""}</span>')
+        bos = "; ".join(f'{_sayi(g["saat"], 0)} sa' + (f' (sahte konum: {g["sahte"]})' if g.get("sahte") else
+                                                     " (İsrail açığı)" if g.get("il") else "") for g in x.get("bosluk") or [])
         bek = "; ".join(f'{_sayi(e["saat"], 0)} sa' for e in x.get("acik") or [])
         rows.append([f'<span class="tarih">{E(gun(cfg, x.get("t0")))}</span>', f'<span class="tarih">{E(gun(cfg, x.get("t")))}</span>',
-                     kal, E(son), f'<span class="uyari">{E(bos)}</span>' if bos else "–",
+                     kal, son, f'<span class="uyari">{E(bos)}</span>' if bos else "–",
                      f'<span class="uyari">{E(bek)}</span>' if bek else "–",
                      "evet" if x.get("t") in t0s else ""])
     return ('<h2>Ceyhan uğrakları</h2><p class="not">Geminin Ceyhan terminallerinin önündeki demirleme alanına (11 km) bütün '
@@ -597,7 +625,8 @@ def _kart(cfg, E, d: dict) -> str:
             f'<p class="kim">{E(kim)}</p>'
             f'<p class="etiketler">{tip}{basin}{f"<span>{E(firma)}</span>" if firma else ""}</p>'
             f'<p class="say"><b>{len(d["seferler"])} sefer</b>: {_sayim(E, d["say"])}. '
-            f'{E(aralik(cfg, d["ilk"], d["son"]))}.</p>'
+            f'{E(aralik(cfg, d["ilk"], d["son"]))}.'
+            + (f' <span class="uyari">{d["donus"]} kez limansız Ceyhan dönüşü.</span>' if d.get("donus") else "") + '</p>'
             f'{_serit(cfg, E, r)}<p class="ozet">{E(ozet(cfg, r))}</p>'
             f'<p class="baglantilar"><a href="{E(d["anahtar"])}.html">Dosyayı aç</a></p></article>')
 
@@ -631,7 +660,9 @@ def build(cfg, con, recs: list[dict], out: Path) -> list[dict]:
         govde = (f'<main class="sayfa rapor tanker-dosya" id="icerik"><header><p class="yol"><a href="../raporlar/index.html">Raporlar</a>, '
                  f'<a href="index.html">Tanker dosyaları</a></p><h1>{E(d["ad"])}</h1>'
                  f'<p class="giris">{_rozet(E, d["duzey"])} {len(d["seferler"])} sefer: {_sayim(E, d["say"])}. '
-                 f'{E(aralik(cfg, d["ilk"], d["son"]))}.</p></header>'
+                 f'{E(aralik(cfg, d["ilk"], d["son"]))}.'
+                 + (f' Ayrıca {d["donus"]} kez Ceyhan’dan çıkıp hiçbir limana uğramadan Ceyhan’a döndü; o yüklerin boşaltıldığı '
+                    'yer kayıtsız (aşağıdaki tablo).' if d.get("donus") else "") + '</p></header>'
                  f'{_kimlik(E, d)}<h2>Seferler</h2><p class="not">En yeni sefer en üstte. Saatler {E(cfg.tz)} saatiyle. '
                  f'Kesik macenta şerit AIS sinyalinin kesildiği aralıktır; düz macenta şerit, sinyalin İsrail açıklarında kesildiği '
                  f'ya da yeniden geldiği aralıktır.</p>'

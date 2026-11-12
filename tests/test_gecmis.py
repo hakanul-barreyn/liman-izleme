@@ -65,6 +65,11 @@ class FakeClient:
                     out.append(e)
         return out
 
+    def presence(self, geometry, start, end):
+        """AIS varlık raporu: varsayılan boş; testler kendi örneğini koyar."""
+        self.requests += 1
+        return []
+
     def vessel_events(self, dataset, vid, start, end):
         self.requests += 1
         return (self.v if "port-visits" in dataset else self.g).get(vid, [])
@@ -256,3 +261,49 @@ def test_israil_aciklarinda_ais_kapali(tmp_path):
     assert "Aşkelon’un" in sayfa_ and "kapandi" in sayfa_ and "acildi-il" in sayfa_
     # Ceyhan uğrakları tablosu: yoldaki boşluk İsrail açığı olarak işaretli
     assert "İsrail açığı" in sayfa_
+
+
+def test_ceyhan_dongusu_ve_sahte_konum(tmp_path):
+    """KIMOLOS örüntüsü: Ceyhan'dan çıkar, hiçbir limana uğramadan 11 gün sonra Ceyhan'a döner; arada AIS konumu
+    Beyrut havalimanında görünür (İsrail'in GPS karıştırmasının bilinen izi)."""
+    import copy
+    import datetime as dt
+    raw = copy.deepcopy(RAW)
+    raw["esikler"] = {"hedef_acik_deniz": [[31.2, 34.0], [33.1, 35.2]],
+                      "sahte_konum_noktalari": [{"ad": "Beyrut havalimanı", "merkez": [33.8209, 35.4884], "yaricap_km": 4}]}
+    cfg = config.Config(raw, tmp_path)
+    con = connect(db_path(cfg))
+    gecmis.set_target(con, "2025-01-01", "2025-04-01")
+    fake = FakeClient()
+    fake.v = {"V11": [pv("V11", "ceyhan", "TUR", 36.82, 35.97, "2025-02-01", "2025-02-02"),
+                      pv("V11", "ceyhan", "TUR", 36.82, 35.97, "2025-02-13", "2025-02-14")]}
+    for e in fake.v["V11"]:
+        e["vessel"].update(name="KIMOLOS", type="other_non_fishing")
+    fake.g = {}
+
+    def presence(geometry, a, b):
+        lon, lat = geometry["coordinates"][0][0]
+        if abs(lat - 33.82) < 0.2 and abs(lon - 35.49) < 0.2:  # sahte konum noktası
+            return [{"vid": "V11", "date": d, "hours": 6, "ad": "KIMOLOS", "m": "538007774", "b": "MHL",
+                     "tip": "other_non_fishing"} for d in ("2025-02-05", "2025-02-06") if a <= d < b]
+        return []
+    fake.presence = presence
+    st = gecmis.scan(cfg, con, fake, today=dt.date(2025, 4, 10))
+    assert st["tamam"] is True
+    cik = json.loads(con.execute("SELECT v FROM meta WHERE k='ceyhan_cikislari'").fetchone()[0])
+    x = [c for c in cik if c["t"].startswith("2025-02-02")][0]
+    assert x["donus"] == 11.0 and [g for g, _h in x["iz"]["sahte"]] == ["2025-02-05", "2025-02-06"]
+    rows = [dict(r) for r in con.execute("SELECT * FROM gecmis WHERE cls='iz_hedef'")]
+    assert len(rows) == 1 and "Beyrut havalimanı" in rows[0]["dest"] and rows[0]["dest_country"] == "IL"
+    assert json.loads(rows[0]["kaynak"])["iz"]["sahte"]
+    # AIS boşluğunun açıldığı nokta Beyrut havalimanında: AIS İsrail yakınında kapalı sayılır
+    assert cfg.hedef_izi(33.818, 35.491) and cfg.spoof_point(33.818, 35.491) == "Beyrut havalimanı"
+    assert not cfg.hedef_izi(33.90, 35.52)  # Beyrut limanı: sahte konum değil
+    # tanker dosyası: GFW sınıfı tanker sınıfında; seyir defterinde sahte konum günleri, Ceyhan tablosunda limansız dönüş
+    site.HATALAR.clear()
+    site.build(cfg, con)
+    assert not site.HATALAR
+    dosya = json.loads((cfg.site_dir / "veri" / "tankerler.json").read_text())
+    assert [d["kanit"] for d in dosya] == ["iz"]
+    sayfa_ = (cfg.site_dir / "tankerler" / f'{dosya[0]["dosya"]}.html').read_text()
+    assert "Sahte konum, Beyrut havalimanı" in sayfa_ and "Hiçbir limana uğramadan 11" in sayfa_

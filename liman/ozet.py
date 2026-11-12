@@ -158,7 +158,14 @@ def hesapla(cfg, con, recs: list[dict], tankerler: list[dict] | None = None) -> 
     out["ceyhan"] = {"cikis": len(cik), "gemi": len({x["vid"] for x in cik}),
                      "il": sum(1 for x in cik if x.get("ulke") in cfg.dest_countries()),
                      "il_acik": sum(1 for x in cik if any(g.get("il") for g in x.get("bosluk") or [])),
-                     "kayitsiz": sum(1 for x in cik if not x.get("ulke"))}
+                     "kayitsiz": sum(1 for x in cik if not x.get("ulke")),
+                     "donus": sum(1 for x in cik if x.get("donus")),
+                     "donus_gemi": len({x["vid"] for x in cik if x.get("donus")}),
+                     "iz": sum(1 for x in cik if (x.get("iz") or {}).get("acik") or (x.get("iz") or {}).get("sahte")),
+                     "iz_donus": sum(1 for x in cik if x.get("donus") and ((x.get("iz") or {}).get("acik")
+                                                                         or (x.get("iz") or {}).get("sahte"))),
+                     "sahte": sum(1 for x in cik if (x.get("iz") or {}).get("sahte")
+                                  or any(g.get("sahte") for g in x.get("bosluk") or []))}
     # bu sürümün veri kesiti: kayıtların sabit sıralı özetinin SHA-256'sı
     kesit = sorted([r["id"], r["y"], r["k"], r.get("m"), r.get("n"), r.get("o"), r.get("t0"), r.get("d"), r.get("t1")]
                    for r in recs)

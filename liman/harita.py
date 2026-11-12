@@ -22,7 +22,7 @@ from .util import SHIP_GROUP_LABELS, add_hours, iso, now_utc, ship_group
 FAMILY = {"dogrudan": "dogrudan", "dogrudan_izlenmedi": "dogrudan", "aktarmali": "liman",
           "denizde_aktarma": "sts", "dolayli_sts": "sts",
           "karanlik_bacak": "karanlik", "kiyida_kayboldu": "karanlik", "karanlik_sefer": "karanlik",
-          "kiyida_bosaltma": "karanlik", "karanlik_acik": "karanlik"}
+          "kiyida_bosaltma": "karanlik", "karanlik_acik": "karanlik", "iz_hedef": "karanlik"}
 FAMILY_LABELS = {"dogrudan": "Doğrudan", "liman": "Ara limanlı", "sts": "Gemiden gemiye",
                  "karanlik": "AIS kapatılmış"}
 FAMILY_NOTES = {"dogrudan": "Arada başka limana uğramadan",
@@ -31,6 +31,17 @@ FAMILY_NOTES = {"dogrudan": "Arada başka limana uğramadan",
                 "karanlik": "Sinyal kesildi, kıyıda kayboldu, limana girmeden boşalttı ya da varış kayıtsız"}
 FAMILY_ORDER = ["dogrudan", "liman", "sts", "karanlik"]
 ALL_LABELS = {**RETRO_LABELS, **CLASS_LABELS}
+
+
+def _iz(kaynak: str | None):
+    """Konum izi (GFW AIS varlık verisinde varış ülkesi açıkları ve sahte konum günleri): [[tür, gün, saat], ...]."""
+    if not kaynak:
+        return None
+    try:
+        iz = (json.loads(kaynak) or {}).get("iz") or {}
+    except ValueError:
+        return None
+    return [[t, g, h] for t in ("acik", "sahte") for g, h in iz.get(t) or []] or None
 
 
 def _ll(lat, lon, n: int = 3):
@@ -185,7 +196,7 @@ def voyages(cfg, con) -> list[dict]:
                            "d": r["dest"], "dc": r["dest_country"], "t1": r["t_arr"],
                            "ara": [m["liman"] for m in mids], "at": [[m.get("giris"), m.get("cikis")] for m in mids],
                            "w": [p for p in w if p], "kp": kp,
-                           "sl": r["next_port"]}))
+                           "sl": r["next_port"], "iz": _iz(r.get("kaynak"))}))
     return out
 
 

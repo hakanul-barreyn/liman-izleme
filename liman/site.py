@@ -583,6 +583,13 @@ rel="noopener">Middle East Eye’ın</a> yazdığı KIMOLOS ve SEAVIGOUR, <a hre
 rel="noopener">Greek City Times’ın</a> yazdığı NISSOS TINOS) Ceyhan’dan Mısır beyanıyla ya da varış yeri bildirmeden çıkıp AIS’i
 Doğu Akdeniz’de kapatıyor, Aşkelon’dan ayrılınca yeniden açıyor. Global Fishing Watch kıyıya yakın kesintileri çoğu zaman
 “kasıtlı kapatma” saymaz; bu kural o yüzden GFW’nin bu işaretine bakmaz, sinyalin nerede kesilip nerede geldiğine bakar.</p>
+<p>GPS karıştırması: İsrail yakınındaki gemi ve uçakların sahte konumu çoğunlukla Beyrut havalimanında görünür
+(<a href="https://npr.org/2024/04/22/1245847903/israel-gps-spoofing" rel="noopener">NPR, Nisan 2024</a>). Kara üzerindeki bu noktada
+AIS konumu görünen gemi İsrail’in karıştırma menzilindedir; bu yüzden sinyalin Beyrut havalimanında kesildiği ya da geldiği AIS boşlukları
+ve konumu orada görünen gemiler İsrail yakınında sayılır. Türk limanından çıkıp bir sonraki uğrağından önce konumu İsrail açıklarında ya
+da bu sahte konum noktasında görünen gemi ayrıca işaretlenir. Ceyhan’dan çıkıp hiçbir limana uğramadan {th.get("limansiz_donus_gun") or 20}
+gün içinde Ceyhan’a dönen tankerlerde yüklenen petrolün boşaltıldığı yer kayıtsızdır; tanker dosyalarında “limansız Ceyhan dönüşü”
+olarak gösterilir.</p>
 <p>Beyan tarihi kuralı: ihracatta Türk limanından çıkış, ithalatta Türk limanına varış beyan tarihinden sonra olmalıdır.</p>
 <h2>Haritayı okumak</h2><p>Kavisli çizgi çıkış ve varış limanlarını bağlar, gerçek güzergâhı göstermez; kalınlığı o hattaki sefer
 sayısıdır. Yeşil daireler ara limanlardır, büyüklükleri oraya uğrayan sefer sayısıdır. Bir hatta ya da ara limana tıklayınca

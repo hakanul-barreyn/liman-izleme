@@ -46,6 +46,10 @@ DEFAULTS: dict = {
         # uğramadan AIS'ini burada kapatır ya da burada yeniden açarsa "varış ülkesi açıklarında AIS kapalı" sayılır.
         "hedef_acik_deniz": None,
         "hedef_acik_bosluk_saat": 12,
+        # GPS karıştırmasında gemilerin sahte konumunun göründüğü yerler (ör. Beyrut havalimanı); konumu orada görünen
+        # gemi karıştırmayı yapan ülkenin yakınındadır. [{ad, merkez: [enlem, boylam], yaricap_km}]
+        "sahte_konum_noktalari": [],
+        "limansiz_donus_gun": 20,   # Ceyhan'dan çıkıp hiçbir limana uğramadan bu kadar gün içinde dönüş: boşaltma yeri kayıtsız
         "yaklasma_sessizlik_saat": 6,
         "aktarma_max_liman": 2,      # ara limanlı sayılmak için en fazla ara liman
         "aktarma_ulkeleri": [],      # ara liman sayılan ülkeler; boşsa "ulkeler" listesindeki diğer ülkeler
@@ -207,6 +211,19 @@ class Config:
             if la0 <= lat <= la1 and lo0 <= lon <= lo1:
                 return True
         return False
+
+    def spoof_point(self, lat, lon) -> str | None:
+        """Konum bilinen bir sahte konum noktasındaysa (ör. Beyrut havalimanı) o noktanın adı."""
+        if lat is None or lon is None:
+            return None
+        for n in self.th.get("sahte_konum_noktalari") or []:
+            if haversine_km(lat, lon, *n["merkez"]) <= float(n.get("yaricap_km", 4)):
+                return n.get("ad") or "sahte konum noktası"
+        return None
+
+    def hedef_izi(self, lat, lon) -> bool:
+        """Varış ülkesinin açık denizi ya da onun GPS karıştırmasının bilinen sahte konum noktası."""
+        return self.in_dest_offshore(lat, lon) or self.spoof_point(lat, lon) is not None
 
     def in_dest_offshore(self, lat, lon) -> bool:
         box = self.th.get("hedef_acik_deniz")
