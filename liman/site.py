@@ -555,8 +555,16 @@ uğrayıp en fazla {th["aktarma_max_gun"]} günde varış. Ara liman yalnızca �
 <li><span class="isaret" style="--c:var(--c-karanlik)"><b>AIS kapatılmış</b></span>: yolda en az {th["ais_bosluk_saat"]} saat sinyal yok
 (karanlık bacak); hedef ülkenin kıyı alanına girip hiçbir limana uğramadan en az {th["yaklasma_sessizlik_saat"]} saat sinyal vermedi
 (kıyıda kayboldu); ya da varış ülkesinde hiç kaydı yok ama izlenen deniz bölgesinde en az {th["karanlik_sefer_saat"]} saat AIS boşluğu
-var (karanlık sefer); ya da hedef ülkenin kıyı açığında limana hiç girmeden en az 12 saat bekledi (olası şamandıra
-boşaltması ya da aktarma; Global Fishing Watch’ın AIS varlık verisinden, bir önceki uğrağıyla eşleştirilerek).</li></ul>
+var (karanlık sefer); ya da Türk limanından çıktıktan sonra, hiçbir limana uğramadan, AIS sinyali en az
+{th.get("hedef_acik_bosluk_saat") or 12} saat kesildi ve sinyalin kesildiği ya da yeniden geldiği nokta hedef ülkenin açık denizinde
+({E(_kutu(th.get("hedef_acik_deniz")))}) (varış ülkesi açıklarında AIS kapalı); ya da hedef ülkenin kıyı açığında limana hiç girmeden
+en az 12 saat bekledi (olası şamandıra boşaltması ya da aktarma; Global Fishing Watch’ın AIS varlık verisinden, bir önceki uğrağıyla
+eşleştirilerek).</li></ul>
+<p>Basında adı geçen Ceyhan tankerleri (ör. <a href="https://www.middleeasteye.net/news/new-evidence-reveals-routine-oil-shipments-turkey-israel"
+rel="noopener">Middle East Eye’ın</a> yazdığı KIMOLOS ve SEAVIGOUR, <a href="https://greekcitytimes.com/2025/10/07/greek-ship-transports-oil-turkey/"
+rel="noopener">Greek City Times’ın</a> yazdığı NISSOS TINOS) Ceyhan’dan Mısır beyanıyla ya da varış yeri bildirmeden çıkıp AIS’i
+Doğu Akdeniz’de kapatıyor, Aşkelon’dan ayrılınca yeniden açıyor. Global Fishing Watch kıyıya yakın kesintileri çoğu zaman
+“kasıtlı kapatma” saymaz; bu kural o yüzden GFW’nin bu işaretine bakmaz, sinyalin nerede kesilip nerede geldiğine bakar.</p>
 <p>Beyan tarihi kuralı: ihracatta Türk limanından çıkış, ithalatta Türk limanına varış beyan tarihinden sonra olmalıdır.</p>
 <h2>Haritayı okumak</h2><p>Kavisli çizgi çıkış ve varış limanlarını bağlar, gerçek güzergâhı göstermez; kalınlığı o hattaki sefer
 sayısıdır. Yeşil daireler ara limanlardır, büyüklükleri oraya uğrayan sefer sayısıdır. Bir hatta ya da ara limana tıklayınca
@@ -576,6 +584,15 @@ Görüntülerin incelenmesi elle yapılmalıdır.</p>
 <li>Kayıtlar gemi hareketini gösterir; yükün sahibini, satıcısını ya da ticaretin hukuki durumunu göstermez.</li>
 <li>Bu sitedeki işaretler tespittir, hüküm değildir.</li></ul>{_ad_notu(cfg)}</main>'''
     return _page(cfg, "Yöntem", body, 0, "yontem")
+
+
+def _kutu(b) -> str:
+    """[[güney, batı], [kuzey, doğu]] kutusunu okunur yazar."""
+    if not b:
+        return "tanımlı değil"
+    (la0, lo0), (la1, lo1) = b
+    f = lambda x: f"{x:.1f}".replace(".", ",")  # noqa: E731
+    return f"{f(la0)}–{f(la1)}° K, {f(lo0)}–{f(lo1)}° D"
 
 
 def _ad_notu(cfg) -> str:

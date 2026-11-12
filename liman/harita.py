@@ -22,7 +22,7 @@ from .util import SHIP_GROUP_LABELS, add_hours, iso, now_utc, ship_group
 FAMILY = {"dogrudan": "dogrudan", "dogrudan_izlenmedi": "dogrudan", "aktarmali": "liman",
           "denizde_aktarma": "sts", "dolayli_sts": "sts",
           "karanlik_bacak": "karanlik", "kiyida_kayboldu": "karanlik", "karanlik_sefer": "karanlik",
-          "kiyida_bosaltma": "karanlik"}
+          "kiyida_bosaltma": "karanlik", "karanlik_acik": "karanlik"}
 FAMILY_LABELS = {"dogrudan": "Doğrudan", "liman": "Ara limanlı", "sts": "Gemiden gemiye",
                  "karanlik": "AIS kapatılmış"}
 FAMILY_NOTES = {"dogrudan": "Arada başka limana uğramadan",

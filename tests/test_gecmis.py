@@ -193,3 +193,36 @@ def test_istek_siniri(tmp_path):
     fake.limit = 2
     st = gecmis.scan(cfg, con, fake)
     assert st["tamam"] is False and fake.requests <= 3
+
+
+def test_israil_aciklarinda_ais_kapali(tmp_path):
+    """Basındaki Ceyhan tankerlerinin örüntüsü: Ceyhan'dan çıkar, AIS'i yolda kapatır, İsrail açıklarında
+    yeniden açar, sonra başka bir limana gider. GFW bu boşluğu "kasıtlı" saymasa da işaretlenmeli."""
+    import copy
+    import datetime as dt
+    raw = copy.deepcopy(RAW)
+    raw["esikler"] = {"hedef_acik_deniz": [[31.2, 34.0], [33.1, 35.2]]}
+    cfg = config.Config(raw, tmp_path)
+    con = connect(db_path(cfg))
+    gecmis.set_target(con, "2025-01-01", "2025-04-01")
+    fake = FakeClient()
+    fake.v = {"V9": [pv("V9", "ceyhan", "TUR", 36.87, 35.93, "2025-02-01", "2025-02-02"),
+                     pv("V9", "augusta", "ITA", 37.2, 15.2, "2025-02-10", "2025-02-11")],
+              # V10: aynı boşluk ama Port Said yolunda (İsrail kutusunun dışında): işaretlenmemeli
+              "V10": [pv("V10", "ceyhan", "TUR", 36.87, 35.93, "2025-02-01", "2025-02-02"),
+                      pv("V10", "augusta", "ITA", 37.2, 15.2, "2025-02-10", "2025-02-11")]}
+    g9 = {"id": "g9", "type": "gap", "start": "2025-02-03T02:00:00.000Z", "end": "2025-02-06T10:00:00.000Z",
+          "position": {"lat": 34.6, "lon": 34.8}, "vessel": {"id": "V9"},
+          "gap": {"durationHours": 80, "distanceKm": 330, "intentionalDisabling": False,
+                  "offPosition": {"lat": 34.6, "lon": 34.8}, "onPosition": {"lat": 31.8, "lon": 34.3}}}
+    g10 = copy.deepcopy(g9)
+    g10.update(id="g10", vessel={"id": "V10"})
+    g10["gap"]["onPosition"] = {"lat": 31.9, "lon": 32.6}
+    fake.g = {"V9": [g9], "V10": [g10]}
+    st = gecmis.scan(cfg, con, fake, today=dt.date(2025, 4, 10))
+    assert st["tamam"] is True
+    rows = {r["vessel_id"]: dict(r) for r in con.execute("SELECT * FROM gecmis WHERE cls='karanlik_acik'")}
+    assert set(rows) == {"V9"}
+    r = rows["V9"]
+    assert r["dest"] == "İsrail açıkları (AIS kapalıyken)" and r["dest_country"] == "IL" and r["next_port"]
+    assert (r["d_lat"], r["d_lon"]) == (31.8, 34.3) and json.loads(r["gaps"])[0]["kasitli"] is False

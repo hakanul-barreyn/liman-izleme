@@ -151,6 +151,11 @@ esikler:
   karanlik_sefer_saat: 24      # bu kadar saatten uzun AIS boşluğu "karanlık sefer" adayı
   karanlik_sefer_gun: 30
   karanlik_bolge: [[30.0, 25.0], [37.6, 36.6]]   # Doğu Akdeniz: Rodos'un doğusu ve güneyi
+  # İsrail açıkları: kıyıdan ~40-110 km. Batı sınırı 34° D: Ceyhan'dan Port Said'e giden rota bunun batısında kalır.
+  # Kuzey sınırı 33,1° K (Lübnan sınırı), güney sınırı 31,2° K. Basında adı geçen Ceyhan tankerleri AIS'i
+  # Doğu Akdeniz'de kapatıp Aşkelon'dan ayrılınca açıyor; kapanma ya da açılma noktası bu kutuya düşer.
+  hedef_acik_deniz: [[31.2, 34.0], [33.1, 35.2]]
+  hedef_acik_bosluk_saat: 12
   yaklasma_sessizlik_saat: 6
   sts_mesafe_m: 500
   sts_sure_saat: 2

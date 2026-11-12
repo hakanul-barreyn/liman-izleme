@@ -42,6 +42,10 @@ DEFAULTS: dict = {
         "karanlik_sefer_gun": 30,
         # [[güney enlem, batı boylam], [kuzey enlem, doğu boylam]]: karanlık seferlerin arandığı deniz
         "karanlik_bolge": [[30.0, 25.0], [37.6, 36.6]],
+        # Varış ülkesinin açık denizi ([[güney, batı], [kuzey, doğu]]). Türk limanından çıkan bir gemi limana
+        # uğramadan AIS'ini burada kapatır ya da burada yeniden açarsa "varış ülkesi açıklarında AIS kapalı" sayılır.
+        "hedef_acik_deniz": None,
+        "hedef_acik_bosluk_saat": 12,
         "yaklasma_sessizlik_saat": 6,
         "aktarma_max_liman": 2,      # ara limanlı sayılmak için en fazla ara liman
         "aktarma_ulkeleri": [],      # ara liman sayılan ülkeler; boşsa "ulkeler" listesindeki diğer ülkeler
@@ -203,6 +207,13 @@ class Config:
             if la0 <= lat <= la1 and lo0 <= lon <= lo1:
                 return True
         return False
+
+    def in_dest_offshore(self, lat, lon) -> bool:
+        box = self.th.get("hedef_acik_deniz")
+        if not box or lat is None or lon is None:
+            return False
+        (la0, lo0), (la1, lo1) = box
+        return la0 <= lat <= la1 and lo0 <= lon <= lo1
 
     def in_dark_box(self, lat, lon) -> bool:
         if lat is None or lon is None:

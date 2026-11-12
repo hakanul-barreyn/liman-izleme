@@ -55,6 +55,7 @@ CLASS_LABELS = {
     "karanlik_bacak": "Karanlık bacak (AIS boşluğu)",
     "karanlik_sefer": "Karanlık sefer (varış limanı kayıtsız)",
     "kiyida_bosaltma": "Limana girmeden kıyı açığında bekledi (olası şamandıra boşaltması)",
+    "karanlik_acik": "AIS varış ülkesinin açıklarında kapalı (limana girişi kayıtsız)",
 }
 
 
@@ -529,6 +530,7 @@ def compute(cfg, con, *_eski) -> int:
     max_h = th["guzergah_max_gun"] * 24
     dark_h = th["karanlik_sefer_saat"]
     dark_win = th["karanlik_sefer_gun"] * 24
+    acik_h = th.get("hedef_acik_bosluk_saat") or 12
     max_mids = th["aktarma_max_liman"]
     via_h = th["aktarma_max_gun"] * 24
     direct_h = th["dogrudan_max_gun"] * 24
@@ -562,7 +564,7 @@ def compute(cfg, con, *_eski) -> int:
             iso3 = ((pv_.get("startAnchorage") or pv_.get("endAnchorage") or {}).get("flag"))
             visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon, "iso3": iso3,
                            "start": e["start"], "end": end, "vessel": e["vessel"]})
-        gl = [_gap_info(g) for g in gaps if g.get("start")]
+        gl = sorted((_gap_info(g) for g in gaps if g.get("start")), key=lambda g: g["baslangic"])
         # dünyadan hedef ülkeye: her varışın bir önceki uğrağı (hangi ülkeden geldi?)
         for i, v in enumerate(visits):
             if v["c"] not in hedef or v["start"] < period or (i and visits[i - 1]["c"] == v["c"]):
@@ -630,6 +632,19 @@ def compute(cfg, con, *_eski) -> int:
                 lim = add_hours(o["end"], dark_win)
                 if nxt and nxt["start"] < lim:
                     lim = nxt["start"]
+                # AIS'i varış ülkesinin açıklarında kapatan ya da orada yeniden açan gemi (GFW "kasıtlı" saymasa da):
+                # basında adı geçen Ceyhan tankerleri AIS'i yolda kapatıp Aşkelon'dan ayrılınca açıyor
+                if B in hedef:
+                    ac = [g for g in gl if o["end"] <= g["baslangic"] < lim and g["saat"] >= acik_h
+                          and (cfg.in_dest_offshore(*g["kapanis"]) or cfg.in_dest_offshore(*g["acilis"]))]
+                    if ac:
+                        g = ac[0]
+                        yer, tt = (g["acilis"], g["bitis"]) if cfg.in_dest_offshore(*g["acilis"]) else (g["kapanis"], g["baslangic"])
+                        d = {"name": f"{cfg.country_name(B)} açıkları (AIS kapalıyken)", "c": B, "start": tt or g["baslangic"],
+                             "lat": yer[0], "lon": yer[1]}
+                        _insert(con, A, B, "karanlik_acik", vid, o["vessel"], o, d, nxt, [], ac)
+                        n += 1
+                        continue
                 # GFW'nin "kasıtlı kapatma" saydığı, liman yakınında olmayan uzun boşluklar
                 legs = [g for g in gl if o["end"] <= g["baslangic"] < lim and g["saat"] >= dark_h
                         and g.get("kasitli") is not False
