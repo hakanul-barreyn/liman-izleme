@@ -117,6 +117,15 @@ def uydu(lat, lon, t0: str, t1: str, radar: bool) -> str:
     return f"https://browser.dataspace.copernicus.eu/?{q}"
 
 
+def cikis_adi(cfg, r: dict, kisa: bool = False) -> str:
+    """Çıkış limanının adı; GFW'de adı olmayan demirleme yerleri için en yakın limana göre konum."""
+    o = r.get("o") or "Türk limanı"
+    if (o.endswith(" limanı") or "adsız demirleme" in o) and r.get("w"):
+        y = yer(cfg, r["w"][0][1], r["w"][0][0])
+        return y if kisa else f"{o.replace(' limanı', '')}, adsız demirleme yeri ({y})"
+    return kisa_ad(o) if kisa else o
+
+
 def anahtar(d: dict) -> str:
     if d.get("imo"):
         return f"imo-{d['imo']}"
@@ -254,10 +263,7 @@ def _ts(s: str) -> float:
 # --------------------------------------------------------------------------- metin
 def adimlar(cfg, r: dict) -> list[tuple[str | None, str, str]]:
     """Bir seferin seyir defteri satırları: (zaman, metin, tür)."""
-    o = r.get("o") or "Türk limanı"
-    if (o.endswith(" limanı") or "adsız demirleme" in o) and r.get("w"):
-        o = f"{o} ({yer(cfg, r['w'][0][1], r['w'][0][0])})"  # adı olmayan demirleme yeri: en yakın limana göre
-    out = [(r.get("t0"), f"{o} çıkışı" + (f" ({r['ter']})" if r.get("ter") else ""), "cikis")]
+    out = [(r.get("t0"), f"{cikis_adi(cfg, r)} çıkışı" + (f" ({r['ter']})" if r.get("ter") else ""), "cikis")]
     ats = r.get("at") or []
     for i, x in enumerate(r.get("ara") or []):
         at = ats[i] if i < len(ats) and ats[i] else [None, None]
@@ -291,7 +297,10 @@ def adimlar(cfg, r: dict) -> list[tuple[str | None, str, str]]:
 
 def ozet(cfg, r: dict) -> str:
     """Seferin tek cümlelik özeti."""
-    o = r.get("o") or "Türk limanı"
+    ham = r.get("o") or ""
+    o = cikis_adi(cfg, r, kisa=True)
+    if ham.endswith(" limanı") or "adsız demirleme" in ham:
+        o = f"adsız demirleme yeri ({o})"
     t = gun(cfg, r.get("t0"))
     kp = r.get("kp") or []
     if r["k"] == "karanlik_acik" and kp:
@@ -316,7 +325,7 @@ def paylasim(cfg, d: dict, url: str) -> str:
     kim = ", ".join(filter(None, [f"{d['bayrak']} bayraklı" if d["bayrak"] else None,
                                   "tanker" if d["dogrulandi"] else None, f"IMO {d['imo']}" if d["imo"] else None]))
     satir = [f"{d['ad']}" + (f" ({kim})" if kim else "")]
-    satir.append(f"Çıkış: {kisa_ad(r.get('o') or 'Türk limanı')}, {gun(cfg, r.get('t0'))}")
+    satir.append(f"Çıkış: {cikis_adi(cfg, r, kisa=True)}, {gun(cfg, r.get('t0'))}")
     kp = r.get("kp") or []
     if kp:
         k = kp[0]
@@ -369,7 +378,7 @@ def _serit(cfg, E, r: dict) -> str:
     son_ad = "Varış" if r.get("d") and r["k"] not in ("karanlik_acik", "kiyida_bosaltma") else "Son kayıt"
     return (f'<div class="serit-kutu"><div class="serit" role="img" aria-label="{E(etiket)}">'
             f'<span class="cizgi"></span>{"".join(parca)}<span class="uc bas"></span><span class="uc son"></span></div>'
-            f'<div class="serit-alt"><span>{E(kisa_ad(r.get("o") or "Çıkış"))}, {E(gun(cfg, t0, yil=False))}</span>'
+            f'<div class="serit-alt"><span>Çıkış, {E(gun(cfg, t0, yil=False))}</span>'
             f'<span>{_sayi(gun_say)} gün</span><span>{E(son_ad)}, {E(gun(cfg, t1, yil=False))}</span></div></div>')
 
 
@@ -430,7 +439,7 @@ def _sefer_blok(cfg, E, directions, r: dict) -> str:
     onu = '<span class="on-not">Ticaret durdurma beyanından önce</span>' if r.get("on") else ""
     harita_l = f'<a href="{_harita_link(directions, r)}">Haritada</a>' if r["id"][0] in "cg" else ""
     return (f'<article class="sefer-kayit" id="{E(r["id"])}"><header>{_rozet(E, r["duzey"])}{onu}'
-            f'<h3>{E(gun(cfg, r.get("t0")))}, {E(r.get("o") or "")}</h3>{harita_l}</header>'
+            f'<h3>{E(gun(cfg, r.get("t0")))}, {E(cikis_adi(cfg, r, kisa=True))}</h3>{harita_l}</header>'
             f'{_serit(cfg, E, r)}<ol class="defter">{ad}</ol>{_uydu_satiri(cfg, E, r)}</article>')
 
 
