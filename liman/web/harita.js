@@ -810,7 +810,7 @@
       if (durum.aile.has(a)) { if (durum.aile.size > 1) durum.aile.delete(a); } else durum.aile.add(a);
       durum.limit = 80; uygula();
     } else if (t.matches('[data-y]')) {
-      durum.y = t.dataset.y; durum.limit = 80;
+      durum.y = t.dataset.y; durum.limit = 80; durum.hat = null;
       document.querySelectorAll('[data-y]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.y === durum.y)));
       uygula();
     } else if (t.matches('[data-k]')) {

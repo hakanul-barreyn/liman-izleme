@@ -363,7 +363,7 @@ def _gemiler(cfg, con, keys, vessels, tracking) -> str:
 
 
 # --------------------------------------------------------------------------- limanlar
-def _kapsama(cfg, con) -> str:
+def _kapsama(cfg, con, kisa: bool = False) -> str:
     """Canlı kayıtta hiç ziyaret görülmeyen izlenen limanlar (kıyı alıcısı yoksa canlı veri gelmez)."""
     first = con.execute("SELECT min(t_in) FROM visits").fetchone()[0]
     if not first:
@@ -374,9 +374,10 @@ def _kapsama(cfg, con) -> str:
     if not eksik:
         return ""
     donem = "Son 7 günde" if first <= since else "Canlı toplama başladığından beri"
+    neden = "" if kisa else ("aisstream.io gönüllülerin kıyıya kurduğu alıcılarla çalışır ve bu limanların çevresinde alıcısı "
+                             "yok gibi görünüyor; ")
     return (f'<p class="not">{donem} canlı kayıtta hiç gemi görülmeyen izlenen limanlar: {E(", ".join(eksik))}. '
-            'aisstream.io gönüllülerin kıyıya kurduğu alıcılarla çalışır ve bu limanların çevresinde alıcısı yok gibi görünüyor; '
-            'buralardan çıkan seferler yalnızca geçmiş taramada (Global Fishing Watch) görünür.</p>')
+            f'{neden}{"B" if kisa else "b"}uralardan çıkan seferler yalnızca geçmiş taramada (Global Fishing Watch) görünür.</p>')
 
 
 def _limanlar(cfg, con, days, keys) -> None:
@@ -501,7 +502,7 @@ Kurallar aşağıda; aynı veriden herkes aynı sonuca ulaşabilir.</p></header>
 <h2>Veri</h2><p>Canlı kayıt: AIS mesajları <a href="https://aisstream.io">aisstream.io</a> üzerinden toplanır. Kaydedilen her mesaj
 değiştirilmeden günlük ham dosyaya yazılır; aynı geminin çok sık tekrarlanan konumları seyreltilir. Limanların çevresindeki
 bütün gemiler ve takipteki gemiler dünyanın her yerinde dinlenir. Toplayıcının veri alamadığı süreler kesinti olarak kaydedilir.
-aisstream.io gönüllülerin kıyıya kurduğu alıcılarla çalışır; alıcısı olmayan limanlardan canlı veri gelmez.</p>{_kapsama(cfg, cfg._con)}
+aisstream.io gönüllülerin kıyıya kurduğu alıcılarla çalışır; alıcısı olmayan limanlardan canlı veri gelmez.</p>{_kapsama(cfg, cfg._con, kisa=True)}
 <p>Geçmiş tarama: <a href="https://globalfishingwatch.org">Global Fishing Watch</a>’ın uydu ve kıyı alıcılarının AIS verisinden
 hesapladığı liman ziyaretleri ve AIS boşlukları. Beyan tarihinden bu yana bütün dönem taranır, sonra her hafta yeni dönem eklenir;
 GFW verisi birkaç gün geç oluştuğu için son günler bir sonraki haftada gelir.</p>
