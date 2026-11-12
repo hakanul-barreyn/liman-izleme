@@ -141,3 +141,26 @@ def test_guncelleme_bogaz_ve_donem(tmp_path):
     before = fake.requests
     gecmis.scan(cfg, con, fake, today=dt.date(2025, 6, 1))
     assert fake.requests == before
+
+
+def test_kiyi_acigi_bosaltma(tmp_path):
+    """Limana girmeden İsrail kıyı açığında bekleyen tanker, Ceyhan çıkışıyla eşleşir."""
+    import copy
+    import datetime as dt
+    raw = copy.deepcopy(RAW)
+    raw["limanlar"].append({"kod": "ILK", "ad": "İsrail kıyı yaklaşma alanı", "ulke": "IL", "rol": "varis", "yaklasma": True,
+                            "alan": [[31.9, 34.6], [31.9, 34.2], [31.5, 34.2], [31.5, 34.6]]})
+    cfg = config.Config(raw, tmp_path)
+    con = connect(db_path(cfg))
+    gecmis.set_target(con, "2025-01-01", "2025-04-01")
+    fake = FakeClient()
+    fake.v = {"V8": [pv("V8", "ceyhan", "TUR", 36.87, 35.93, "2025-02-01", "2025-02-02")]}
+    fake.g = {}
+    fake.presence = lambda geometry, a, b: [
+        {"vid": "V8", "date": d, "hours": 20, "ad": "TANKER X", "m": "538000001", "b": "MHL", "tip": "other_non_fishing"}
+        for d in ("2025-02-05", "2025-02-06") if a <= d < b]
+    st = gecmis.scan(cfg, con, fake, today=dt.date(2025, 4, 10))
+    assert st["tamam"] is True
+    rows = [dict(r) for r in con.execute("SELECT * FROM gecmis WHERE cls='kiyida_bosaltma'")]
+    assert len(rows) == 1 and rows[0]["origin"] == "Ceyhan" and rows[0]["name"] == "TANKER X"
+    assert con.execute("SELECT count(*) FROM dunya WHERE dest LIKE '%kıyı açıkları%'").fetchone()[0] == 1

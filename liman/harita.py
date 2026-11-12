@@ -21,13 +21,14 @@ from .util import SHIP_GROUP_LABELS, add_hours, iso, now_utc, ship_group
 
 FAMILY = {"dogrudan": "dogrudan", "dogrudan_izlenmedi": "dogrudan", "aktarmali": "liman",
           "denizde_aktarma": "sts", "dolayli_sts": "sts",
-          "karanlik_bacak": "karanlik", "kiyida_kayboldu": "karanlik", "karanlik_sefer": "karanlik"}
+          "karanlik_bacak": "karanlik", "kiyida_kayboldu": "karanlik", "karanlik_sefer": "karanlik",
+          "kiyida_bosaltma": "karanlik"}
 FAMILY_LABELS = {"dogrudan": "Doğrudan", "liman": "Ara limanlı", "sts": "Gemiden gemiye",
                  "karanlik": "AIS kapatılmış"}
 FAMILY_NOTES = {"dogrudan": "Arada başka limana uğramadan",
                 "liman": "Üçüncü bir ülkenin limanı üzerinden",
                 "sts": "Açık denizde başka bir gemiyle buluşma",
-                "karanlik": "Yolda sinyal kesildi, kıyıda kayboldu veya varış kayıtsız"}
+                "karanlik": "Sinyal kesildi, kıyıda kayboldu, limana girmeden boşalttı ya da varış kayıtsız"}
 FAMILY_ORDER = ["dogrudan", "liman", "sts", "karanlik"]
 ALL_LABELS = {**RETRO_LABELS, **CLASS_LABELS}
 

@@ -33,7 +33,10 @@ log = logging.getLogger("gecmis")
 API = "https://gateway.api.globalfishingwatch.org/v3/events"
 DS_PV = "public-global-port-visits-events:latest"
 DS_GAP = "public-global-gaps-events:latest"
-SKIP_TYPES = ("fishing", "passenger", "gear", "support", "seismic")
+DS_PRESENCE = "public-global-presence:latest"
+REPORT_API = "https://gateway.api.globalfishingwatch.org/v3/4wings/report"
+# GFW gemi tipleri; "other_non_fishing" (tankerlerin çoğu bu sınıfta) atlanmamalı
+SKIP_TYPES = {"fishing", "passenger", "gear", "support", "seismic_vessel", "seismic"}
 # Ülke kodu yapılandırmada olmayan limanlar için Türkçe ülke adları (GFW ISO3 kullanır)
 ULKE_ADLARI = ISO3_AD
 # GFW liman adları ASCII; sık görülen Türk limanlarının doğru yazımı
@@ -51,6 +54,7 @@ CLASS_LABELS = {
     "aktarmali": "Ara limanlı",
     "karanlik_bacak": "Karanlık bacak (AIS boşluğu)",
     "karanlik_sefer": "Karanlık sefer (varış limanı kayıtsız)",
+    "kiyida_bosaltma": "Limana girmeden kıyı açığında bekledi (olası şamandıra boşaltması)",
 }
 
 
@@ -60,7 +64,7 @@ class Client:
         self.pause = pause
         self.requests = 0
 
-    def _req(self, method: str, url: str, body=None) -> dict:
+    def _req(self, method: str, url: str, body=None, ham: bool = False):
         data = json.dumps(body).encode() if body is not None else None
         for attempt in range(6):
             req = urllib.request.Request(url, data=data, method=method, headers={
@@ -70,7 +74,8 @@ class Client:
                 with urllib.request.urlopen(req, timeout=180) as r:
                     self.requests += 1
                     time.sleep(self.pause)
-                    return json.loads(r.read().decode())
+                    raw = r.read()
+                    return raw if ham else json.loads(raw.decode())
             except urllib.error.HTTPError as e:
                 detail = e.read().decode(errors="replace")[:500]
                 if e.code in (429, 500, 502, 503, 504) and attempt < 5:
@@ -97,6 +102,15 @@ class Client:
             if not entries or nxt is None or nxt <= offset or (total is not None and len(out) >= total):
                 return out
             offset = nxt
+
+    def presence(self, geometry: dict, start: str, end: str) -> list[dict]:
+        """Bir alanda gün gün bulunan gemiler (4Wings AIS presence raporu, gemi kimliğine göre)."""
+        q = urllib.parse.urlencode({"format": "JSON", "group-by": "VESSEL_ID", "temporal-resolution": "DAILY",
+                                    "datasets[0]": DS_PRESENCE, "date-range": f"{start},{end}",
+                                    "spatial-aggregation": "true"})
+        fc = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {}, "geometry": geometry}]}
+        raw = self._req("POST", f"{REPORT_API}?{q}", {"geojson": json.dumps(fc)}, ham=True)
+        return _presence_entries(raw)
 
     def area_events(self, dataset: str, geometry: dict, start: str, end: str, extra: dict | None = None) -> list[dict]:
         body = {"datasets": [dataset], "startDate": start, "endDate": end, "geometry": geometry, **(extra or {})}
@@ -137,6 +151,34 @@ def slim(e: dict) -> dict:
     return out
 
 
+def _presence_entries(raw: bytes) -> list[dict]:
+    """Rapor yanıtı zip içinde JSON (ya da düz JSON); gemi-gün satırlarını sadeleştirir."""
+    import io
+    import zipfile
+    if raw[:2] == b"PK":
+        with zipfile.ZipFile(io.BytesIO(raw)) as z:
+            name = next((n for n in z.namelist() if n.lower().endswith(".json")), None)
+            data = json.loads(z.read(name).decode()) if name else {}
+    else:
+        data = json.loads(raw.decode() or "{}")
+    rows: list[dict] = []
+
+    def walk(x):
+        if isinstance(x, dict):
+            if "hours" in x and (x.get("vesselId") or x.get("vessel_id")):
+                rows.append(x)
+            else:
+                for v in x.values():
+                    walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+    walk(data)
+    return [{"vid": r.get("vesselId") or r.get("vessel_id"), "date": str(r.get("date") or "")[:10],
+             "hours": r.get("hours"), "ad": r.get("shipName"), "m": r.get("mmsi"), "b": r.get("flag"),
+             "tip": r.get("vesselType") or r.get("vessel_type")} for r in rows]
+
+
 def geometry(area) -> dict:
     ring = [[round(lon, 5), round(lat, 5)] for lat, lon in area.outline()]
     if ring[0] != ring[-1]:
@@ -155,8 +197,8 @@ def chunks(start: str, end: str, days: int = 90) -> list[tuple[str, str]]:
     return out
 
 
-def _store(con, key: str, events: list[dict]) -> list[dict]:
-    data = [slim(e) for e in events]
+def _store(con, key: str, events: list[dict], ham: bool = False) -> list[dict]:
+    data = events if ham else [slim(e) for e in events]
     con.execute("INSERT OR REPLACE INTO gfw_cache(key,data,fetched) VALUES(?,?,?)",
                 (key, json.dumps(data, separators=(",", ":")), iso(now_utc())))
     con.commit()
@@ -219,12 +261,12 @@ class _Plan:
             self.out = True
         return not self.out
 
-    def area(self, key: str, fetch) -> list[dict] | None:
+    def area(self, key: str, fetch, ham: bool = False) -> list[dict] | None:
         """Alan sorgusunun sonucu (önbellekten ya da yeni istekle); süre yoksa None."""
         self.total += 1
         data = _cache_get(self.con, key)
         if data is None and self._time_left():
-            data = _store(self.con, key, fetch())
+            data = _store(self.con, key, fetch(), ham=ham)
         if data is not None:
             self.done += 1
         return data
@@ -239,10 +281,35 @@ class _Plan:
             self.done += 1
 
 
+def offshore_zones(cfg) -> list:
+    """Hedef ülkenin kıyı yaklaşma alanları (ör. İsrail kıyı açıkları)."""
+    return [p for p in cfg.ports if p.approach and p.country in cfg.dest_countries()]
+
+
+def _episodes(rows: list[dict], min_saat: float = 12) -> list[tuple[str, tuple]]:
+    """Gemi-gün satırlarından ardışık günlerde en az min_saat bekleme dönemleri: (gemi, (ilk gün, son gün, saat, gemi))."""
+    by: dict[str, list] = {}
+    for r in rows:
+        if r.get("vid") and r.get("date") and str(r.get("tip") or "").lower() not in SKIP_TYPES:
+            by.setdefault(r["vid"], []).append(r)
+    out = []
+    for vid, rs in by.items():
+        rs.sort(key=lambda r: r["date"])
+        cur = None
+        for r in rs + [None]:
+            if r and cur and (dt.date.fromisoformat(r["date"]) - dt.date.fromisoformat(cur[1])).days <= 1:
+                cur = (cur[0], r["date"], cur[2] + (r.get("hours") or 0), cur[3])
+                continue
+            if cur and cur[2] >= min_saat:
+                out.append((vid, cur))
+            cur = (r["date"], r["date"], r.get("hours") or 0, r) if r else None
+    return out
+
+
 def _vessels_in(evs: list[dict] | None, into: dict[str, dict]) -> None:
     for e in evs or []:
         v = e.get("vessel") or {}
-        if v.get("id") and not any(x in str(v.get("type") or "").lower() for x in SKIP_TYPES):
+        if v.get("id") and str(v.get("type") or "").lower() not in SKIP_TYPES:
             into.setdefault(v["id"], v)
 
 
@@ -323,6 +390,22 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
                 for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
                     plan.ensure(f"{kind}:{vid}:{w0}:{b}",
                                 lambda ds=ds, vid=vid, w0=w0, b=b: client.vessel_events(ds, vid, w0, b))
+        # 3) hedef ülkenin kıyı açıkları: limana girmeden bekleyen gemiler (şamandıra boşaltması, aktarma)
+        son = (today - dt.timedelta(days=3)).isoformat()
+        for z in offshore_zones(cfg):
+            for a, b in chunks(start, son, days=30):
+                evs = plan.area(f"pres:{z.code}:{a}:{b}",
+                                lambda z=z, a=a, b=b: client.presence(geometry(z.area), a, b), ham=True)
+                bilinen = {k.split(":")[1] for (k,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")}
+                for vid, (e0, e1, _h, _v) in _episodes(evs or []):
+                    if vid in bilinen:
+                        continue
+                    w0 = (dt.date.fromisoformat(e0) - dt.timedelta(days=60)).isoformat()
+                    w1 = (dt.date.fromisoformat(e1) + dt.timedelta(days=2)).isoformat()
+                    for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
+                        plan.ensure(f"{kind}:{vid}:{w0}:{w1}",
+                                    lambda ds=ds, vid=vid, w0=w0, w1=w1: client.vessel_events(ds, vid, w0, w1))
+                    bilinen.add(vid)
     except RuntimeError as e:
         log.error("%s", e)
         errors = True
@@ -525,9 +608,69 @@ def compute(cfg, con, *_eski) -> int:
                 if legs:
                     _insert(con, A, B, "karanlik_sefer", vid, o["vessel"], o, None, nxt, [], legs)
                     n += 1
+    n += _offshore(cfg, con, vkeys, period, home, aktarma, via_h, direct_h, max_mids)
     ceyhan.sort(key=lambda x: x["t"], reverse=True)
     set_meta(con, "ceyhan_cikislari", json.dumps(ceyhan, ensure_ascii=False))
     con.commit()
+    return n
+
+
+def _offshore(cfg, con, vkeys, period, home, aktarma, via_h, direct_h, max_mids) -> int:
+    """Hedef ülke kıyı açığında limana girmeden bekleyen gemiler: bir önceki uğrağı ve (varsa) Türk limanı çıkışı."""
+    n = 0
+    for z in offshore_zones(cfg):
+        rows = []
+        for (key,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE ?", (f"pres:{z.code}:%",)):
+            rows += _cache_get(con, key) or []
+        clat, clon = z.area.center
+        for vid, (e0, e1, saat, ornek) in _episodes(rows):
+            t0, t1 = f"{e0}T00:00:00Z", f"{e1}T23:59:59Z"
+            if t0 < period or vid not in vkeys:
+                continue
+            visits = []
+            for e in sorted(_merged(con, vkeys[vid]["pv"]), key=lambda e: e.get("start") or ""):
+                if not e.get("start"):
+                    continue
+                c, name, code, lat, lon = _visit_place(cfg, e)
+                if code is None and lat is not None and cfg.in_transit_zone(lat, lon):
+                    continue
+                pv_ = e.get("port_visit") or {}
+                visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon,
+                               "iso3": (pv_.get("startAnchorage") or {}).get("flag"),
+                               "start": e["start"], "end": e.get("end") or e["start"], "vessel": e.get("vessel") or {}})
+            # aynı günlerde hedef ülkede liman ziyareti varsa bu bekleme liman sırasıdır
+            if any(v["c"] == z.country and v["start"] <= add_hours(t1, 24) and v["end"] >= add_hours(t0, -24) for v in visits):
+                continue
+            onceki = [v for v in visits if v["end"] <= t0]
+            vessel = {"name": ornek.get("ad"), "ssvid": ornek.get("m"), "flag": ornek.get("b"), "type": ornek.get("tip")}
+            d = {"name": f"{cfg.country_name(z.country)} kıyı açıkları (limana girmeden, {round(saat)} saat)",
+                 "c": z.country, "start": t0, "lat": clat, "lon": clon}
+            pr = onceki[-1] if onceki and hours_between(onceki[-1]["end"], t0) <= 45 * 24 else None
+            con.execute("INSERT INTO dunya(vessel_id,ssvid,name,flag,vtype,origin,origin_iso3,o_lat,o_lon,t_dep,dest,t_arr) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (vid, vessel["ssvid"], vessel["name"], vessel["flag"], vessel["type"],
+                         pr["name"] if pr else None, (pr.get("iso3") or ("TUR" if pr["c"] == "TR" else None)) if pr else None,
+                         pr["lat"] if pr else None, pr["lon"] if pr else None, pr["end"] if pr else None, d["name"], t0))
+            # Türk limanından mı geldi? (ara limanlar aktarma ülkelerinde)
+            mids, j = [], len(onceki) - 1
+            while j >= 0:
+                w = onceki[j]
+                if w["c"] in home:
+                    break
+                if w["c"] not in aktarma or w["c"] == z.country:
+                    j = -1
+                    break
+                mids.append(w)
+                j -= 1
+            if j < 0:
+                continue
+            o = onceki[j]
+            span = hours_between(o["end"], t0)
+            if o["end"] < period or (mids and (len(mids) > max_mids or span > via_h)) or (not mids and span > direct_h):
+                continue
+            for A in home:
+                _insert(con, A, z.country, "kiyida_bosaltma", vid, vessel, o, d, None, list(reversed(mids)), [])
+                n += 1
     return n
 
 

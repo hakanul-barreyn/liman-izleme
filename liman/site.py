@@ -538,7 +538,8 @@ uğrayıp en fazla {th["aktarma_max_gun"]} günde varış. Ara liman yalnızca �
 <li><span class="isaret" style="--c:var(--c-karanlik)"><b>AIS kapatılmış</b></span>: yolda en az {th["ais_bosluk_saat"]} saat sinyal yok
 (karanlık bacak); hedef ülkenin kıyı alanına girip hiçbir limana uğramadan en az {th["yaklasma_sessizlik_saat"]} saat sinyal vermedi
 (kıyıda kayboldu); ya da varış ülkesinde hiç kaydı yok ama izlenen deniz bölgesinde en az {th["karanlik_sefer_saat"]} saat AIS boşluğu
-var (karanlık sefer).</li></ul>
+var (karanlık sefer); ya da hedef ülkenin kıyı açığında limana hiç girmeden en az 12 saat bekledi (olası şamandıra
+boşaltması ya da aktarma; Global Fishing Watch’ın AIS varlık verisinden, bir önceki uğrağıyla eşleştirilerek).</li></ul>
 <p>Beyan tarihi kuralı: ihracatta Türk limanından çıkış, ithalatta Türk limanına varış beyan tarihinden sonra olmalıdır.</p>
 <h2>Haritayı okumak</h2><p>Kavisli çizgi çıkış ve varış limanlarını bağlar, gerçek güzergâhı göstermez; kalınlığı o hattaki sefer
 sayısıdır. Yeşil daireler ara limanlardır, büyüklükleri oraya uğrayan sefer sayısıdır. Bir hatta ya da ara limana tıklayınca
