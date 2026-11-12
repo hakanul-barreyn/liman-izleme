@@ -90,7 +90,14 @@ def test_retro_scan(tmp_path):
     before = fake.requests
     gecmis.scan(cfg, con, fake)
     assert fake.requests == before
+    # AIS'te tanker olarak bilinen gemi: iskelesi bilinmeyen petrol seferleri raporu bozmamalı
+    con.execute("INSERT OR REPLACE INTO vessels(mmsi, name, type) VALUES(111, 'ORNEK', 80)")
+    con.execute("UPDATE gecmis SET o_lat=36.2, o_lon=30.4 WHERE vessel_id='V3'")  # iskele olmayan bir nokta
+    con.commit()
+    site.HATALAR.clear()
     site.build(cfg, con)
+    assert not site.HATALAR
+    assert "İskele kayıtsız" in (cfg.site_dir / "raporlar" / "tr-il-petrol.html").read_text()
     page = (cfg.site_dir / "gecmis.html").read_text()
     assert "Geçmiş tarama" in page and "Powered by Global Fishing Watch" in page
     data = json.loads((cfg.site_dir / "veri" / "harita" / "seferler.json").read_text())

@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import logging
 import os
 import shutil
 import urllib.parse
@@ -22,6 +23,19 @@ from .routes import CLASS_LABELS, vessel_keys
 from .util import SHIP_GROUP_LABELS, add_hours, hazard_category, iso, now_utc, parse_iso, ship_group
 
 E = html.escape
+log = logging.getLogger("site")
+HATALAR: list[str] = []  # bu çalıştırmada üretilemeyen sayfalar (iş sonunda başarısız gösterilir)
+
+
+def _dene(ad: str, fn, *a, **k):
+    """Bir sayfa grubunu üretir; hata verirse kaydedip devam eder, böylece sitenin geri kalanı ve arşiv etkilenmez."""
+    try:
+        return fn(*a, **k)
+    except Exception:  # noqa: BLE001
+        log.exception("Site: %s üretilemedi", ad)
+        print(f"::error::Site: {ad} üretilemedi (ayrıntı iş kaydında)")
+        HATALAR.append(ad)
+        return None
 WEB = Path(__file__).parent / "web"
 ASSETS = ("stil.css", "ortak.js", "harita.js", "gemi.js")
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
@@ -628,10 +642,10 @@ def build(cfg, con) -> None:
     for key, mmsis in keys.items():
         _write(gdir / f"{key}.html", _gemi(cfg, con, key, mmsis, vessels, tracking, port_name, names))
     _write(gdir / "index.html", _gemiler(cfg, con, keys, vessels, tracking))
-    rapor.build(cfg, con, recs, out)
-    _limanlar(cfg, con, days, keys)
+    _dene("raporlar", rapor.build, cfg, con, recs, out)
+    _dene("limanlar", _limanlar, cfg, con, days, keys)
     if cfg._has_gecmis:
-        _write(out / "gecmis.html", _gecmis(cfg, recs, gecmis_state))
+        _dene("geçmiş tarama", lambda: _write(out / "gecmis.html", _gecmis(cfg, recs, gecmis_state)))
         _write(out / "veri" / "gecmis.json", json.dumps(
             [dict(r) for r in con.execute("SELECT * FROM gecmis ORDER BY t_arr DESC")], ensure_ascii=False))
     _write(out / "kanit.html", _kanit(cfg, chain))

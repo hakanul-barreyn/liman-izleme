@@ -86,6 +86,10 @@ def main(argv=None) -> int:
         else:
             logging.warning("Liman veya aisstream anahtarı yok; yalnızca site üretiliyor")
         print(jobs.daily(cfg, push=False))
+        from . import site
+        if site.HATALAR:
+            logging.error("Sitenin bazı bölümleri üretilemedi: %s", ", ".join(sorted(set(site.HATALAR))))
+            rc = rc or 1
         return rc
     if a.komut == "calistir":
         from . import runner

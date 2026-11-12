@@ -196,7 +196,10 @@ goster();})();</script>'''
 def build(cfg, con, recs: list[dict], out: Path) -> None:
     from .routes import vessel_keys
     from .db import get_meta
-    from .site import E, _ay, _n, _page, _tarih, _tbl, _write
+    from .site import E as _E, _ay, _n, _page, _tarih, _tbl, _write
+
+    def E(x) -> str:  # None ya da sayı gelirse de güvenli
+        return _E("" if x is None else str(x))
     home = {p.country for p in cfg.ports if p.role == "izlenen"}
 
     directions = [f"{a}>{b}" for a, b in cfg.directions]
@@ -370,7 +373,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
         if petrol or ceyhan_html:
             sh_p = ships(petrol, y, vessels, m2k, pages, bilgi)
             ter_say = Counter(r.get("ter") for r in petrol)
-            ter_rows = [[E(t), _n(n), _n(gemi_say([r for r in petrol if r.get("ter") == t]))] for t, n in ter_say.most_common()]
+            ter_rows = [[E(t or "İskele kayıtsız (AIS’te tanker)"), _n(n), _n(gemi_say([r for r in petrol if r.get("ter") == t]))] for t, n in ter_say.most_common()]
             _write(rdir / f"{sl}-petrol.html", _page(cfg, "Petrol tankerleri", (
                 f'<main class="sayfa rapor" id="icerik"><header>{yol}<h1>Petrol ve akaryakıt tankerleri</h1>'
                 f'<p class="giris">{E(a_ad)} tarafında petrol ya da akaryakıt iskelesine yanaşan ya da AIS’te kendini tanker '
