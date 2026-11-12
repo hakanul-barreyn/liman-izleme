@@ -1,0 +1,9 @@
+# Elle girilen gemi bilgileri (isteğe bağlı). Raporlar sayfası buradaki firmayı otomatik bulunandan önce gösterir.
+# Anahtar IMO numarası (yoksa MMSI). Kaynak olarak bilgiyi aldığın sayfanın bağlantısını yaz.
+#
+# gemiler:
+#   "9264726":
+#     firma: "Örnek Denizcilik A.Ş."
+#     rol: "işletmeci"          # sahip, işletmeci, yönetici...
+#     kaynak: "https://..."
+gemiler: {}

@@ -32,9 +32,14 @@ jobs:
           path: _durum
           key: durum-yayin-${{ github.run_id }}
           restore-keys: durum-
+      - name: Durumu yükle
+        run: python -m liman durum-yukle _durum
+      - name: Gemi kimliği, firma ve fotoğraflar
+        env:
+          GFW_API_TOKEN: ${{ secrets.GFW_API_TOKEN }}
+        run: python -m liman gemi-bilgi --dilim 6 || true
       - name: Siteyi üret
         run: |
-          python -m liman durum-yukle _durum
           python -m liman gecmis || true
           python -m liman saatlik
           bash kurulum/vendor.sh site/vendor || echo "::warning::Harita kütüphanesi indirilemedi"

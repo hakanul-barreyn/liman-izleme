@@ -344,3 +344,18 @@ details.gemi>summary:focus-visible{outline:2px solid var(--ink);outline-offset:-
   .gemi .govde p a{display:inline-block;margin:6px 12px 0 0}
 }
 @media (max-width:600px){.sayfa{padding:24px 16px 56px}.sayfa h1{font-size:30px}th,td{padding:8px 9px}.mini-harita{height:340px}}
+/* raporlar: gemi künyesi */
+.kunye{display:grid;grid-template-columns:minmax(0,1fr);gap:4px 20px;padding-top:12px}
+.kunye:has(.gemi-foto){grid-template-columns:260px minmax(0,1fr)}
+.gemi-foto{grid-row:span 3;margin:0}
+.gemi-foto img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;border-radius:8px;
+  border:1px solid var(--rule);background:var(--rule-2)}
+.gemi-foto figcaption{margin-top:4px;font-size:11.5px;color:var(--ink-3);line-height:1.35}
+.gemi-foto figcaption a,.kunye .not a{color:var(--ink-2)}
+.kunye .firma{margin:0;font-size:14px;color:var(--ink)}
+.kunye .firma b{font-weight:600}
+.kunye .dis{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 0}
+.kunye .dis a{font-size:13px;padding:4px 10px;border:1px solid var(--rule);border-radius:999px;background:var(--paper);
+  text-decoration:none;color:var(--ink)}
+.kunye .dis a:hover{background:var(--hover)}
+@media (max-width:760px){.kunye:has(.gemi-foto){grid-template-columns:minmax(0,1fr)}.gemi-foto{grid-row:auto;max-width:360px}}

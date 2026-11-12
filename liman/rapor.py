@@ -56,7 +56,7 @@ def _rota(r: dict) -> str:
     return " → ".join([r.get("o") or "?", *(r.get("ara") or []), r.get("d") or "varış kayıtsız"])
 
 
-def ships(recs: list[dict], y: str, vessels: dict, m2k: dict, pages: set[str]) -> list[dict]:
+def ships(recs: list[dict], y: str, vessels: dict, m2k: dict, pages: set[str], bilgi=None) -> list[dict]:
     """Bir yöndeki seferleri gemi gemi toplar (gemi = MMSI; yoksa ad)."""
     by: dict = defaultdict(list)
     for r in recs:
@@ -71,10 +71,12 @@ def ships(recs: list[dict], y: str, vessels: dict, m2k: dict, pages: set[str]) -
         flag = next((r["b"] for r in rs if r.get("b")), None)
         page = next((r["g"] for r in rs if r.get("g")), None) or (m2k.get(mmsi) if mmsi else None)
         hat = Counter((r.get("o") or "?", r.get("d") or "varış kayıtsız") for r in rs)
-        out.append({
+        ek = bilgi(mmsi, imo) if bilgi else {}
+        imo = imo or ek.get("imo")
+        out.append({**ek,
             "ad": rs[0].get("n") or (f"MMSI {mmsi}" if mmsi else "Adı bilinmiyor"),
             "adlar": sorted({r.get("n") for r in rs if r.get("n")} - {rs[0].get("n")}),
-            "mmsi": mmsi, "imo": imo, "bayrak": bayrak(flag, mmsi),
+            "mmsi": mmsi, "imo": imo, "bayrak": bayrak(flag, mmsi), "flag3": flag,
             "sayfa": page if page in pages else None,
             "n": len(rs), "aile": Counter(r["a"] for r in rs),
             "ilk": _zaman(rs[-1]), "son": _zaman(rs[0]),
@@ -98,7 +100,8 @@ def _sefer_li(cfg, E, directions, r) -> str:
 
 def _satir(cfg, E, directions, s: dict, top: int) -> str:
     kimlik = [f"{s['bayrak']} bayraklı" if s["bayrak"] else None,
-              f"IMO {s['imo']}" if s["imo"] else None, f"MMSI {s['mmsi']}" if s["mmsi"] else None]
+              f"IMO {s['imo']}" if s["imo"] else None, f"MMSI {s['mmsi']}" if s["mmsi"] else None,
+              s["firma"][0]["ad"] if s.get("firma") else None]
     bar = "".join(f'<i class="{a}" style="width:{100 * s["aile"][a] / top:.2f}%"></i>'
                   for a in harita.FAMILY_ORDER if s["aile"].get(a))
     hat = ", ".join(f"{E(a)} → {E(b)}" + (f" <small>({n})</small>" if len(s["hatlar"]) > 1 else "")
@@ -110,16 +113,59 @@ def _satir(cfg, E, directions, s: dict, top: int) -> str:
     if s["sayfa"]:
         baglanti.append(f'<a href="../gemiler/{E(s["sayfa"])}.html">Gemi sayfası</a>')
     eski = f' Önceki adları: {E(", ".join(s["adlar"]))}.' if s["adlar"] else ""
-    ara = " ".join(filter(None, [s["ad"], *s["adlar"], str(s["mmsi"] or ""), str(s["imo"] or ""), s["bayrak"]]))
+    ara = " ".join(filter(None, [s["ad"], *s["adlar"], str(s["mmsi"] or ""), str(s["imo"] or ""), s["bayrak"],
+                                 *[f["ad"] for f in s.get("firma") or []]]))
     return (f'<details class="gemi" data-n="{s["n"]}" data-son="{E(s["son"])}" data-ad="{E(s["ad"])}" '
             f'data-ara="{E(ara.lower())}"><summary>'
             f'<span class="ad"><b>{E(s["ad"])}</b><small>{E(", ".join(filter(None, kimlik)))}</small></span>'
             f'<span class="adet"><span class="bar" aria-hidden="true">{bar}</span><b>{s["n"]}</b></span>'
             f'<span class="son"><small>Son sefer </small>{E(_kisa(cfg, s["son"]))}</span>'
             f'<span class="rota-ozet">{hat}</span></summary>'
-            f'<div class="govde"><p>{s["n"]} sefer: {E(ailesi)}. İlk sefer {E(_kisa(cfg, s["ilk"]))}.{eski} '
+            f'<div class="govde">{_kunye(E, s)}<p>{s["n"]} sefer: {E(ailesi)}. İlk sefer {E(_kisa(cfg, s["ilk"]))}.{eski} '
             f'{" ".join(baglanti)}</p><ol class="seferler">'
             + "".join(_sefer_li(cfg, E, directions, r) for r in s["seferler"]) + "</ol></div></details>")
+
+
+def dis_baglantilar(s: dict) -> list[tuple[str, str]]:
+    """Geminin herkese açık takip sitelerindeki sayfaları."""
+    out = []
+    if s.get("mmsi"):
+        out.append(("MarineTraffic", f"https://www.marinetraffic.com/en/ais/details/ships/mmsi:{s['mmsi']}"))
+    elif s.get("imo"):
+        out.append(("MarineTraffic", f"https://www.marinetraffic.com/en/ais/details/ships/imo:{s['imo']}"))
+    if s.get("imo"):
+        out.append(("VesselFinder", f"https://www.vesselfinder.com/vessels/details/{s['imo']}"))
+    if s.get("mmsi"):
+        out.append(("MyShipTracking", f"https://www.myshiptracking.com/vessels/mmsi-{s['mmsi']}"))
+    if s.get("vid"):
+        out.append(("Global Fishing Watch", f"https://globalfishingwatch.org/map/vessel/{s['vid']}"))
+    return out
+
+
+def _kunye(E, s: dict) -> str:
+    parts = []
+    foto = (s.get("foto") or [None])[0]
+    if foto and foto.get("kucuk"):
+        lis = E(foto.get("lisans") or "serbest lisans")
+        if foto.get("lisans_url"):
+            lis = f'<a href="{E(foto["lisans_url"])}" rel="noopener">{lis}</a>'
+        parts.append(f'<figure class="gemi-foto"><a href="{E(foto.get("sayfa") or foto["kucuk"])}" rel="noopener">'
+                     f'<img src="{E(foto["kucuk"])}" alt="{E(s["ad"])}" loading="lazy" decoding="async"></a>'
+                     f'<figcaption>Fotoğraf: {E(foto.get("yazar") or "bilinmiyor")}, {lis}, '
+                     f'<a href="{E(foto.get("sayfa") or "")}" rel="noopener">Wikimedia Commons</a></figcaption></figure>')
+    if s.get("firma"):
+        fs = "; ".join(f'{E(f["ad"])}' + (f' ({E(f["not"])})' if f.get("not") else "") for f in s["firma"])
+        kay = s["firma"][0].get("kaynak")
+        kay = (f' <span class="not">Kaynak: <a href="{E(kay)}" rel="noopener">bağlantı</a></span>' if kay and kay.startswith("http")
+               else f' <span class="not">Kaynak: {E(kay)}</span>' if kay else "")
+        parts.append(f'<p class="firma"><b>Firma:</b> {fs}.{kay}</p>')
+    else:
+        parts.append('<p class="firma"><b>Firma:</b> açık kayıtlarda bulunamadı; aşağıdaki sitelerden bakılabilir.</p>')
+    dl = dis_baglantilar(s)
+    if dl:
+        parts.append('<p class="dis">' + "".join(f'<a href="{E(u)}" rel="noopener" target="_blank">{E(n)}</a>' for n, u in dl)
+                     + "</p>")
+    return f'<div class="kunye">{"".join(parts)}</div>'
 
 
 def _csv(rows: list[list]) -> bytes:
@@ -159,6 +205,27 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                                           '<p class="not">Beyan testi kapalı; rapor yok.</p></main>', 1, "raporlar"))
         return
     vessels = {r["mmsi"]: dict(r) for r in con.execute("SELECT mmsi, imo, name FROM vessels")}
+    from . import gemi_bilgi
+    m2vid = {}
+    for ssvid, vid in con.execute("SELECT ssvid, vessel_id FROM gecmis WHERE vessel_id IS NOT NULL GROUP BY ssvid, vessel_id"):
+        try:
+            m2vid.setdefault(int(ssvid), vid)
+        except (TypeError, ValueError):
+            pass
+    elle = gemi_bilgi.elle(cfg)
+
+    def bilgi(mmsi, imo):
+        vid = m2vid.get(mmsi)
+        k = (gemi_bilgi.oku(con, f"gkimlik:{vid}") if vid else None) or {}
+        imo = str(imo or k.get("imo") or "") or None
+        e = elle.get(str(imo)) or elle.get(str(mmsi)) or {}
+        firma = []
+        if e.get("firma"):
+            firma.append({"ad": e["firma"], "not": e.get("rol"), "kaynak": e.get("kaynak") or "elle girildi"})
+        else:
+            sah = sorted(k.get("sahipler") or [], key=lambda o: o.get("son") or "9999", reverse=True)
+            firma = [{"ad": o["ad"], "not": "sicildeki sahip", "kaynak": "Global Fishing Watch"} for o in sah[:2]]
+        return {"vid": vid, "imo": imo, "firma": firma, "foto": (gemi_bilgi.oku(con, f"foto:{imo}") if imo else None) or []}
     m2k, _ = vessel_keys(con)
     pages = {f.stem for f in (out / "gemiler").glob("*.html")}
     legend = "".join(f'<span class="isaret" style="--c:var(--c-{k})">{E(harita.FAMILY_LABELS[k])}</span>'
@@ -167,7 +234,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
         A, B = y.split(">")
         a_ad, b_ad = cfg.country_name(A), cfg.country_name(B)
         sl = slug(y)
-        sh = ships(recs, y, vessels, m2k, pages)
+        sh = ships(recs, y, vessels, m2k, pages, bilgi)
         sel = [r for r in recs if r["y"] == y]
         top = max((s["n"] for s in sh), default=1)
         ts = sorted(_zaman(r) for r in sel if _zaman(r))
@@ -240,9 +307,10 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
 
         # CSV
         (rdir / f"{sl}-gemiler.csv").write_bytes(_csv(
-            [["Gemi", "Önceki adları", "MMSI", "IMO", "Bayrak", "Sefer", *[harita.FAMILY_LABELS[k] for k in harita.FAMILY_ORDER],
+            [["Gemi", "Önceki adları", "MMSI", "IMO", "Bayrak", "Firma", "MarineTraffic", "Sefer", *[harita.FAMILY_LABELS[k] for k in harita.FAMILY_ORDER],
               "İlk sefer (varış)", "Son sefer (varış)", "Başlıca hat"]]
-            + [[s["ad"], ", ".join(s["adlar"]), s["mmsi"] or "", s["imo"] or "", s["bayrak"], s["n"],
+            + [[s["ad"], ", ".join(s["adlar"]), s["mmsi"] or "", s["imo"] or "", s["bayrak"],
+                "; ".join(f["ad"] for f in s.get("firma") or []), (dis_baglantilar(s) or [("", "")])[0][1], s["n"],
                 *[s["aile"].get(k, 0) for k in harita.FAMILY_ORDER], s["ilk"], s["son"],
                 f'{s["hatlar"][0][0][0]} → {s["hatlar"][0][0][1]}' if s["hatlar"] else ""] for s in sh]))
         (rdir / f"{sl}-seferler.csv").write_bytes(_csv(

@@ -27,7 +27,7 @@ from . import config
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m liman", description="Avvam")
     ap.add_argument("komut", choices=["calistir", "kontrol", "saatlik", "gunluk", "dogrula", "demo",
-                                      "tur", "durum-yukle", "durum-kaydet", "ham-hazirla", "gecmis"])
+                                      "tur", "durum-yukle", "durum-kaydet", "ham-hazirla", "gecmis", "gemi-bilgi"])
     ap.add_argument("gun", nargs="?")
     ap.add_argument("--ayar", default="config.yaml")
     ap.add_argument("--gonder", action="store_true", help="GitHub'a gönder (gunluk)")
@@ -56,6 +56,10 @@ def main(argv=None) -> int:
     if a.komut == "gecmis":
         from . import gecmis
         print(gecmis.run(cfg, a.baslangic or None, a.bitis or None, a.dilim))
+        return 0
+    if a.komut == "gemi-bilgi":
+        from . import gemi_bilgi
+        print(gemi_bilgi.guncelle(cfg, a.dilim or 3))
         return 0
     if a.komut == "ham-hazirla":
         from . import durum

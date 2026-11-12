@@ -57,6 +57,9 @@ jobs:
         if: env.GFW_API_TOKEN != ''
         run: python -m liman gecmis --baslangic "${{ inputs.gecmis_baslangic }}" --dilim "${{ inputs.gecmis_baslangic != '' && '25' || '7' }}" || true
 
+      - name: Gemi kimliği, firma ve fotoğraflar
+        run: python -m liman gemi-bilgi --dilim 3 || true
+
       - name: Veri topla, analiz et, arşivle
         id: tur
         env:
