@@ -257,7 +257,7 @@ def _gap_info(g: dict) -> dict:
         dur = hours_between(g["start"], g["end"])
     return {"baslangic": g.get("start"), "bitis": g.get("end"), "saat": round(dur or 0, 1),
             "kapanis": [off.get("lat"), off.get("lon")], "acilis": [on.get("lat"), on.get("lon")],
-            "mesafe_km": gp.get("distanceKm")}
+            "mesafe_km": gp.get("distanceKm"), "kasitli": gp.get("intentionalDisabling")}
 
 
 def compute(cfg, con, v_start: str, end: str) -> int:
@@ -315,8 +315,11 @@ def compute(cfg, con, v_start: str, end: str) -> int:
                 lim = add_hours(o["end"], dark_win)
                 if nxt and nxt["start"] < lim:
                     lim = nxt["start"]
+                # GFW'nin "kasıtlı kapatma" saydığı, liman yakınında olmayan uzun boşluklar
                 legs = [g for g in gl if o["end"] <= g["baslangic"] < lim and g["saat"] >= dark_h
-                        and cfg.in_dark_box(*g["kapanis"])]
+                        and g.get("kasitli") is not False
+                        and None not in g["kapanis"] and cfg.in_dark_box(*g["kapanis"])
+                        and not cfg.near_port(*g["kapanis"])]
                 if legs:
                     _insert(con, A, B, "karanlik_sefer", vid, o["vessel"], o, None, nxt, [], legs)
                     n += 1

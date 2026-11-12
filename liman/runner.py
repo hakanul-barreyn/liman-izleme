@@ -94,7 +94,8 @@ async def main(cfg, minutes: float | None = None) -> int:
     tasks = [asyncio.create_task(x()) for x in loops]
     log.info("Çalışıyor. %d liman izleniyor. Durdurmak için Ctrl+C.", len(cfg.ports))
     await stop.wait()
-    log.info("Durduruluyor…")
+    log.info("Durduruluyor… %d AIS mesajı alındı, %d kaydedildi; takipte %d gemi (kapasite dışı %d)",
+             ing.count, ing.kept, len(tracking.active_mmsis(con)), col.overflow)
     for t in tasks:
         t.cancel()
     await col.stop()
