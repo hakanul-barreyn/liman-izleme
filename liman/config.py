@@ -44,6 +44,7 @@ DEFAULTS: dict = {
         "karanlik_bolge": [[30.0, 25.0], [37.6, 36.6]],
         "yaklasma_sessizlik_saat": 6,
         "aktarma_max_liman": 2,      # ara limanlı sayılmak için en fazla ara liman
+        "aktarma_ulkeleri": [],      # ara liman sayılan ülkeler; boşsa "ulkeler" listesindeki diğer ülkeler
         "aktarma_max_gun": 30,       # ara limanlı seferde çıkıştan varışa en fazla gün
         "dogrudan_max_gun": 45,      # doğrudan seferde çıkıştan varışa en fazla gün
         # Geçiş bekleme alanları: buradaki demirlemeler liman uğrağı sayılmaz (Karadeniz'den gelen

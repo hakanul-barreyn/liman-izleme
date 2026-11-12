@@ -424,10 +424,14 @@ def _gecmis(cfg, recs, st) -> str:
     done, total = st.get("gorev") or [0, 0]
     pct = int(100 * done / total) if total else 0
     prog = ("Tarama tamamlandı." if st.get("tamam") else
-            f"Tarama sürüyor: {_n(done)} / {_n(total)} sorgu tamamlandı. Her saatlik çalıştırmada kaldığı yerden devam eder.")
+            f"Tarama sürüyor: {_n(done)} / {_n(total)} sorgu tamamlandı (şimdiye kadar bilinen sorgular; yeni gemi "
+            "bulundukça sayı artar). Her saatlik çalıştırmada kaldığı yerden devam eder.")
     retro = [r for r in recs if r["s"] == "g"]
     bas = _tarih(cfg, t["baslangic"] + "T12:00:00Z") if t.get("baslangic") else "?"
-    bit = _tarih(cfg, t["bitis"] + "T12:00:00Z") if t.get("bitis") else "?"
+    son = st.get("son_dilim") or t.get("bitis")
+    bit = _tarih(cfg, son + "T12:00:00Z") if son else "?"
+    prog += (" Tarama her hafta yeni dönemi ekler; GFW verisi birkaç gün geç oluştuğu için son günler bir sonraki "
+             "haftada gelir.")
     b = [f'<main class="sayfa" id="icerik"><header><h1>Geçmiş tarama</h1><p class="giris">{E(bas)} ile {E(bit)} arası. '
          'Global Fishing Watch’ın AIS verisinden ürettiği liman ziyaretleri ve AIS boşlukları üzerinden yapılır.</p></header>',
          f'<p>{E(prog)}</p><div class="ilerleme" role="progressbar" aria-valuenow="{pct}" aria-valuemin="0" aria-valuemax="100">'

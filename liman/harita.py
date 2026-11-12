@@ -119,8 +119,8 @@ def voyages(cfg, con) -> list[dict]:
                "tip": SHIP_GROUP_LABELS[ship_group(v.get("type"))],
                "o": o.name if o else r["origin_port"], "oc": o.country if o else None, "t0": r["t_dep"],
                "d": d.name if d else None, "dc": d.country if d else None, "t1": r["t_arr"],
-               "ara": [x["liman"] for x in mids], "w": [p for p in w if p],
-               "iz": [s for s in segs if len(s) >= 2], "kp": kp, "sts": sts,
+               "ara": [x["liman"] for x in mids], "at": [[x.get("giris"), x.get("cikis")] for x in mids],
+               "w": [p for p in w if p], "iz": [s for s in segs if len(s) >= 2], "kp": kp, "sts": sts,
                "yuk": r["cargo"], "gv": r["cargo_conf"], "dy": json.loads(r["cargo_basis"] or "[]"),
                "vb": flags.get("varis_beyani"), "vt": r["dest_text"], "g": r["vkey"],
                "sz": flags.get("sessizlik_saat"), "ks": flags.get("karanlik_saat"),
@@ -148,7 +148,8 @@ def voyages(cfg, con) -> list[dict]:
                            "n": r["name"], "m": mmsi, "b": r["flag"], "tip": r["vtype"],
                            "o": r["origin"], "oc": r["origin_country"], "t0": r["t_dep"],
                            "d": r["dest"], "dc": r["dest_country"], "t1": r["t_arr"],
-                           "ara": [m["liman"] for m in mids], "w": [p for p in w if p], "kp": kp,
+                           "ara": [m["liman"] for m in mids], "at": [[m.get("giris"), m.get("cikis")] for m in mids],
+                           "w": [p for p in w if p], "kp": kp,
                            "sl": r["next_port"]}))
     return out
 

@@ -99,3 +99,35 @@ def test_retro_scan(tmp_path):
     assert dark["s"] == "g" and dark["kp"] and dark["w"][0] == [35.93, 36.87] and "d" not in dark
     via = [r for r in rec.values() if r["k"] == "aktarmali"][0]
     assert len(via["w"]) == 3 and via["ara"]
+
+
+def test_guncelleme_bogaz_ve_donem(tmp_path):
+    """Ana dönemden sonraki haftalık dilimler yeni seferleri bulur; boğaz demirlemesi ve dönem öncesi çıkış elenir."""
+    import datetime as dt
+    cfg = config.Config(RAW, tmp_path)
+    con = connect(db_path(cfg))
+    gecmis.set_target(con, "2025-01-01", "2025-04-01")
+    fake = FakeClient()
+    cey, ask, bogaz = (36.87, 35.93), (31.67, 34.51), (41.236, 29.118)
+    fake.v = {
+        # V4: ana dönemden sonra Ceyhan → Aşkelon
+        "V4": [pv("V4", "ceyhan", "TUR", *cey, "2025-05-01", "2025-05-02"),
+               pv("V4", "ashkelon", "ISR", *ask, "2025-05-04", "2025-05-05")],
+        # V5: Karadeniz'den gelip İstanbul Boğazı girişinde bekler, sonra Aşkelon (Türk ihracatı değil)
+        "V5": [pv("V5", "rumelifeneri", "TUR", *bogaz, "2025-02-01", "2025-02-02"),
+               pv("V5", "ashkelon", "ISR", *ask, "2025-02-05", "2025-02-06")],
+        # V6: beyandan önce çıkmış, sonra varmış
+        "V6": [pv("V6", "ceyhan", "TUR", *cey, "2024-12-27", "2024-12-28"),
+               pv("V6", "ashkelon", "ISR", *ask, "2025-01-02", "2025-01-03")],
+    }
+    fake.g = {}
+    st = gecmis.scan(cfg, con, fake, today=dt.date(2025, 6, 1))
+    assert st["tamam"] is True and st["dilim"] >= 8
+    rows = {(r["vessel_id"], r["cls"]) for r in con.execute("SELECT * FROM gecmis")}
+    assert rows == {("V4", "dogrudan")}
+    # aynı olay birden çok pencerede gelse de bir kez sayılır
+    assert con.execute("SELECT count(*) FROM gecmis").fetchone()[0] == 1
+    # yeni dilim yoksa yeniden çalıştırmada istek yapılmaz
+    before = fake.requests
+    gecmis.scan(cfg, con, fake, today=dt.date(2025, 6, 1))
+    assert fake.requests == before

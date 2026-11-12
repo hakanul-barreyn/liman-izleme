@@ -234,7 +234,12 @@
   function adimlar(r) {
     const out = [];
     out.push(`<li><b>Çıkış: ${esc(r.o)}</b><span>${LI.tarih(r.t0, true)}${r.oc ? `, ${esc(ulke(r.oc))}` : ''}</span></li>`);
-    for (const x of r.ara || []) out.push(`<li><b>Ara liman: ${esc(x)}</b></li>`);
+    (r.ara || []).forEach((x, i) => {
+      const at = (r.at || [])[i] || [];
+      const sure = at[0] && at[1] ? (Date.parse(at[1]) - Date.parse(at[0])) / 36e5 : null;
+      const ne = sure == null ? '' : sure >= 48 ? `, ${Math.round(sure / 24)} gün kaldı` : `, ${Math.max(1, Math.round(sure))} saat kaldı`;
+      out.push(`<li><b>Ara liman: ${esc(x)}</b>${at[0] ? `<span>${LI.tarih(at[0], true)}${ne}</span>` : ''}</li>`);
+    });
     for (const s of r.sts || []) out.push(`<li><b>Denizde başka bir gemiyle buluştu</b><span>${LI.tarih(s[2], true)}${s[4] ? `, ${s[4]} saat yan yana` : ''}</span></li>`);
     for (const k of r.kp || []) {
       out.push(`<li class="kapali"><b>AIS sinyali kesildi</b><span>${LI.tarih(k[5], true)}, ${k[1].toFixed(2)}° K ${k[0].toFixed(2)}° D</span></li>`);

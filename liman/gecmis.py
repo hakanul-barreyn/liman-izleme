@@ -59,10 +59,6 @@ CLASS_LABELS = {
 }
 
 
-class OutOfTime(Exception):
-    pass
-
-
 class Client:
     def __init__(self, token: str, pause: float = 0.25):
         self.token = token
@@ -164,13 +160,8 @@ def chunks(start: str, end: str, days: int = 90) -> list[tuple[str, str]]:
     return out
 
 
-def _cached(con, key: str, fetch, deadline: float | None):
-    r = con.execute("SELECT data FROM gfw_cache WHERE key=?", (key,)).fetchone()
-    if r:
-        return json.loads(r[0])
-    if deadline is not None and time.time() > deadline:
-        raise OutOfTime()
-    data = [slim(e) for e in fetch()]
+def _store(con, key: str, events: list[dict]) -> list[dict]:
+    data = [slim(e) for e in events]
     con.execute("INSERT OR REPLACE INTO gfw_cache(key,data,fetched) VALUES(?,?,?)",
                 (key, json.dumps(data, separators=(",", ":")), iso(now_utc())))
     con.commit()
@@ -204,37 +195,96 @@ def _imza(cfg, t: dict | None) -> str:
     return hashlib.sha1(json.dumps(k, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def scan(cfg, con, client: Client | None, budget_min: float | None = None) -> dict:
-    """Önbellekte olmayan istekleri süre bütçesi içinde yapar; sonra sonuçları hesaplar."""
+def segments(t: dict, today: dt.date, lag: int = 3, step: int = 7) -> list[tuple[str, str]]:
+    """Ana taramadan sonraki haftalık güncelleme dilimleri: 14 günlük, birbirinin 7 gününü örten pencereler.
+
+    GFW verisi birkaç gün geç oluştuğu için bitişi bugünden en az `lag` gün önce olan dilimler taranır.
+    """
+    end0 = dt.date.fromisoformat(t["bitis"])
+    out, k = [], 1
+    while True:
+        b = end0 + dt.timedelta(days=step * k)
+        if b > today - dt.timedelta(days=lag):
+            break
+        out.append(((b - dt.timedelta(days=2 * step)).isoformat(), b.isoformat()))
+        k += 1
+    return out
+
+
+class _Plan:
+    """Görevleri sırayla yürütür; süre dolunca istek yapmayı bırakır ama kalan görevleri saymayı sürdürür."""
+
+    def __init__(self, con, client, deadline):
+        self.con, self.client, self.deadline = con, client, deadline
+        self.done = self.total = 0
+        self.out = client is None
+
+    def _time_left(self) -> bool:
+        if self.out or (self.deadline is not None and time.time() > self.deadline):
+            self.out = True
+        return not self.out
+
+    def area(self, key: str, fetch) -> list[dict] | None:
+        """Alan sorgusunun sonucu (önbellekten ya da yeni istekle); süre yoksa None."""
+        self.total += 1
+        data = _cache_get(self.con, key)
+        if data is None and self._time_left():
+            data = _store(self.con, key, fetch())
+        if data is not None:
+            self.done += 1
+        return data
+
+    def ensure(self, key: str, fetch) -> None:
+        """Gemi sorgusu: yalnızca önbellekte olması gerekir, içeriği burada okunmaz."""
+        self.total += 1
+        if self.con.execute("SELECT 1 FROM gfw_cache WHERE key=?", (key,)).fetchone():
+            self.done += 1
+        elif self._time_left():
+            _store(self.con, key, fetch())
+            self.done += 1
+
+
+def _vessels_in(evs: list[dict] | None, into: dict[str, dict]) -> None:
+    for e in evs or []:
+        v = e.get("vessel") or {}
+        if v.get("id") and not any(x in str(v.get("type") or "").lower() for x in SKIP_TYPES):
+            into.setdefault(v["id"], v)
+
+
+def scan(cfg, con, client: Client | None, budget_min: float | None = None, today: dt.date | None = None) -> dict:
+    """Önbellekte olmayan istekleri süre bütçesi içinde yapar; sonra sonuçları hesaplar.
+
+    1) Ana tarama: hedef dönemde varış limanlarına uğrayan bütün gemiler ve karanlık sefer aranan
+       limanlardan çıkan gemiler; her birinin dönem boyunca liman ziyaretleri ve AIS boşlukları.
+    2) Güncelleme: ana dönemden sonraki her hafta için aynı sorgular, daha kısa pencereyle.
+    """
     t = target(con)
     if not t:
         return {"durum": "hedef yok"}
     start, end = t["baslangic"], t["bitis"]
+    today = today or now_utc().date()
     deadline = time.time() + budget_min * 60 if budget_min else None
     lookback = cfg.gecmis["onceki_gun"]
     v_start = (dt.date.fromisoformat(start) - dt.timedelta(days=lookback)).isoformat()
     targets = cfg.dest_countries()
     dest_ports = [p for p in cfg.ports if p.country in targets and not p.approach]
     dark_ports = [p for p in cfg.ports if p.retro_dark]
-    tasks_total = tasks_done = 0
-    complete = True
+    pv_extra = {"confidences": ["3", "4"]}
+    plan = _Plan(con, client, deadline)
+    errors = False
+    segs = segments(t, today)
     try:
-        if client is None:
-            raise OutOfTime()
+        # 1) ana tarama
         vessel_ids: dict[str, dict] = {}
+        partial = False
         for ports, cap in ((dest_ports, None), (dark_ports, cfg.gecmis["max_gemi_liman"])):
             for p in ports:
                 seen_here: dict[str, dict] = {}
                 for a, b in chunks(start, end):
-                    tasks_total += 1
-                    key = f"area_pv:{p.code}:{a}:{b}"
-                    evs = _cached(con, key, lambda: client.area_events(
-                        DS_PV, geometry(p.area), a, b, {"confidences": ["3", "4"]}), deadline)
-                    tasks_done += 1
-                    for e in evs:
-                        v = e["vessel"]
-                        if v.get("id") and not any(x in str(v.get("type") or "").lower() for x in SKIP_TYPES):
-                            seen_here.setdefault(v["id"], v)
+                    evs = plan.area(f"area_pv:{p.code}:{a}:{b}",
+                                    lambda p=p, a=a, b=b: client.area_events(DS_PV, geometry(p.area), a, b, pv_extra))
+                    partial |= evs is None
+                    _vessels_in(evs, seen_here)
                 ids = list(seen_here)
                 if cap and len(ids) > cap:
                     log.warning("%s: %d gemi bulundu, ilk %d tanesi taranacak", p.name, len(ids), cap)
@@ -243,18 +293,37 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None) -> di
                     vessel_ids.setdefault(vid, seen_here[vid])
         for vid in vessel_ids:
             for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
-                tasks_total += 1
-                _cached(con, f"{kind}:{vid}:{v_start}:{end}",
-                        lambda ds=ds: client.vessel_events(ds, vid, v_start, end), deadline)
-                tasks_done += 1
-        set_meta(con, "gecmis_gemiler", json.dumps(list(vessel_ids)))
-    except OutOfTime:
-        complete = False
+                plan.ensure(f"{kind}:{vid}:{v_start}:{end}",
+                            lambda ds=ds, vid=vid: client.vessel_events(ds, vid, v_start, end))
+        if not partial:
+            set_meta(con, "gecmis_gemiler", json.dumps(list(vessel_ids)))
+        # 2) haftalık güncelleme dilimleri
+        dark_hist: list[set[str]] = []
+        for a, b in segs:
+            dest_here: dict[str, dict] = {}
+            dark_here: dict[str, dict] = {}
+            for ports, into in ((dest_ports, dest_here), (dark_ports, dark_here)):
+                for p in ports:
+                    _vessels_in(plan.area(f"area_pv:{p.code}:{a}:{b}",
+                                          lambda p=p, a=a, b=b: client.area_events(DS_PV, geometry(p.area), a, b, pv_extra)),
+                                into)
+            # karanlık sefer haftalar sürebilir: önceki üç dilimde çıkan gemilerin boşlukları da güncellenir
+            vs = set(dest_here) | set(dark_here)
+            for h in dark_hist[-3:]:
+                vs |= h
+            dark_hist.append(set(dark_here))
+            w0 = (dt.date.fromisoformat(a) - dt.timedelta(days=50)).isoformat()
+            for vid in sorted(vs):
+                for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
+                    plan.ensure(f"{kind}:{vid}:{w0}:{b}",
+                                lambda ds=ds, vid=vid, w0=w0, b=b: client.vessel_events(ds, vid, w0, b))
     except RuntimeError as e:
         log.error("%s", e)
-        complete = False
-    n = compute(cfg, con, v_start, end)
-    status = {"hedef": t, "tamam": complete, "imza": _imza(cfg, t), "gorev": [tasks_done, tasks_total], "kayit": n,
+        errors = True
+    complete = not plan.out and not errors
+    n = compute(cfg, con)
+    status = {"hedef": t, "tamam": complete, "imza": _imza(cfg, t), "gorev": [plan.done, plan.total], "kayit": n,
+              "dilim": len(segs), "son_dilim": segs[-1][1] if segs else None,
               "istek": client.requests if client else 0, "guncelleme": iso(now_utc())}
     set_meta(con, "gecmis_durum", json.dumps(status))
     con.commit()
@@ -310,12 +379,29 @@ def _gap_info(g: dict) -> dict:
             "mesafe_km": gp.get("distanceKm"), "kasitli": gp.get("intentionalDisabling")}
 
 
-def compute(cfg, con, v_start: str, end: str) -> int:
+def _vessel_keys(con) -> dict[str, dict[str, list[str]]]:
+    """gemi kimliği -> önbellekteki liman ziyareti ve AIS boşluğu sorgularının anahtarları (bütün pencereler)"""
+    out: dict[str, dict[str, list[str]]] = {}
+    for (key,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%' OR key LIKE 'v_gap:%'"):
+        kind, vid = key.split(":")[:2]
+        out.setdefault(vid, {"pv": [], "gap": []})["pv" if kind == "v_pv" else "gap"].append(key)
+    return out
+
+
+def _merged(con, keys: list[str]) -> list[dict]:
+    """Aynı geminin farklı pencerelerdeki olayları; aynı olay bir kez."""
+    seen: dict[str, dict] = {}
+    for k in sorted(keys):
+        for e in _cache_get(con, k) or []:
+            seen.setdefault(e.get("id") or f"{e.get('type')}|{e.get('start')}", e)
+    return list(seen.values())
+
+
+def compute(cfg, con, *_eski) -> int:
     con.execute("DELETE FROM gecmis")
-    # tarama sürerken de önbelleğe girmiş bütün gemiler hesaba katılsın
-    ids = set(json.loads(get_meta(con, "gecmis_gemiler", "[]") or "[]"))
-    ids |= {r[0].split(":")[1] for r in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")}
-    ids = sorted(ids)
+    # tarama sürerken de önbelleğe girmiş bütün gemiler, bütün pencereleriyle hesaba katılır
+    vkeys = _vessel_keys(con)
+    ids = sorted(vkeys)
     th = cfg.th
     max_h = th["guzergah_max_gun"] * 24
     dark_h = th["karanlik_sefer_saat"]
@@ -327,12 +413,15 @@ def compute(cfg, con, v_start: str, end: str) -> int:
     period = f"{t['baslangic']}T00:00:00Z" if t else ""
     # beyanı veren ülke (izlenen limanların ülkesi): dönem kuralı o ülkedeki uğrağa bakar
     home = {p.country for p in cfg.ports if p.role == "izlenen"}
+    # ara liman sayılan ülkeler: yapılandırmadaki diğer ülkeler (Yunanistan, Bulgaristan, Mısır, Kıbrıs).
+    # Başka bir ülkenin limanına uğrayan geminin yükü oradan gelmiş olabilir (ör. Ambarlı → Novorossiysk → Hayfa).
+    aktarma = set(th.get("aktarma_ulkeleri") or []) or (set(cfg.countries) - home - cfg.dest_countries())
     n = 0
     for vid in ids:
-        pvs = _cache_get(con, f"v_pv:{vid}:{v_start}:{end}")
-        if pvs is None:
+        if not vkeys[vid]["pv"]:
             continue
-        gaps = _cache_get(con, f"v_gap:{vid}:{v_start}:{end}") or []
+        pvs = _merged(con, vkeys[vid]["pv"])
+        gaps = _merged(con, vkeys[vid]["gap"])
         visits = []
         for e in sorted(pvs, key=lambda e: e["start"] or ""):
             if not e.get("start"):
@@ -356,6 +445,9 @@ def compute(cfg, con, v_start: str, end: str) -> int:
                         j = -1
                         break
                     if w["c"] == A:
+                        break
+                    if w["c"] not in aktarma:
+                        j = -1
                         break
                     mids.append(w)
                     j -= 1
@@ -417,12 +509,11 @@ def run(cfg, start: str | None, end: str | None, budget_min: float | None) -> di
             return {"durum": "hedef yok (ilk çalıştırmada --baslangic ver)"}
         token = os.environ.get(cfg.gecmis["anahtar_degiskeni"], "").strip()
         st = json.loads(get_meta(con, "gecmis_durum", "{}") or "{}")
-        if st.get("tamam") and not start and (st.get("imza") == _imza(cfg, target(con)) or not token):
-            # tarama bitti: yalnızca önbellekten yeniden hesapla (kurallar değişmiş olabilir)
-            t = target(con)
-            lookback = cfg.gecmis["onceki_gun"]
-            v_start = (dt.date.fromisoformat(t["baslangic"]) - dt.timedelta(days=lookback)).isoformat()
-            st["kayit"] = compute(cfg, con, v_start, t["bitis"])
+        t = target(con)
+        guncel = st.get("imza") == _imza(cfg, t) and st.get("dilim") == len(segments(t, now_utc().date()))
+        if st.get("tamam") and not start and (guncel or not token):
+            # tarama bitti ve yeni dilim yok: yalnızca önbellekten yeniden hesapla (kurallar değişmiş olabilir)
+            st["kayit"] = compute(cfg, con)
             set_meta(con, "gecmis_durum", json.dumps(st))
             con.commit()
             return {"durum": "tamamlandı", **st}
