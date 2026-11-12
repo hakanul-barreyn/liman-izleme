@@ -647,7 +647,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> list[dict]:
     directions = [f"{a}>{b}" for a, b in cfg.directions]
     adres = (cfg.pub.get("adres") or "").rstrip("/")
     b_ad = ", ".join(cfg.country_name(c) for c in sorted(cfg.dest_countries()))
-    yol = '<p class="yol"><a href="../raporlar/index.html">Raporlar</a>, Tanker dosyaları</p>'
+    yol = '<p class="yol"><a href="../raporlar/index.html">Gemiler</a>, Tanker dosyaları</p>'
     not_ = ('<p class="not son-not">Kayıtlar Global Fishing Watch’ın liman ziyareti, AIS boşluğu ve AIS varlık verisinden '
             '(Powered by Global Fishing Watch) ve bu sitenin canlı AIS kaydından üretilir. Gemi hareketini gösterir; yükü, '
             'yükün sahibini ve ticaretin tarafını göstermez. Her kayıt bir tespittir, hüküm değildir. Kurallar: '
@@ -657,7 +657,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> list[dict]:
         url = f"{adres}/tankerler/{d['anahtar']}.html" if adres else f"tankerler/{d['anahtar']}.html"
         d["paylasim"] = paylasim(cfg, d, url)
         bloklar = "".join(_sefer_blok(cfg, E, directions, r) for r in d["seferler"])
-        govde = (f'<main class="sayfa rapor tanker-dosya" id="icerik"><header><p class="yol"><a href="../raporlar/index.html">Raporlar</a>, '
+        govde = (f'<main class="sayfa rapor tanker-dosya" id="icerik"><header><p class="yol"><a href="../raporlar/index.html">Gemiler</a>, '
                  f'<a href="index.html">Tanker dosyaları</a></p><h1>{E(d["ad"])}</h1>'
                  f'<p class="giris">{_rozet(E, d["duzey"])} {len(d["seferler"])} sefer: {_sayim(E, d["say"])}. '
                  f'{E(aralik(cfg, d["ilk"], d["son"]))}.'
@@ -686,7 +686,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> list[dict]:
                  'en zayıfa sıralı.</p>'
                  + (f'<p class="not">Ceyhan körfezinden İsrail’e giden ama Global Fishing Watch’ın kargo gemisi saydığı ve '
                     f'başka tanker kanıtı olmayan {_n(dislanan)} gemi (kömür, gübre, çimento gemileri olabilir) bu listede '
-                    'yok; onların seferleri <a href="../raporlar/index.html">Raporlar</a>’da.</p>' if dislanan else ""))
+                    'yok; onların seferleri <a href="../raporlar/index.html">Gemiler</a> sayfasında.</p>' if dislanan else ""))
         liste = (f'<div class="arac"><label class="ara"><span class="gizli">Gemi ara</span><input type="search" id="dosya-ara" '
                  f'placeholder="Gemi adı, IMO, bayrak, firma ya da liman" autocomplete="off"></label>'
                  f'<label class="tik"><input type="checkbox" id="yalniz-tanker"> Yalnızca tipi doğrulananlar</label>'

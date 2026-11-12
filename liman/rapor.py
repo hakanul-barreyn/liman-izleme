@@ -236,7 +236,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
             if f.is_file():
                 f.unlink()
     if not directions:
-        _write(rdir / "index.html", _page(cfg, "Raporlar", '<main class="sayfa" id="icerik"><h1>Raporlar</h1>'
+        _write(rdir / "index.html", _page(cfg, "Gemiler ve seferler", '<main class="sayfa" id="icerik"><h1>Gemiler ve seferler</h1>'
                                           '<p class="not">Beyan testi kapalı; rapor yok.</p></main>', 1, "raporlar"))
         return
     vessels = {r["mmsi"]: dict(r) for r in con.execute("SELECT mmsi, imo, name FROM vessels")}
@@ -339,7 +339,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                     '<span>Sefer</span><span>Son sefer</span><span>Başlıca hat</span></div>'
                     + "".join(_satir(cfg, E, directions, x, top_) for x in sh_) + "</div>" + (ARAC if sh_ else ""))
 
-        body = (f'<main class="sayfa rapor" id="icerik"><header><h1>Raporlar</h1>'
+        body = (f'<main class="sayfa rapor" id="icerik"><header><h1>Gemiler ve seferler</h1>'
                 f'<p class="giris">{E(a_ad)} limanlarından {E(b_ad)} limanlarına doğrudan ya da dolaylı giden gemiler, '
                 'gemi gemi. Bir gemiye tıklayınca bütün seferleri açılır.</p></header>'
                 + (f'<nav class="dugmeler yon" aria-label="Yön">{yon}</nav>' if len(directions) > 1 or dunya else "")
@@ -353,7 +353,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 + (f'<section id="aylik"><h2>Aylık raporlar</h2><p class="not">Aylar varış tarihine göre.</p>'
                    f'<ul class="aylar">{ay_li}</ul></section>' if ay_li else "")
                 + "</main>")
-        _write(rdir / sayfa(directions, y), _page(cfg, "Raporlar", body, 1, "raporlar",
+        _write(rdir / sayfa(directions, y), _page(cfg, "Gemiler ve seferler", body, 1, "raporlar",
                                                    desc=f"{a_ad} limanlarından {b_ad} limanlarına giden {len(sh)} gemi, {len(sel)} sefer."))
 
         def sefer_satiri(r):
@@ -368,7 +368,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 f'<span class="isaret" style="--c:var(--c-{r["a"]})">{E(harita.ALL_LABELS.get(r["k"], r["k"]))}</span>',
                 f'<a href="{_harita_link(directions, r)}">Haritada</a>']
         bas = ["Gemi", "Çıkış", "Ara liman", "Varış", "Tür", ""]
-        yol = f'<p class="yol"><a href="{sayfa(directions, y)}">Raporlar</a>, {E(a_ad)} → {E(b_ad)}</p>'
+        yol = f'<p class="yol"><a href="{sayfa(directions, y)}">Gemiler</a>, {E(a_ad)} → {E(b_ad)}</p>'
 
         # bütün seferler tek listede
         ara_kutu = ('<div class="arac"><label class="ara"><span class="gizli">Sefer ara</span><input type="search" id="tablo-ara" '
@@ -414,7 +414,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
             sonraki = f'<a href="{sl}-{sirali[i + 1]}.html">{E(_ay(sirali[i + 1]))}</a>' if i + 1 < len(sirali) else ""
             rows = [sefer_satiri(r) for r in rs]
             n_gemi = len({x.get("m") or x.get("n") for x in rs})
-            mbody = (f'<main class="sayfa rapor" id="icerik"><header><p class="yol"><a href="{sayfa(directions, y)}">Raporlar</a>'
+            mbody = (f'<main class="sayfa rapor" id="icerik"><header><p class="yol"><a href="{sayfa(directions, y)}">Gemiler</a>'
                      f', {E(a_ad)} → {E(b_ad)}</p><h1>{E(_ay(m))}</h1>'
                      f'<p class="giris">{E(a_ad)} limanlarından {E(b_ad)} limanlarına {_n(len(rs))} sefer, {_n(n_gemi)} gemi. '
                      'Varış tarihine göre; satırlar çıkış tarihine göre sıralı.</p></header>'
@@ -476,7 +476,7 @@ def _dunya(cfg, con, dunya, directions, rdir, vessels, m2k, pages, bilgi, legend
         satir.append([link, _n(len(rs)), _n(gsay(rs)), f"%{100 * len(rs) / len(recs):.1f}".replace(".", ",")])
     limanlar = Counter((r["o"], r["oc3"]) for r in recs if r["oc3"])
     lrows = [[E(o), E(ulke_adi(c) or c), _n(n)] for (o, c), n in limanlar.most_common(30)]
-    body = (f'<main class="sayfa rapor" id="icerik"><header><h1>Raporlar</h1>'
+    body = (f'<main class="sayfa rapor" id="icerik"><header><h1>Gemiler ve seferler</h1>'
             f'<p class="giris">Dünyanın her yerinden {E(hedef_ad)} limanlarına gelen gemiler ve her varıştan önceki son uğrak. '
             'Global Fishing Watch liman ziyaretlerinden; bir ülkeye tıklayınca o ülkeden gelen gemiler gemi gemi açılır.</p></header>'
             f'<nav class="dugmeler yon" aria-label="Yön">{yon}</nav>'
