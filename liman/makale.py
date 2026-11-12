@@ -490,13 +490,14 @@ def _cey_ornek_en(o, E) -> str:
     xs = o["tanker"].get("ceyhan_ornek") or []
     if not xs:
         return ""
-    rows = [[f'<a href="../tankerler/{E(x["anahtar"])}.html"><b>{E(x["ad"])}</b></a>', E(x["imo"] or "–"), E(x["bayrak"] or "–"),
+    rows = [[f'<a href="../tankerler/{E(x["anahtar"])}.html"><b>{E(x["ad"])}</b></a>', E(x["imo"] or "–"),
+             E(bayrak_ad(x.get("flag3"), x.get("mmsi"), True)),
              E(_gun(x["t0"], True)), E(", ".join(liman_en(a) for a in x["ara"]) or "–"), E(liman_en(x["d"])), E(_gun(x["t1"], True))]
             for x in xs]
     return _tablo(E, ["Vessel", "IMO", "Flag", "Left Ceyhan", "Intermediate port", "Arrival", "Arrival date"], rows,
                   baslik="Table 7. Tanker voyages from the Ceyhan terminals with a recorded arrival at an Israeli port (latest first)",
                   not_="The arrival is a Global Fishing Watch port-visit record (the vessel was seen in the anchorage or berth area of "
-                       "that port). Flag names in Turkish.")
+                       "that port).")
 
 
 def _basin_tr(o) -> str:
@@ -621,10 +622,11 @@ def _en(cfg, o, E) -> str:
                     [[f"<b>{E(s['ad'])}</b>", E(s["imo"] or "–"), E(bayrak_ad(s["bayrak"], s["mmsi"], True)), n(s["n"]),
                       E(_ay(s["ilk"][:7], True)), E(_ay(s["son"][:7], True))] for s in d["en_cok"][:15]], num=(3,),
                     baslik="Table 6. The 15 vessels with most voyages after the declaration (Türkiye → Israel)")
-    t_tank = _tablo(E, ["Vessel", "IMO", "Evidence", "Voyages"],
+    t_tank = _tablo(E, ["Vessel", "IMO", "Flag", "Evidence", "Voyages"],
                     [[f'<a href="../tankerler/{E(t["anahtar"])}.html"><b>{E(t["ad"])}</b></a>' + (" *" if t["basin"] else ""),
-                      E(t["imo"] or "–"), E(DUZEY_EN.get(t["duzey"], t["duzey"])), n(t["n"])] for t in tk["ornekler"][:10]],
-                    num=(3,), baslik="Table 8. Examples from the tanker files (strongest evidence first)",
+                      E(t["imo"] or "–"), E(bayrak_ad(t.get("flag3"), t.get("mmsi"), True)),
+                      E(DUZEY_EN.get(t["duzey"], t["duzey"])), n(t["n"])] for t in tk["ornekler"][:10]],
+                    num=(4,), baslik="Table 8. Examples from the tanker files (strongest evidence first)",
                     not_="* Also named in press reports. Each vessel file lists its voyages, the points where AIS went off and came "
                          "back on, and satellite imagery links for those dates (in Turkish).")
     refs = "".join(f'<li>{E(m)} <a href="{E(u)}" rel="noopener">{E(u)}</a></li>' for m, u in _kaynakca(o, en=True))

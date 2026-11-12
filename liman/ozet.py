@@ -147,6 +147,7 @@ def hesapla(cfg, con, recs: list[dict], tankerler: list[dict] | None = None) -> 
             if (s_.get("ter") or "").startswith("Ceyhan") and s_.get("duzey") in ("kayitli", "aktarma") and \
                     (s_.get("t0") or "") >= (beyan or ""):
                 cey_ornek.append({"ad": d["ad"], "anahtar": d["anahtar"], "imo": d["imo"], "bayrak": d["bayrak"],
+                                  "flag3": d.get("flag3"), "mmsi": d.get("mmsi"),
                                   "dogrulandi": d["dogrulandi"], "t0": s_.get("t0"), "t1": s_.get("t1"), "d": s_.get("d"),
                                   "ara": s_.get("ara") or [], "id": s_.get("id")})
     cey_ornek.sort(key=lambda x: x["t1"] or "", reverse=True)
@@ -161,6 +162,7 @@ def hesapla(cfg, con, recs: list[dict], tankerler: list[dict] | None = None) -> 
         "ceyhan_gemi": sum(1 for d in ds if any((s.get("ter") or "").startswith("Ceyhan") for s in d["seferler"])),
         "sonra": sum(1 for d in ds for s in d["seferler"] if beyan and (s.get("t0") or "") >= beyan),
         "ornekler": [{"ad": d["ad"], "anahtar": d["anahtar"], "imo": d["imo"], "bayrak": d["bayrak"], "duzey": d["duzey"],
+                      "flag3": d.get("flag3"), "mmsi": d.get("mmsi"),
                       "n": len(d["seferler"]), "basin": bool(d["basin"]), "dogrulandi": d["dogrulandi"]} for d in ds[:12]],
     }
     from .tanker import basin_ozeti
