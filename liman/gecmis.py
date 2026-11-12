@@ -232,8 +232,8 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None) -> di
 
 
 # --------------------------------------------------------------------------- sonuç
-def _visit_place(cfg, e: dict) -> tuple[str | None, str, str | None]:
-    """(ülke kodu, liman adı, bizim liman kodumuz)"""
+def _visit_place(cfg, e: dict) -> tuple[str | None, str, str | None, float | None, float | None]:
+    """(ülke kodu, liman adı, bizim liman kodumuz, enlem, boylam)"""
     pos = e.get("position") or {}
     pv = e.get("port_visit") or {}
     anc = pv.get("startAnchorage") or pv.get("endAnchorage") or {}
@@ -242,10 +242,10 @@ def _visit_place(cfg, e: dict) -> tuple[str | None, str, str | None]:
         code, _ = cfg.locate(lat, lon)
         if code and not cfg.port_by_code[code].approach:
             p = cfg.port_by_code[code]
-            return p.country, p.name, code
+            return p.country, p.name, code, lat, lon
     c = cfg.country_from_iso3(anc.get("flag"))
     name = (anc.get("name") or "?").title()
-    return c, f"{name} ({anc.get('flag') or '?'})", None
+    return c, f"{name} ({anc.get('flag') or '?'})", None, lat, lon
 
 
 def _gap_info(g: dict) -> dict:
@@ -279,8 +279,9 @@ def compute(cfg, con, v_start: str, end: str) -> int:
         for e in sorted(pvs, key=lambda e: e["start"] or ""):
             if not e.get("start"):
                 continue
-            c, name, code = _visit_place(cfg, e)
-            visits.append({"c": c, "name": name, "code": code, "start": e["start"], "end": e["end"] or e["start"],
+            c, name, code, lat, lon = _visit_place(cfg, e)
+            visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon,
+                           "start": e["start"], "end": e["end"] or e["start"],
                            "vessel": e["vessel"]})
         gl = [_gap_info(g) for g in gaps if g.get("start")]
         for (A, B) in cfg.directions:
@@ -330,13 +331,15 @@ def compute(cfg, con, v_start: str, end: str) -> int:
 def _insert(con, A, B, cls, vid, vessel, o, d, nxt, mids, gaps):
     con.execute(
         """INSERT INTO gecmis(direction,cls,vessel_id,ssvid,name,flag,vtype,origin,origin_country,t_dep,dest,
-           dest_country,t_arr,next_port,mids,gaps) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           dest_country,t_arr,next_port,mids,gaps,o_lat,o_lon,d_lat,d_lon)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (f"{A}>{B}", cls, vid, vessel.get("ssvid"), vessel.get("name"), vessel.get("flag"), vessel.get("type"),
          o["name"], o["c"], o["end"], d["name"] if d else None, d["c"] if d else None,
          d["start"] if d else (gaps[0]["bitis"] if gaps else None), nxt["name"] if nxt else None,
-         json.dumps([{"liman": m["name"], "ulke": m["c"], "giris": m["start"], "cikis": m["end"]} for m in mids],
-                    ensure_ascii=False),
-         json.dumps(gaps, ensure_ascii=False)))
+         json.dumps([{"liman": m["name"], "ulke": m["c"], "giris": m["start"], "cikis": m["end"],
+                      "lat": m.get("lat"), "lon": m.get("lon")} for m in mids], ensure_ascii=False),
+         json.dumps(gaps, ensure_ascii=False),
+         o.get("lat"), o.get("lon"), d.get("lat") if d else None, d.get("lon") if d else None))
 
 
 def run(cfg, start: str | None, end: str | None, budget_min: float | None) -> dict:
@@ -349,6 +352,13 @@ def run(cfg, start: str | None, end: str | None, budget_min: float | None) -> di
         token = os.environ.get(cfg.gecmis["anahtar_degiskeni"], "").strip()
         st = json.loads(get_meta(con, "gecmis_durum", "{}") or "{}")
         if st.get("tamam") and not start:
+            # tarama bitti: yalnızca önbellekten yeniden hesapla (kurallar değişmiş olabilir)
+            t = target(con)
+            lookback = cfg.gecmis["onceki_gun"]
+            v_start = (dt.date.fromisoformat(t["baslangic"]) - dt.timedelta(days=lookback)).isoformat()
+            st["kayit"] = compute(cfg, con, v_start, t["bitis"])
+            set_meta(con, "gecmis_durum", json.dumps(st))
+            con.commit()
             return {"durum": "tamamlandı", **st}
         client = Client(token) if token else None
         if client is None:

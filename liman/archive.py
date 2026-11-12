@@ -13,7 +13,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from . import proof  # noqa: E402
+from . import proof, tracks  # noqa: E402
 from .util import SHIP_GROUP_LABELS, day_bounds_utc, fmt_local, hours_between, ship_group  # noqa: E402
 
 VISIT_FIELDS = ["mmsi", "imo", "ad", "tip", "giris_utc", "cikis_utc", "sure_saat", "terminal",
@@ -104,11 +104,19 @@ def build_day(cfg, con, day: str) -> dict:
         w.writeheader()
         w.writerows(rows)
         (out / f"{port.code}.csv").write_text(buf.getvalue(), encoding="utf-8")
-        _map(cfg, con, port, a, b, out / f"{port.code}.png")
+        if port.role == "izlenen":
+            _map(cfg, con, port, a, b, out / f"{port.code}.png")
         entered = sum(1 for r in rows if a <= r["giris_utc"] < b)
         left = sum(1 for r in rows if r["cikis_utc"] and a <= r["cikis_utc"] < b)
         summary["limanlar"][port.code] = {"ad": port.name, "ulke": port.country, "rol": port.role,
                                           "ziyaret": len(rows), "giren": entered, "cikan": left}
+    izler = tracks.build_day(cfg, con, day)
+    names = {r["mmsi"]: r["name"] for r in con.execute("SELECT mmsi, name FROM vessels")}
+    (out / "izler.json").write_text(json.dumps(
+        {"gun": day, "aciklama": "Her geminin o günkü sadeleştirilmiş AIS izi: [boylam, enlem, dakika (Unix/60)]",
+         "gemiler": {m: {"ad": names.get(int(m)), "iz": segs} for m, segs in izler.items()}},
+        ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    summary["iz_gemi_sayisi"] = len(izler)
     evs = [dict(e) | {"detail": json.loads(e["detail"] or "{}")} for e in con.execute(
         "SELECT * FROM events WHERE t_start>=? AND t_start<? ORDER BY t_start", (a, b))]
     (out / "olaylar.json").write_text(json.dumps(evs, ensure_ascii=False, indent=1), encoding="utf-8")

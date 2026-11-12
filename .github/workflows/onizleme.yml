@@ -1,0 +1,55 @@
+# Önizleme: siteyi son verilerle ve kurgusal demo verisiyle üretir, gerçek bir tarayıcıda açar,
+# ekran görüntülerini ve tarayıcı kayıtlarını 'onizleme' dalına yazar. Yalnızca elle çalıştırılır.
+name: Önizleme
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  onizle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Kütüphaneleri kur
+        run: |
+          pip install -q -r requirements.txt playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Son durumu önbellekten al
+        uses: actions/cache/restore@v4
+        with:
+          path: _durum
+          key: durum-onizleme-${{ github.run_id }}
+          restore-keys: durum-
+
+      - name: Siteyi son verilerle ve demo verisiyle üret
+        run: |
+          python -m liman durum-yukle _durum
+          python -m liman gecmis || true
+          python -m liman saatlik
+          python -m liman demo
+          bash kurulum/vendor.sh site/vendor
+          cp -r site/vendor demo/site/vendor
+
+      - name: Tarayıcıda aç ve ekran görüntüsü al
+        run: python kurulum/onizleme.py
+
+      - name: Sonuçları 'onizleme' dalına yaz
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd _onizleme
+          git init -q -b onizleme
+          git add .
+          git -c user.name=liman-izleme-bot -c user.email=bot@users.noreply.github.com commit -q -m "önizleme $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" onizleme

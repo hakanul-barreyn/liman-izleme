@@ -92,4 +92,10 @@ def test_retro_scan(tmp_path):
     assert fake.requests == before
     site.build(cfg, con)
     page = (cfg.site_dir / "gecmis.html").read_text()
-    assert "Karanlık sefer" in page and "browser.dataspace.copernicus.eu" in page
+    assert "Geçmiş tarama" in page and "Powered by Global Fishing Watch" in page
+    data = json.loads((cfg.site_dir / "veri" / "harita" / "seferler.json").read_text())
+    rec = {r["id"]: r for r in data["kayitlar"]}
+    dark = [r for r in rec.values() if r["k"] == "karanlik_sefer"][0]
+    assert dark["s"] == "g" and dark["kp"] and dark["w"][0] == [35.93, 36.87] and "d" not in dark
+    via = [r for r in rec.values() if r["k"] == "aktarmali"][0]
+    assert len(via["w"]) == 3 and via["ara"]

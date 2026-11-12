@@ -115,6 +115,10 @@ jobs:
           path: _durum
           key: durum-${{ github.run_id }}-${{ github.run_attempt }}
 
+      - name: Harita kütüphanesi ve yazı tipini ekle
+        if: always() && steps.yukle.outcome == 'success'
+        run: bash kurulum/vendor.sh site/vendor || echo "::warning::Harita kütüphanesi indirilemedi; tarayıcı CDN'den yükleyecek"
+
       - uses: actions/upload-pages-artifact@v3
         if: always() && steps.yukle.outcome == 'success'
         with:

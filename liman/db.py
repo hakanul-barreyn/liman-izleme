@@ -53,11 +53,12 @@ CREATE TABLE IF NOT EXISTS routes(
 
 CREATE TABLE IF NOT EXISTS seen_offport(mmsi INTEGER, hour TEXT, PRIMARY KEY(mmsi, hour));
 
+CREATE TABLE IF NOT EXISTS izler(mmsi INTEGER, day TEXT, pts TEXT, PRIMARY KEY(mmsi, day));
 CREATE TABLE IF NOT EXISTS gfw_cache(key TEXT PRIMARY KEY, data TEXT, fetched TEXT);
 CREATE TABLE IF NOT EXISTS gecmis(
   id INTEGER PRIMARY KEY, direction TEXT, cls TEXT, vessel_id TEXT, ssvid TEXT, name TEXT, flag TEXT,
   vtype TEXT, origin TEXT, origin_country TEXT, t_dep TEXT, dest TEXT, dest_country TEXT, t_arr TEXT,
-  next_port TEXT, mids TEXT, gaps TEXT);
+  next_port TEXT, mids TEXT, gaps TEXT, o_lat REAL, o_lon REAL, d_lat REAL, d_lon REAL);
 
 CREATE TABLE IF NOT EXISTS archived_days(day TEXT PRIMARY KEY, day_hash TEXT, created TEXT);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
@@ -80,6 +81,10 @@ def _migrate(con) -> None:
     cols = {r[1] for r in con.execute("PRAGMA table_info(tracking)")}
     if "prio" not in cols:
         con.execute("ALTER TABLE tracking ADD COLUMN prio INTEGER DEFAULT 0")
+    cols = {r[1] for r in con.execute("PRAGMA table_info(gecmis)")}
+    for c in ("o_lat", "o_lon", "d_lat", "d_lon"):
+        if c not in cols:
+            con.execute(f"ALTER TABLE gecmis ADD COLUMN {c} REAL")
     con.commit()
 
 

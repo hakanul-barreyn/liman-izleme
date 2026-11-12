@@ -1,92 +1,61 @@
-"""Statik web sitesini üretir (GitHub Actions bunu GitHub Pages'e yükler)."""
+"""Statik web sitesi (GitHub Actions bunu GitHub Pages'e yükler).
+
+Ana sayfa bir harita uygulamasıdır; veriyi veri/harita/*.json dosyalarından okur. Diğer sayfalar
+sunucu tarafında üretilen hafif HTML'dir. Harita kütüphanesi (MapLibre) ve yazı tipi vendor/
+klasörüne iş akışında indirilir; yoksa tarayıcı kütüphaneyi CDN'den yükler.
+"""
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import os
-from urllib.parse import urlencode
-from collections import Counter, defaultdict
+import shutil
+from collections import Counter
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
-from . import proof
+from . import harita, proof
 from .db import get_meta
-from .routes import CLASS_LABELS, CLASS_ORDER, CLASS_SHORT, vessel_keys
-from .util import SHIP_GROUP_LABELS, fmt_local, hazard_category, hours_between, iso, now_utc, ship_group
+from .routes import CLASS_LABELS, vessel_keys
+from .util import SHIP_GROUP_LABELS, hazard_category, iso, now_utc, parse_iso, ship_group
 
 E = html.escape
-
-CSS = """
-:root{--bg:#f6f4ef;--panel:#fffdf8;--ink:#1b2430;--muted:#5d6876;--line:#dcd6ca;--accent:#0f5e7a;
---warn:#a4461c;--warn-bg:#fbeee6;--ok:#2f6b3a;--chip:#ece7dc;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-@media (prefers-color-scheme:dark){:root{--bg:#11161c;--panel:#171e26;--ink:#e6e2d8;--muted:#9aa5b1;--line:#2b3542;
---accent:#6cc0dc;--warn:#f0a07a;--warn-bg:#2c1d16;--ok:#8fd19e;--chip:#222b36}}
-*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Iowan Old Style","Palatino Linotype",Georgia,serif}
-a{color:var(--accent)}
-header.top{border-bottom:1px solid var(--line);background:var(--panel)}
-.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
-.top .wrap{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 24px;padding-top:14px;padding-bottom:12px}
-.brand{font-weight:700;font-size:20px;text-decoration:none;color:var(--ink);letter-spacing:.01em}
-nav a{margin-right:16px;font:14px/1.4 system-ui,sans-serif;text-decoration:none;color:var(--muted)}
-nav a.on{color:var(--ink);font-weight:600}
-main{padding:28px 0 60px}
-h1{font-size:30px;line-height:1.2;margin:0 0 8px}h2{font-size:21px;margin:36px 0 10px}h3{font-size:17px;margin:20px 0 6px}
-.lede{color:var(--muted);max-width:720px;margin:0 0 20px}
-.banner{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn);padding:10px 14px;border-radius:6px;
-font:14px/1.45 system-ui,sans-serif;margin:0 0 20px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
-.stat b{display:block;font:600 26px/1.1 system-ui,sans-serif}.stat span{font:13px system-ui,sans-serif;color:var(--muted)}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
-.card img{width:100%;height:auto;border-radius:4px;border:1px solid var(--line);display:block}
-.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
-table{border-collapse:collapse;width:100%;font:14px/1.4 system-ui,sans-serif}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-weight:600;color:var(--muted);font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
-tr:last-child td{border-bottom:0}
-.chip{display:inline-block;background:var(--chip);border-radius:99px;padding:1px 9px;font:12.5px/1.6 system-ui,sans-serif;
-margin:1px 4px 1px 0;white-space:nowrap}
-.chip.w{background:var(--warn-bg);color:var(--warn)}
-.mono{font-family:var(--mono);font-size:12.5px;word-break:break-all}
-.muted{color:var(--muted)}.small{font-size:13.5px}
-.quote{border-left:3px solid var(--accent);padding:6px 14px;margin:10px 0 18px;background:var(--panel)}
-ul.basis{margin:4px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
-footer{border-top:1px solid var(--line);padding:18px 0 40px;color:var(--muted);font:13px/1.5 system-ui,sans-serif}
-@media (max-width:600px){h1{font-size:24px}th,td{padding:7px 8px}}
-"""
+WEB = Path(__file__).parent / "web"
+ASSETS = ("stil.css", "ortak.js", "harita.js", "gemi.js")
+AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+NAV = [("index.html", "Harita", "harita"), ("beyan.html", "Beyan testi", "beyan"), ("gemiler/index.html", "Gemiler", "gemiler"),
+       ("limanlar/index.html", "Limanlar", "limanlar"), ("gecmis.html", "Geçmiş tarama", "gecmis"),
+       ("kanit.html", "Kanıt zinciri", "kanit"), ("yontem.html", "Yöntem", "yontem")]
+TEMA = "<script>try{var t=localStorage.getItem('tema');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>"
+EVENT_LABELS = {"gap": "AIS sinyali kesildi", "stop": "Açık denizde uzun durdu", "sts": "Denizde başka bir gemiyle buluştu",
+                "draught": "Limanda olmadan su çekimi değişti", "spoof": "Konum tutarsızlığı"}
+OYNAT_SVG = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z"/></svg>'
 
 
-def _page(cfg, title: str, body: str, depth: int, active: str = "") -> str:
-    r = "../" * depth
-    links = [("index.html", "Genel bakış", "home"), ("limanlar/index.html", "Limanlar", "ports"),
-             ("gemiler/index.html", "Gemiler", "ships")]
-    if cfg.directions:
-        links.append(("beyan.html", "Beyan testi", "decl"))
-    if getattr(cfg, "_has_gecmis", False):
-        links.append(("gecmis.html", "Geçmiş tarama", "retro"))
-    links += [("kanit.html", "Kanıt zinciri", "proof"), ("yontem.html", "Yöntem", "method")]
-    nav = "".join(f'<a href="{r}{h}" class="{"on" if k == active else ""}">{E(t)}</a>' for h, t, k in links)
-    gfw = (' · Geçmiş tarama: <a href="https://globalfishingwatch.org">Powered by Global Fishing Watch.</a>'
-           if getattr(cfg, "_has_gecmis", False) else "")
-    banner = ('<div class="banner"><b>Kurgusal demo.</b> Bu sayfadaki limanlar, ülkeler ve gemiler test için '
-              'uydurulmuştur; gerçek bir olayı göstermez.</div>') if cfg.fictional else ""
-    return f"""<!doctype html><html lang="tr"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{E(title)} · {E(cfg.name)}</title><link rel="stylesheet" href="{r}stil.css"></head><body>
-<header class="top"><div class="wrap"><a class="brand" href="{r}index.html">{E(cfg.name)}</a><nav>{nav}</nav></div></header>
-<main><div class="wrap">{banner}{body}</div></main>
-<footer><div class="wrap">Son güncelleme: {E(fmt_local(iso(now_utc()), cfg.tz))} ({E(cfg.tz)}) ·
-Veri: AIS (aisstream.io) · Her günün dosyaları hash'lenip zincirlenir, bkz. <a href="{r}kanit.html">Kanıt zinciri</a>.
-Bu sitedeki işaretler tespittir, hüküm değildir.{gfw}</div></footer></body></html>"""
+# --------------------------------------------------------------------------- yardımcılar
+def _version() -> str:
+    h = hashlib.sha256()
+    for a in ASSETS:
+        h.update((WEB / a).read_bytes())
+    return h.hexdigest()[:10]
 
 
-def _tbl(head: list[str], rows: list[list[str]]) -> str:
-    if not rows:
-        return '<p class="muted small">Henüz kayıt yok.</p>'
-    th = "".join(f"<th>{E(h)}</th>" for h in head)
-    tr = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
-    return f'<div class="tbl"><table><thead><tr>{th}</tr></thead><tbody>{tr}</tbody></table></div>'
+def _n(x) -> str:
+    return f"{x:,}".replace(",", ".")
+
+
+def _tarih(cfg, s, saat: bool = False) -> str:
+    if not s:
+        return "–"
+    t = parse_iso(s).astimezone(ZoneInfo(cfg.tz))
+    out = f"{t.day} {AYLAR[t.month - 1]} {t.year}"
+    return f"{out}, {t:%H:%M}" if saat else out
+
+
+def _ay(s: str) -> str:
+    y, m = s[:7].split("-")
+    return f"{AYLAR[int(m) - 1]} {y}"
 
 
 def _write(path: Path, text: str) -> None:
@@ -94,58 +63,13 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def _draught(a, b) -> str:
-    if a is None and b is None:
-        return "–"
-    s = f"{a if a is not None else '?'} → {b if b is not None else '?'} m"
-    if a is not None and b is not None and abs(b - a) >= 0.5:
-        s += f' <span class="chip{" w" if b > a else ""}">{"+" if b > a else ""}{round(b - a, 1)}</span>'
-    return s
-
-
-EVENT_LABELS = {"gap": "AIS boşluğu", "stop": "Liman dışı durak", "sts": "Denizde buluşma",
-                "draught": "Limansız su çekimi değişimi", "spoof": "Konum tutarsızlığı"}
-
-
-def sat_link(lat: float, lon: float, t0: str, t1: str, radar: bool = False, zoom: int = 12) -> str:
-    """Copernicus Browser'da konumu ve tarih aralığını açan bağlantı (Sentinel-1 radar / Sentinel-2 optik)."""
-    q = urlencode({"zoom": zoom, "lat": round(lat, 4), "lng": round(lon, 4), "themeId": "DEFAULT-THEME",
-                   "datasetId": "S1_CDAS_IW_VVVH" if radar else "S2_L2A_CDAS",
-                   "fromTime": f"{t0[:10]}T00:00:00.000Z", "toTime": f"{t1[:10]}T23:59:59.999Z"})
-    return f"https://browser.dataspace.copernicus.eu/?{q}"
-
-
-def sat_links(cfg, t0: str, t1: str, points=()) -> str:
-    """Hedef ülke limanları (ve verilen noktalar) için o tarih aralığında uydu görüntüsü bağlantıları."""
-    if not t0 or not t1:
-        return ""
-    items = list(points)
-    targets = cfg.dest_countries()
-    items += [(p.name, p.area.center) for p in cfg.ports
-              if p.country in targets and not p.approach and p.role == "varis"]
-    parts = []
-    for name, (lat, lon) in items[:8]:
-        parts.append(f"{E(name)} <a href='{E(sat_link(lat, lon, t0, t1, True))}' target='_blank' rel='noopener'>radar</a>/"
-                     f"<a href='{E(sat_link(lat, lon, t0, t1))}' target='_blank' rel='noopener'>optik</a>")
-    return "<div class='small muted'>Uydu görüntüsü (" + E(t0[:10]) + " – " + E(t1[:10]) + "): " + " · ".join(parts) + "</div>"
-
-
-def _event_text(e: dict, names: dict) -> str:
-    d = json.loads(e["detail"] or "{}")
-    if e["kind"] == "gap":
-        return (f"{d.get('saat')} saat sinyal yok, bu sürede {d.get('mesafe_km')} km yer değiştirdi "
-                f"(ort. {d.get('ortalama_hiz_knot')} knot). Su çekimi: {d.get('draft_once')} → {d.get('draft_sonra')} m")
-    if e["kind"] == "stop":
-        return f"{d.get('saat')} saat açık denizde durdu. Su çekimi: {d.get('draft_once')} → {d.get('draft_sonra')} m"
-    if e["kind"] == "sts":
-        return (f"{E(names.get(e['mmsi'], str(e['mmsi'])))} ile {E(names.get(e['mmsi2'], str(e['mmsi2'])))} "
-                f"{d.get('saat')} saat boyunca 500 m'den yakın durdu. Su çekimleri: {d.get('draft_1')} / {d.get('draft_2')}")
-    if e["kind"] == "draught":
-        return f"Liman ziyareti olmadan su çekimi {d.get('once')} → {d.get('sonra')} m"
-    if e["kind"] == "spoof":
-        return (f"Konum bir önceki kayda göre {d.get('km')} km sıçradı (görünen hız {d.get('gorunen_hiz_knot') or '∞'} knot). "
-                "GPS karıştırma veya sahte konum olabilir; bu konum analizde kullanılmadı.")
-    return ""
+def _tbl(head: list[str], rows: list[list[str]], num: tuple = (), bos: str = "Henüz kayıt yok.") -> str:
+    if not rows:
+        return f'<p class="not">{E(bos)}</p>'
+    th = "".join(f'<th{" class=sayi" if i in num else ""} scope="col">{E(h)}</th>' for i, h in enumerate(head))
+    tr = "".join("<tr>" + "".join(f'<td{" class=sayi" if i in num else ""}>{c}</td>' for i, c in enumerate(r)) + "</tr>"
+                 for r in rows)
+    return f'<div class="tablo"><table><thead><tr>{th}</tr></thead><tbody>{tr}</tbody></table></div>'
 
 
 def ham_url(day: str) -> str:
@@ -154,368 +78,492 @@ def ham_url(day: str) -> str:
     return tpl.format(gun=day) if tpl else f"arsiv/{day}/ham.jsonl.gz"
 
 
-def build(cfg, con) -> None:
+def _marka(cfg) -> tuple[str, str]:
+    if ":" in cfg.name:
+        a, b = cfg.name.split(":", 1)
+        return a.strip(), b.strip()
+    return cfg.name, ""
+
+
+def _page(cfg, title: str, body: str, depth: int, active: str, *, app: bool = False, scripts=(), desc: str = "",
+          head: str = "") -> str:
+    r = "../" * depth
+    v = cfg._surum
+    nav = "".join(f'<a href="{r}{h}"{" aria-current=page" if k == active else ""}>{E(t)}</a>'
+                  for h, t, k in NAV if (k != "gecmis" or cfg._has_gecmis) and (k != "beyan" or cfg.directions))
+    ad, alt = _marka(cfg)
+    kurgu = ('<div class="kurgu">Kurgusal deneme verisi: limanlar, ülkeler ve gemiler test için uydurulmuştur; '
+             'gerçek bir olayı göstermez.</div>') if cfg.fictional else ""
+    foot = "" if app else (
+        f'<footer class="alt-bilgi">Veri: gemilerin yayınladığı AIS mesajları (<a href="https://aisstream.io">aisstream.io</a>). '
+        f'Geçmiş tarama: <a href="https://globalfishingwatch.org">Powered by Global Fishing Watch.</a> '
+        f'Harita: OpenFreeMap, OpenMapTiles, OpenStreetMap katkıcıları. Her günün kayıtları mühürlenir, bkz. '
+        f'<a href="{r}kanit.html">Kanıt zinciri</a>. Sitedeki işaretler tespittir, hüküm değildir. '
+        f'Son güncelleme: {E(_tarih(cfg, iso(now_utc()), True))}.</footer>')
+    js = "".join(f'<script src="{r}assets/{s}?v={v}" defer></script>' for s in scripts)
+    return (f'<!doctype html><html lang="tr"><head><meta charset="utf-8">'
+            f'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+            f'<title>{E(title)} – {E(cfg.name)}</title><meta name="description" content="{E(desc or cfg.description)}">'
+            f'<meta name="color-scheme" content="light dark">{TEMA}'
+            f'<link rel="stylesheet" href="{r}assets/stil.css?v={v}">{head}</head>'
+            f'<body class="{"uyg" if app else "icerik"}" data-tz="{E(cfg.tz)}"><a class="atla" href="#icerik">İçeriğe geç</a>'
+            f'<header class="ust"><a class="marka" href="{r}index.html"><b>{E(ad)}</b>'
+            f'{f"<span>{E(alt)}</span>" if alt else ""}</a><nav aria-label="Bölümler">{nav}</nav>'
+            f'<button type="button" class="tema" id="tema">Gece</button></header>{kurgu}{body}{foot}'
+            f'<script src="{r}assets/ortak.js?v={v}" defer></script>{js}</body></html>')
+
+
+def _harita_head(r: str) -> str:
+    return (f'<link rel="preload" href="{r}vendor/maplibre-gl.js" as="script">'
+            f'<link rel="stylesheet" href="{r}vendor/maplibre-gl.css">'
+            '<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>')
+
+
+def _draught(a, b) -> str:
+    if a is None and b is None:
+        return "–"
+    s = f"{a if a is not None else '?'} → {b if b is not None else '?'} m"
+    if a is not None and b is not None and abs(b - a) >= 0.5:
+        s += f" ({'+' if b > a else ''}{round(b - a, 1)})"
+    return s
+
+
+def _isaret(cls: str) -> str:
+    return f'<span class="isaret" style="--c:var(--c-{harita.FAMILY[cls]})">{E(harita.ALL_LABELS.get(cls, cls))}</span>'
+
+
+# --------------------------------------------------------------------------- ana sayfa
+def _manset(cfg, recs, y):
+    a, b = y.split(">")
+    sel = [r for r in recs if r["y"] == y]
+    n = len(sel)
+    dark = sum(1 for r in sel if r["a"] == "karanlik")
+    ts = sorted(x for x in ((r.get("t1") or r.get("t0")) for r in sel) if x)
+    head = f"{cfg.country_name(a)} limanlarından {cfg.country_name(b)} yönüne {_n(n)} sefer"
+    if n:
+        sub = f"{_tarih(cfg, ts[0])} ile {_tarih(cfg, ts[-1])} arasında, AIS kayıtlarına göre."
+        if dark:
+            sub += f" {_n(dark)} seferde gemi yolda sinyalini kapattı ya da varış limanı kayıtsız kaldı."
+    else:
+        sub = "Henüz sefer kaydı yok. Veri toplandıkça bu sayfa her saat güncellenir."
+    return head, sub, sel
+
+
+def _index(cfg, recs, meta) -> str:
+    yonler = [f"{a}>{b}" for a, b in cfg.directions]
+    y0 = yonler[0] if yonler else ""
+    head, sub, sel = _manset(cfg, recs, y0) if y0 else (cfg.name, "Beyan testi kapalı; haritada takipteki gemiler görünür.", [])
+    sayac = Counter(r["a"] for r in sel)
+    aileler = "".join(
+        f'<button type="button" class="sinif" data-a="{k}" aria-pressed="true" style="--c:var(--c-{k})">'
+        f'<span class="cizgi"></span><b>{E(harita.FAMILY_LABELS[k])}</b><span class="sayi">{_n(sayac.get(k, 0))}</span>'
+        f'<small>{E(harita.FAMILY_NOTES[k])}</small></button>' for k in harita.FAMILY_ORDER)
+    yon_btn = "".join(f'<button type="button" data-y="{E(y)}" aria-pressed="{str(i == 0).lower()}">'
+                      f'{E(cfg.country_name(y.split(">")[0]))} → {E(cfg.country_name(y.split(">")[1]))}</button>'
+                      for i, y in enumerate(yonler))
+    son = sorted(sel, key=lambda r: r.get("t1") or r.get("t0") or "", reverse=True)[:30]
+    satirlar = "".join(
+        f'<li><button type="button" class="satir" data-id="{r["id"]}" style="--c:var(--c-{r["a"]})">'
+        f'<span class="serit{" g" if r["s"] == "g" else ""}"></span><b>{E(r.get("n") or "Adı bilinmiyor")}</b>'
+        f'<time>{E(_tarih(cfg, r.get("t1") or r.get("t0")))}</time>'
+        f'<span class="rota">{E(r.get("o") or "")} → {E(r.get("d") or "varış kayıtsız")}</span></button></li>' for r in son)
+    hedef = json.loads(get_meta(cfg._con, "gecmis_hedef", "null") or "null")
+    ts = sorted(x for x in ((r.get("t1") or r.get("t0")) for r in recs) if x)
+    ayar = {"kok": "", "surum": cfg._surum, "yonler": yonler or [""],
+            "baslangic": (hedef or {}).get("baslangic") or (ts[0][:10] if ts else iso(now_utc())[:10])}
+    body = f'''<main class="uygulama" id="icerik">
+<aside class="panel" id="panel" aria-label="Seferler">
+  <div class="panel-bas"><button type="button" class="cekme" id="cekme" aria-expanded="false" aria-controls="panel">
+    <span class="gizli">Listeyi aç ya da kapat</span></button>
+    <h1 class="manset" id="manset">{E(head)}</h1><p class="manset-alt" id="manset-alt">{E(sub)}</p></div>
+  <div class="panel-govde">
+    <div class="kontrol">
+      {f'<div class="dugmeler" role="group" aria-label="Yön">{yon_btn}</div>' if len(yonler) > 1 else ""}
+      <div class="siniflar" id="siniflar" role="group" aria-label="Sefer türleri">{aileler}</div>
+      <div class="dugmeler" role="group" aria-label="Kaynak">
+        <button type="button" data-k="c" aria-pressed="true">Canlı kayıt</button>
+        <button type="button" data-k="g" aria-pressed="true">Geçmiş tarama</button></div>
+      <label class="ara"><span class="gizli">Gemi ara</span><input type="search" id="ara" placeholder="Gemi adı, IMO ya da MMSI" autocomplete="off"></label>
+    </div>
+    <div id="liste"><ul class="liste">{satirlar}</ul></div>
+    <div id="detay" hidden></div>
+    <footer class="panel-alt">Çizgi rengi sefer türünü gösterir. Düz çizgi bu sitenin kaydettiği gerçek AIS izi, kesik çizgi geçmiş
+    taramadaki limanlar arası bağlantıdır. Macenta noktalı çizgi AIS sinyalinin kesildiği aralıktır.<br><br>
+    Veri: AIS (aisstream.io). Geçmiş tarama: <a href="https://globalfishingwatch.org">Powered by Global Fishing Watch.</a>
+    Harita: OpenFreeMap, OpenStreetMap. Son güncelleme: {E(_tarih(cfg, meta["olusturma"], True))}.
+    <a href="kanit.html">Kanıt zinciri</a>, <a href="yontem.html">yöntem</a>.</footer>
+  </div>
+</aside>
+<section class="harita" aria-label="Harita">
+  <div id="harita"></div>
+  <div class="katmanlar yuzer" role="group" aria-label="Katmanlar">
+    <label><input type="checkbox" name="canli" checked> Takipteki gemiler</label>
+    <label><input type="checkbox" name="olay"> Açık deniz olayları</label>
+    <label><input type="checkbox" name="sahte"> Sahte konumlar</label></div>
+  <div class="zaman yuzer"><button type="button" class="oynat" id="oynat" aria-label="Geçmişi oynat">{OYNAT_SVG}</button>
+    <svg class="cizelge" id="cizelge" role="img" aria-label="Aylara göre sefer sayısı. Bir ayı seçmek için tıkla, aralık seçmek için sürükle."></svg>
+    <button type="button" class="tumu" id="tumu">Tüm dönem</button></div>
+  <div class="ipucu" id="ipucu" hidden></div>
+  <div class="harita-mesaj yuzer" id="harita-mesaj" hidden></div>
+</section>
+</main>
+<script id="ayar" type="application/json">{json.dumps(ayar, ensure_ascii=False)}</script>'''
+    return _page(cfg, "Harita", body, 0, "harita", app=True, scripts=("harita.js",), head=_harita_head(""),
+                 desc=f"{head}. {sub}")
+
+
+# --------------------------------------------------------------------------- beyan
+def _aylik(recs, y):
+    sel = [r for r in recs if r["y"] == y]
+    cnt = Counter(((r.get("t1") or r.get("t0") or "")[:7], r["a"]) for r in sel)
+    months = sorted({m for m, _ in cnt if m}, reverse=True)
+    rows = []
+    for m in months:
+        vals = [cnt.get((m, k), 0) for k in harita.FAMILY_ORDER]
+        rows.append([E(_ay(m))] + [_n(v) if v else "–" for v in vals] + [f"<b>{_n(sum(vals))}</b>"])
+    return rows
+
+
+def _beyan(cfg, recs, live_routes, port_name) -> str:
+    d = cfg.declaration
+    b = ['<main class="sayfa" id="icerik"><header><h1>Beyan testi</h1><p class="giris">Resmî açıklamalar ve AIS kayıtlarına '
+         'göre gerçekleşen gemi hareketleri yan yana. Sayılar gemi hareketidir; yükün kendisi yalnızca dayanaklarıyla '
+         'birlikte “muhtemel” olarak verilir.</p></header>']
+    if d.get("metin"):
+        b.append(f'<blockquote class="alinti"><p>{E(d["metin"])}</p><footer>{E(d.get("tarih") or "")} {E(d.get("kaynak") or "")}</footer></blockquote>')
+    for a in d.get("aciklamalar") or []:
+        src = E(a.get("kaynak") or "kaynak")
+        if a.get("url"):
+            src = f'<a href="{E(a["url"])}" rel="noopener">{src}</a>'
+        b.append(f'<blockquote class="alinti"><p>“{E(a.get("metin", ""))}”</p><footer>{E(a.get("kim") or "")}, '
+                 f'{E(a.get("tarih") or "")}. Kaynak: {src}</footer></blockquote>')
+    if d.get("karsi_gorus"):
+        b.append(f'<h2>Resmî yanıtlar ve karşı görüş</h2><p>{E(d["karsi_gorus"])}</p>')
+    head = ["Ay"] + [harita.FAMILY_LABELS[k] for k in harita.FAMILY_ORDER] + ["Toplam"]
+    for (A, B) in cfg.directions:
+        y = f"{A}>{B}"
+        b.append(f'<h2>{E(cfg.country_name(A))} → {E(cfg.country_name(B))}</h2>'
+                 f'<p class="not">Canlı kayıt ve geçmiş tarama birlikte. Ayrıntılar ve uydu bağlantıları için '
+                 f'<a href="index.html#y={E(y)}">haritada aç</a>.</p>')
+        b.append(_tbl(head, _aylik(recs, y), num=(1, 2, 3, 4, 5)))
+        rows = []
+        for r in [x for x in live_routes if x["direction"] == y][:60]:
+            rows.append([f'<a href="gemiler/{E(r["vkey"])}.html">{E(r["name"])}</a>',
+                         f'{E(port_name.get(r["origin_port"], r["origin_port"]))}<br><span class="not">{E(_tarih(cfg, r["t_dep"]))}</span>',
+                         (f'{E(port_name.get(r["dest_port"], r["dest_port"]))}<br><span class="not">{E(_tarih(cfg, r["t_arr"]))}</span>'
+                          if r["dest_port"] else '<span class="uyari">Kayıtsız</span>'),
+                         _isaret(r["cls"]), f'<a href="index.html#sec=c{r["id"]}">Haritada</a>'])
+        b.append("<h3>Canlı kayıttaki son seferler</h3>" + _tbl(["Gemi", "Çıkış", "Varış", "Tür", ""], rows,
+                                                                 bos="Canlı kayıtta henüz sefer yok."))
+    b.append("</main>")
+    return _page(cfg, "Beyan testi", "".join(b), 0, "beyan")
+
+
+# --------------------------------------------------------------------------- gemiler
+def _gemi(cfg, con, key, mmsis, vessels, tracking, port_name, names) -> str:
+    main = max(mmsis, key=lambda m: (vessels.get(m) or {}).get("last_seen") or "")
+    vs = vessels.get(main) or {}
+    q = ",".join("?" * len(mmsis))
+    tr = next((tracking[m] for m in mmsis if m in tracking), None)
+    group = ship_group(vs.get("type"))
+    hz = hazard_category(vs.get("type"))
+    routes = [dict(r) for r in con.execute(
+        f"SELECT * FROM routes WHERE mmsi IN ({q}) OR via_mmsi IN ({q}) ORDER BY t_dep DESC", (*mmsis, *mmsis))]
+    visits = [dict(v) for v in con.execute(
+        f"SELECT * FROM visits WHERE mmsi IN ({q}) AND (transit IS NOT 1 OR status='open') ORDER BY t_in DESC LIMIT 300", mmsis)]
+    evs = [dict(e) for e in con.execute(
+        f"SELECT * FROM events WHERE (mmsi IN ({q}) OR mmsi2 IN ({q})) AND kind != 'spoof' ORDER BY t_start DESC LIMIT 300",
+        (*mmsis, *mmsis))]
+    spoofs = con.execute(f"SELECT count(*) FROM events WHERE mmsi IN ({q}) AND kind='spoof'", mmsis).fetchone()[0]
+    hist = json.loads(vs.get("history") or "[]")
+    ad = vs.get("name") or f"MMSI {main}"
+    takip = "–"
+    if tr:
+        takip = (f"{'Takipte' if tr['status'] == 'active' else 'Takip bitti'}, {_tarih(cfg, tr['start'])} – "
+                 f"{_tarih(cfg, tr['ended'] or tr['until'])}" + (f" ({tr['end_reason']})" if tr.get("end_reason") else ""))
+    kim = [("IMO", vs.get("imo") or "–"), ("MMSI", ", ".join(map(str, mmsis))), ("Çağrı işareti", vs.get("callsign") or "–"),
+           ("Tip", SHIP_GROUP_LABELS[group] + (f", tehlikeli yük kat. {hz}" if hz else "")),
+           ("Boy", f"{vs['length']:.0f} m" if vs.get("length") else "–"),
+           ("Son beyan edilen varış", vs.get("dest") or "–"), ("Takip", takip)]
+    b = [f'<main class="sayfa" id="icerik"><header><h1>{E(ad)}</h1><p class="giris">{E(SHIP_GROUP_LABELS[group])}. '
+         f'{_n(len(routes))} sefer kaydı, {_n(len(visits))} liman ziyareti, {_n(len(evs))} açık deniz olayı.'
+         f'{f" {_n(spoofs)} konum tutarsızlığı (olası GPS karıştırma) analizden çıkarıldı." if spoofs else ""}</p></header>',
+         '<dl class="kimlik-tablo">' + "".join(
+             f'<div{" class=genis" if k == "Takip" else ""}><dt>{E(k)}</dt><dd>{E(str(v))}</dd></div>' for k, v in kim) + "</dl>",
+         f'<h2>Geçmiş</h2><div class="mini-harita" id="gemi-harita" data-kok="../" data-anahtar="{E(key)}" data-surum="{cfg._surum}">'
+         '<div class="harita-ic"></div></div><div class="oynatici"><button type="button" class="eylem" id="gemi-oynat">Oynat</button>'
+         '<input type="range" id="kaydir" aria-label="Zaman"><output id="an" for="kaydir"></output></div>'
+         '<p class="not">Kalın çizgi seçili ana kadar geçilen yolu, ince çizgi bütün izi gösterir. Macenta kesik çizgi AIS '
+         'sinyalinin kesildiği aralıktır. Daireler uğradığı limanlardır.</p>']
+    if routes:
+        rows = [[f'{E(port_name.get(r["origin_port"], r["origin_port"]))}<br><span class="not">{E(_tarih(cfg, r["t_dep"]))}</span>',
+                 (f'{E(port_name.get(r["dest_port"], r["dest_port"]))}<br><span class="not">{E(_tarih(cfg, r["t_arr"]))}</span>'
+                  if r["dest_port"] else '<span class="uyari">Kayıtsız</span>'),
+                 _isaret(r["cls"]) + (f'<br><span class="not">Yükü veren: {E(r["via_name"])}</span>'
+                                       if r["via_mmsi"] and r["mmsi"] in mmsis else ""),
+                 f'{E(r["cargo"] or "–")}<br><span class="not">güven: {E(r["cargo_conf"] or "–")}</span>',
+                 f'<a href="../index.html#sec=c{r["id"]}">Haritada</a>'] for r in routes]
+        b.append("<h2>Seferler</h2>" + _tbl(["Çıkış", "Varış", "Tür", "Muhtemel yük", ""], rows))
+    b.append("<h2>Liman ziyaretleri</h2>" + _tbl(["Liman", "Giriş", "Çıkış", "Terminal", "Su çekimi", "Beyan edilen varış"], [
+        [E(port_name.get(v["port"], v["port"])), E(_tarih(cfg, v["t_in"], True)),
+         E(_tarih(cfg, v["t_out"], True)) if v["t_out"] else "Limanda", E(v["terminal"] or "–"),
+         E(_draught(v["draught_in"], v["draught_out"])), E(v["dest_out"] or "–")] for v in visits]))
+    if evs:
+        rows = []
+        for e in evs:
+            d = json.loads(e["detail"] or "{}")
+            other = e["mmsi2"] if e["mmsi"] in mmsis else e["mmsi"]
+            extra = f", {names.get(other) or other} ile" if e["kind"] == "sts" else ""
+            rows.append([f'<span class="{"uyari" if e["kind"] == "gap" else ""}">{E(EVENT_LABELS.get(e["kind"], e["kind"]))}</span>',
+                         E(_tarih(cfg, e["t_start"], True)), E(_tarih(cfg, e["t_end"], True)),
+                         E(f'{d.get("saat", "–")} saat{extra}')])
+        b.append("<h2>Açık deniz olayları</h2>" + _tbl(["Olay", "Başlangıç", "Bitiş", "Ayrıntı"], rows))
+    if hist:
+        b.append("<h2>Kimlik değişiklikleri</h2>" + _tbl(["Zaman", "Alan", "Eski", "Yeni"], [
+            [E(_tarih(cfg, h["t"], True)), E(h["alan"]), E(str(h["eski"])), E(str(h["yeni"]))] for h in hist]))
+    b.append("</main>")
+    return _page(cfg, ad, "".join(b), 1, "gemiler", scripts=("gemi.js",), head=_harita_head("../"),
+                 desc=f"{ad}: AIS izi, liman ziyaretleri ve seferleri.")
+
+
+def _gemiler(cfg, con, keys, vessels, tracking) -> str:
+    counts = Counter()
+    for r in con.execute("SELECT vkey, via_vkey FROM routes"):
+        counts[r["vkey"]] += 1
+        if r["via_vkey"]:
+            counts[r["via_vkey"]] += 1
+    rows = []
+    for key, mmsis in keys.items():
+        main = max(mmsis, key=lambda m: (vessels.get(m) or {}).get("last_seen") or "")
+        vs = vessels.get(main) or {}
+        tr = next((tracking[m] for m in mmsis if m in tracking), None)
+        active = bool(tr and tr["status"] == "active")
+        rows.append((active, vs.get("last_seen") or "", [
+            f'<a href="{E(key)}.html">{E(vs.get("name") or "MMSI " + str(main))}</a>', E(str(vs.get("imo") or "–")),
+            E(", ".join(map(str, mmsis))), E(SHIP_GROUP_LABELS[ship_group(vs.get("type"))]),
+            _n(counts.get(key, 0)) if counts.get(key) else "–", "Takipte" if active else "–",
+            E(_tarih(cfg, vs.get("last_seen")))]))
+    rows.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    body = ('<main class="sayfa" id="icerik"><header><h1>Gemiler</h1><p class="giris">Takip edilen, bir sefere ya da açık '
+            'deniz olayına karışan gemiler. Gemiler IMO numarasıyla tanınır; adı veya MMSI numarası değişse de aynı sayfada '
+            'kalır.</p></header><p><label class="ara"><span class="gizli">Gemi ara</span><input type="search" id="gemi-ara" '
+            'placeholder="Gemi adı, IMO ya da MMSI" autocomplete="off"></label></p>'
+            + _tbl(["Gemi", "IMO", "MMSI", "Tip", "Sefer", "Durum", "Son görülme"], [r[2] for r in rows], num=(4,),
+                   bos="Henüz takip edilen gemi yok.")
+            + '<script>document.getElementById("gemi-ara").addEventListener("input",function(){var q=this.value.toLocaleLowerCase("tr");'
+              'document.querySelectorAll("tbody tr").forEach(function(r){r.hidden=q&&r.textContent.toLocaleLowerCase("tr").indexOf(q)<0})})'
+              '</script></main>')
+    return _page(cfg, "Gemiler", body, 1, "gemiler")
+
+
+# --------------------------------------------------------------------------- limanlar
+def _limanlar(cfg, con, days, keys) -> None:
     out = cfg.site_dir
-    out.mkdir(parents=True, exist_ok=True)
-    gecmis_rows = [dict(r) for r in con.execute("SELECT * FROM gecmis ORDER BY t_arr DESC")]
-    gecmis_state = json.loads(get_meta(con, "gecmis_durum", "{}") or "{}")
-    cfg._has_gecmis = bool(gecmis_rows or gecmis_state)
-    _write(out / "stil.css", CSS)
-    tz = cfg.tz
-    m2k, k2m = vessel_keys(con)
-    vessels = {r["mmsi"]: dict(r) for r in con.execute("SELECT * FROM vessels")}
-    names = {m: (v["name"] or f"MMSI {m}") for m, v in vessels.items()}
-    port_name = {p.code: p.name for p in cfg.ports}
-    days = sorted([r["day"] for r in con.execute("SELECT day FROM archived_days")], reverse=True)
+    counts = Counter(r[0] for r in con.execute("SELECT port FROM visits WHERE transit IS NOT 1"))
 
     def map_day(code):
         for d in days:
-            try:
-                oz = json.loads((out / "arsiv" / d / "ozet.json").read_text(encoding="utf-8"))
-                if oz["limanlar"].get(code, {}).get("ziyaret"):
-                    return d
-            except (OSError, ValueError, KeyError):
-                continue
-        return days[0] if days else None
-    chain = proof.read_chain(cfg)
-    tracking = {r["mmsi"]: dict(r) for r in con.execute("SELECT * FROM tracking")}
-    visits = [dict(v) for v in con.execute("SELECT * FROM visits WHERE transit IS NOT 1 OR status='open' ORDER BY t_in DESC")]
-    routes = [dict(r) for r in con.execute("SELECT * FROM routes ORDER BY t_arr DESC")]
-    events = [dict(e) for e in con.execute("SELECT * FROM events ORDER BY t_start DESC")]
-    outages = [dict(o) for o in con.execute("SELECT * FROM outages ORDER BY t_start DESC LIMIT 50")]
+            if (out / "arsiv" / d / f"{code}.png").exists():
+                return d
+        return None
 
-    def vlink(mmsi, depth):
-        k = m2k.get(mmsi, f"mmsi{mmsi}")
-        return f'<a href="{"../" * depth}gemiler/{k}.html">{E(names.get(mmsi, str(mmsi)))}</a>'
-
-    # ---------- Genel bakış ----------
-    active_tr = sum(1 for t in tracking.values() if t["status"] == "active")
-    stats = [(len({v["mmsi"] for v in visits}), "farklı gemi limanlara uğradı"),
-             (active_tr, "gemi şu an takipte"),
-             (sum(1 for e in events if e["kind"] != "spoof"), "işaretlenen olay"),
-             (len(days), "arşivlenmiş gün")]
-    if cfg.directions:
-        stats.insert(2, (len(routes), "beyanla çelişen hareket"))
-    body = [f"<h1>{E(cfg.name)}</h1><p class='lede'>{E(cfg.description)}</p>",
-            "<div class='stats'>" + "".join(f"<div class='stat'><b>{n}</b><span>{E(t)}</span></div>" for n, t in stats) + "</div>"]
-    if cfg.directions and routes:
-        body.append("<h2>Beyan testi: son hareketler</h2>")
-        body.append(_route_table(cfg, routes[:8], vlink, port_name, 0))
-        body.append('<p class="small"><a href="beyan.html">Tüm hareketler ve aylık rapor →</a></p>')
-    body.append("<h2>Limanlar</h2><div class='cards'>")
+    figs = []
     for p in cfg.ports:
-        img = ""
+        if p.role != "izlenen":
+            continue
         md = map_day(p.code)
-        if md:
-            img = (f'<a href="limanlar/{p.code}.html"><img src="arsiv/{md}/{p.code}.png" alt="{E(p.name)} haritası, {md}" '
-                   f'loading="lazy"></a><p class="small muted">Gemi görülen son gün: {md}</p>')
-        n_vis = sum(1 for v in visits if v["port"] == p.code)
-        role = "İzlenen liman" if p.role == "izlenen" else "Varış kontrol limanı"
-        body.append(f"<div class='card'><h3><a href='limanlar/{p.code}.html'>{E(p.name)}</a></h3>"
-                    f"<p class='small muted'>{E(cfg.country_name(p.country))} · {role} · {n_vis} ziyaret</p>{img}</div>")
-    body.append("</div>")
-    if events:
-        body.append("<h2>Son işaretler</h2>")
-        body.append(_tbl(["Tür", "Gemi", "Başlangıç", "Ayrıntı"], [
-            [f'<span class="chip w">{EVENT_LABELS[e["kind"]]}</span>', vlink(e["mmsi"], 0),
-             E(fmt_local(e["t_start"], tz)), _event_text(e, names)]
-            for e in [x for x in events if x["kind"] != "spoof"][:10]]))
-    if outages:
-        body.append("<h2>Veri kesintileri</h2><p class='small muted'>Toplayıcının veri alamadığı süreler. "
-                    "Bu aralıklarda olan hareketler kayıtlarda görünmez.</p>")
-        body.append(_tbl(["Bağlantı", "Başlangıç", "Bitiş", "Sebep"], [
-            [E(o["conn"]), E(fmt_local(o["t_start"], tz)), E(fmt_local(o["t_end"], tz)) if o["t_end"] else "sürüyor",
-             E(o["reason"] or "")] for o in outages[:10]]))
-    _write(out / "index.html", _page(cfg, "Genel bakış", "".join(body), 0, "home"))
-
-    # ---------- Limanlar ----------
-    cards = []
+        img = (f'<img src="../arsiv/{md}/{p.code}.png" alt="{E(p.name)} limanındaki gemi izleri, {E(md)}" loading="lazy" '
+               f'width="880" height="660">' if md else "")
+        figs.append(f'<figure><a href="{p.code}.html">{img}</a><figcaption><a href="{p.code}.html"><b>{E(p.name)}</b></a>'
+                    f'<span>{_n(counts.get(p.code, 0))} ziyaret{f", son harita {E(_tarih(cfg, md + "T12:00:00Z"))}" if md else ""}</span>'
+                    '</figcaption></figure>')
+    rol = {"izlenen": "İzlenen: uğrayan her gemi takibe alınır", "varis": "Varış kontrolü"}
+    rows = [[f'<a href="{p.code}.html">{E(p.name)}</a>', E(cfg.country_name(p.country)),
+             E("Kıyı yaklaşma alanı" if p.approach else rol.get(p.role, p.role)), _n(counts.get(p.code, 0))] for p in cfg.ports]
+    body = ('<main class="sayfa" id="icerik"><header><h1>Limanlar</h1><p class="giris">İzlenen limanlara uğrayan her gemi '
+            'takibe alınır. Diğer limanlar ve kıyı alanı, takipteki gemilerin nereye vardığını kaydetmek için dinlenir.'
+            '</p></header>' + (f'<div class="limanlar">{"".join(figs)}</div>' if figs else "")
+            + "<h2>Bütün alanlar</h2>" + _tbl(["Liman", "Ülke", "Rol", "Ziyaret"], rows, num=(3,)) + "</main>")
+    _write(out / "limanlar" / "index.html", _page(cfg, "Limanlar", body, 1, "limanlar"))
+    names = {r["mmsi"]: r["name"] for r in con.execute("SELECT mmsi, name FROM vessels")}
+    m2k, _ = vessel_keys(con)
     for p in cfg.ports:
-        pv = [v for v in visits if v["port"] == p.code]
-        rows = [[vlink(v["mmsi"], 1), E(fmt_local(v["t_in"], tz)),
-                 E(fmt_local(v["t_out"], tz)) if v["t_out"] else "<span class='chip'>limanda</span>",
-                 E(v["terminal"] or "–"), _draught(v["draught_in"], v["draught_out"]), E(v["dest_out"] or "–")]
-                for v in pv[:200]]
-        arch = [[E(d), f'<a href="../arsiv/{d}/{p.code}.png">harita</a> · <a href="../arsiv/{d}/{p.code}.csv">CSV</a> · '
-                       f'<a href="../arsiv/{d}/{p.code}.json">JSON</a>'] for d in days]
         md = map_day(p.code)
-        img = f'<img src="../arsiv/{md}/{p.code}.png" alt="{E(p.name)} haritası, {md}"><p class="small muted">{md}</p>' if md else ""
-        terms = ", ".join(f"{E(t.name)} ({E(t.cargo)})" for t in p.terminals) or "tanımlı değil"
-        b = (f"<h1>{E(p.name)}</h1><p class='lede'>{E(cfg.country_name(p.country))} · "
-             f"{'İzlenen liman: uğrayan her gemi takibe alınır.' if p.role == 'izlenen' else 'Varış kontrol limanı: buraya varan gemiler kaydedilir.'}"
-             f"<br><span class='small'>Terminaller: {terms}</span></p>"
-             f"<div class='card'>{img}</div><h2>Ziyaretler</h2>"
-             + _tbl(["Gemi", "Giriş", "Çıkış", "Terminal", "Su çekimi", "Beyan edilen varış"], rows)
-             + "<h2>Günlük arşiv</h2>" + _tbl(["Gün", "Dosyalar"], arch))
-        _write(out / "limanlar" / f"{p.code}.html", _page(cfg, p.name, b, 1, "ports"))
-        cards.append([f"<a href='{p.code}.html'>{E(p.name)}</a>", E(cfg.country_name(p.country)),
-                      "İzlenen" if p.role == "izlenen" else "Varış kontrol", str(len(pv))])
-    _write(out / "limanlar" / "index.html", _page(cfg, "Limanlar", "<h1>Limanlar</h1>" + _tbl(
-        ["Liman", "Ülke", "Rol", "Ziyaret"], cards), 1, "ports"))
+        vis = [dict(v) for v in con.execute(
+            "SELECT * FROM visits WHERE port=? AND (transit IS NOT 1 OR status='open') ORDER BY t_in DESC LIMIT 200", (p.code,))]
+        vrows = []
+        for v in vis:
+            k = m2k.get(v["mmsi"], f"mmsi{v['mmsi']}")
+            label = E(names.get(v["mmsi"]) or f"MMSI {v['mmsi']}")
+            vrows.append([f'<a href="../gemiler/{E(k)}.html">{label}</a>' if k in keys else label,
+                          E(_tarih(cfg, v["t_in"], True)), E(_tarih(cfg, v["t_out"], True)) if v["t_out"] else "Limanda",
+                          E(v["terminal"] or "–"), E(_draught(v["draught_in"], v["draught_out"])), E(v["dest_out"] or "–")])
+        arch = [[E(d), f'<a href="../arsiv/{d}/{p.code}.csv">CSV</a>, <a href="../arsiv/{d}/{p.code}.json">JSON</a>'
+                 + (f', <a href="../arsiv/{d}/{p.code}.png">harita</a>' if (out / "arsiv" / d / f"{p.code}.png").exists() else "")]
+                for d in days[:120]]
+        terms = ", ".join(t.name for t in p.terminals) or "tanımlı değil"
+        img = (f'<p><img src="../arsiv/{md}/{p.code}.png" alt="{E(p.name)} limanındaki gemi izleri, {E(md)}" width="880" '
+               f'height="660" style="max-width:100%;height:auto;border:1px solid var(--rule);border-radius:8px"></p>') if md else ""
+        body = (f'<main class="sayfa" id="icerik"><header><h1>{E(p.name)}</h1><p class="giris">{E(cfg.country_name(p.country))}. '
+                f'{E("Kıyı yaklaşma alanı" if p.approach else rol.get(p.role, p.role))}. Terminaller: {E(terms)}.</p></header>'
+                f'{img}<h2>Son ziyaretler</h2>'
+                + _tbl(["Gemi", "Giriş", "Çıkış", "Terminal", "Su çekimi", "Beyan edilen varış"], vrows)
+                + "<h2>Günlük arşiv</h2>" + _tbl(["Gün", "Dosyalar"], arch, bos="Henüz arşivlenmiş gün yok.") + "</main>")
+        _write(out / "limanlar" / f"{p.code}.html", _page(cfg, p.name, body, 1, "limanlar"))
 
-    # ---------- Gemiler ----------
-    keys = defaultdict(set)
-    for v in visits:
-        keys[m2k.get(v["mmsi"], f"mmsi{v['mmsi']}")].add(v["mmsi"])
-    for r in routes:
-        keys[r["vkey"]].add(r["mmsi"])
-    list_rows = []
-    for key, mmsis in sorted(keys.items()):
-        mm = sorted(set(mmsis) | set(k2m.get(key, [])))
-        main = max(mm, key=lambda m: vessels.get(m, {}).get("last_seen") or "")
-        vs = vessels.get(main, {})
-        tr = next((tracking[m] for m in mm if m in tracking), None)
-        vvis = [v for v in visits if v["mmsi"] in mm]
-        vevs = [e for e in events if e["mmsi"] in mm or e["mmsi2"] in mm]
-        vroutes = [r for r in routes if r["mmsi"] in mm or r["via_mmsi"] in mm]
-        group = ship_group(vs.get("type"))
-        hz = hazard_category(vs.get("type"))
-        hist = json.loads(vs.get("history") or "[]")
-        ident = [["Ad", E(vs.get("name") or "–")], ["IMO", E(str(vs.get("imo") or "–"))],
-                 ["MMSI", E(", ".join(map(str, mm)))], ["Çağrı işareti", E(vs.get("callsign") or "–")],
-                 ["Tip", E(SHIP_GROUP_LABELS[group]) + (f" · tehlikeli yük kat. {E(hz)}" if hz else "")],
-                 ["Boy", f"{vs.get('length'):.0f} m" if vs.get("length") else "–"],
-                 ["Son beyan edilen varış", E(vs.get("dest") or "–")],
-                 ["Takip", (f"{'Aktif' if tr['status'] == 'active' else 'Bitti'} · {E(fmt_local(tr['start'], tz))} → "
-                            f"{E(fmt_local(tr['ended'] or tr['until'], tz))}"
-                            + (f" ({E(tr['end_reason'])})" if tr.get('end_reason') else "")) if tr else "–"]]
-        b = [f"<h1>{E(vs.get('name') or 'MMSI ' + str(main))}</h1>",
-             "<div class='tbl'><table><tbody>" + "".join(f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in ident) + "</tbody></table></div>"]
-        if hist:
-            b.append("<h2>Kimlik değişiklikleri</h2>" + _tbl(["Zaman", "Alan", "Eski", "Yeni"], [
-                [E(fmt_local(h["t"], tz)), E(h["alan"]), E(str(h["eski"])), E(str(h["yeni"]))] for h in hist]))
-        if vroutes:
-            b.append("<h2>Beyanla ilgili hareketler</h2>" + _route_table(cfg, vroutes, vlink, port_name, 1, detail=True))
-        b.append("<h2>Liman ziyaretleri</h2>" + _tbl(["Liman", "Giriş", "Çıkış", "Terminal", "Su çekimi", "Beyan edilen varış"], [
-            [E(port_name.get(v["port"], v["port"])), E(fmt_local(v["t_in"], tz)),
-             E(fmt_local(v["t_out"], tz)) if v["t_out"] else "limanda", E(v["terminal"] or "–"),
-             _draught(v["draught_in"], v["draught_out"]), E(v["dest_out"] or "–")] for v in vvis]))
-        if vevs:
-            b.append("<h2>İşaretler</h2>" + _tbl(["Tür", "Başlangıç", "Bitiş", "Konum", "Ayrıntı"], [
-                [f'<span class="chip w">{EVENT_LABELS[e["kind"]]}</span>', E(fmt_local(e["t_start"], tz)),
-                 E(fmt_local(e["t_end"], tz)), f'<span class="mono">{e["lat"]:.3f}, {e["lon"]:.3f}</span>' if e["lat"] is not None else "–",
-                 _event_text(e, names)] for e in vevs]))
-        _write(out / "gemiler" / f"{key}.html", _page(cfg, vs.get("name") or key, "".join(b), 1, "ships"))
-        list_rows.append((tr is not None and tr["status"] == "active", vs.get("last_seen") or "",
-                          [f"<a href='{key}.html'>{E(vs.get('name') or 'MMSI ' + str(main))}</a>",
-                           E(str(vs.get("imo") or "–")), E(SHIP_GROUP_LABELS[group]), str(len(vvis)),
-                           "<span class='chip'>takipte</span>" if tr and tr["status"] == "active" else "",
-                           str(len(vroutes)) if vroutes else "", E(fmt_local(vs.get("last_seen"), tz))]))
-    list_rows.sort(key=lambda x: (x[0], x[1]), reverse=True)
-    _write(out / "gemiler" / "index.html", _page(cfg, "Gemiler", "<h1>Gemiler</h1><p class='lede'>Limanlara uğrayan "
-           "ve takip edilen tüm gemiler. Gemiler IMO numarasıyla tanınır; ad veya MMSI değişirse aynı sayfada kalır.</p>"
-           + _tbl(["Gemi", "IMO", "Tip", "Ziyaret", "Durum", "Beyan hareketi", "Son görülme"], [r[2] for r in list_rows]),
-           1, "ships"))
 
-    # ---------- Beyan testi ----------
-    if cfg.directions:
-        d = cfg.declaration
-        b = ["<h1>Beyan testi</h1>"]
-        if d.get("metin"):
-            b.append(f"<div class='quote'>{E(d['metin'])}<div class='small muted'>{E(d.get('tarih') or '')} "
-                     f"{('· ' + E(d['kaynak'])) if d.get('kaynak') else ''}</div></div>")
-        for a in d.get("aciklamalar") or []:
-            src = E(a.get("kaynak") or "")
-            if a.get("url"):
-                src = f"<a href='{E(a['url'])}' rel='noopener'>{src or 'kaynak'}</a>"
-            b.append(f"<div class='quote'>“{E(a.get('metin', ''))}”<div class='small muted'>{E(a.get('kim') or '')} · "
-                     f"{E(a.get('tarih') or '')} · {src}</div></div>")
-        if d.get("karsi_gorus"):
-            b.append(f"<h3>Resmî yanıtlar ve karşı görüş</h3><p class='small'>{E(d['karsi_gorus'])}</p>")
-        b.append("<p class='lede'>Aşağıdaki tablolar, beyanda adı geçen ülkelerin limanları arasında AIS kayıtlarına "
-                 "göre gerçekleşen gemi hareketlerini gösterir. Sayılar gemi hareketidir; yükün kendisi yalnızca "
-                 "dayanaklarıyla birlikte 'muhtemel' olarak verilir.</p>")
-        for (A, B) in cfg.directions:
-            dr = [r for r in routes if r["direction"] == f"{A}>{B}"]
-            months = sorted({r["t_arr"][:7] for r in dr}, reverse=True)
-            cnt = Counter((r["t_arr"][:7], r["cls"]) for r in dr)
-            b.append(f"<h2>{E(cfg.country_name(A))} → {E(cfg.country_name(B))}</h2>")
-            b.append(_tbl(["Ay"] + [CLASS_SHORT[c] for c in CLASS_ORDER] + ["Toplam"], [
-                [E(m)] + [str(cnt.get((m, c), 0) or "–") for c in CLASS_ORDER] + [f"<b>{sum(cnt.get((m, c), 0) for c in CLASS_ORDER)}</b>"]
-                for m in months]))
-            b.append("<p class='small muted'>Doğrudan*: çıkış ve varış kayıtlı, ara güzergâh izlenemedi. "
-                     "Sınıfların tanımı <a href='yontem.html'>Yöntem</a> sayfasında.</p>")
-            b.append("<h3>Hareketler</h3>" + _route_table(cfg, dr, vlink, port_name, 0, detail=True))
-        _write(out / "beyan.html", _page(cfg, "Beyan testi", "".join(b), 0, "decl"))
+# --------------------------------------------------------------------------- geçmiş, kanıt, yöntem
+def _gecmis(cfg, recs, st) -> str:
+    t = st.get("hedef") or {}
+    done, total = st.get("gorev") or [0, 0]
+    pct = int(100 * done / total) if total else 0
+    prog = ("Tarama tamamlandı." if st.get("tamam") else
+            f"Tarama sürüyor: {_n(done)} / {_n(total)} sorgu tamamlandı. Her saatlik çalıştırmada kaldığı yerden devam eder.")
+    retro = [r for r in recs if r["s"] == "g"]
+    bas = _tarih(cfg, t["baslangic"] + "T12:00:00Z") if t.get("baslangic") else "?"
+    bit = _tarih(cfg, t["bitis"] + "T12:00:00Z") if t.get("bitis") else "?"
+    b = [f'<main class="sayfa" id="icerik"><header><h1>Geçmiş tarama</h1><p class="giris">{E(bas)} ile {E(bit)} arası. '
+         'Global Fishing Watch’ın AIS verisinden ürettiği liman ziyaretleri ve AIS boşlukları üzerinden yapılır.</p></header>',
+         f'<p>{E(prog)}</p><div class="ilerleme" role="progressbar" aria-valuenow="{pct}" aria-valuemin="0" aria-valuemax="100">'
+         f'<i style="width:{pct}%"></i></div>',
+         '<p class="not"><a href="https://globalfishingwatch.org">Powered by Global Fishing Watch.</a> Veri lisansı CC BY-NC 4.0, '
+         'ticari olmayan kullanım. Bu kayıtlar GFW’nin hesapladığı olaylara dayanır ve bu sitenin kanıt zincirinde ham verisi '
+         'yoktur; her kaydın uydu bağlantılarıyla elle doğrulanması önerilir.</p>',
+         '<p class="eylemler"><a class="eylem ana" href="index.html#k=g">Geçmiş taramayı haritada gör</a>'
+         '<a class="eylem" href="veri/gecmis.json">Bütün kayıtlar (JSON)</a></p>']
+    head = ["Ay"] + [harita.FAMILY_LABELS[k] for k in harita.FAMILY_ORDER] + ["Toplam"]
+    for (A, B) in cfg.directions:
+        b.append(f"<h2>{E(cfg.country_name(A))} → {E(cfg.country_name(B))}</h2>"
+                 + _tbl(head, _aylik(retro, f"{A}>{B}"), num=(1, 2, 3, 4, 5), bos="Henüz kayıt yok."))
+    b.append("</main>")
+    return _page(cfg, "Geçmiş tarama", "".join(b), 0, "gecmis")
 
-    # ---------- Geçmiş tarama (Global Fishing Watch) ----------
-    if cfg._has_gecmis:
-        _write(out / "gecmis.html", _page(cfg, "Geçmiş tarama", _gecmis_body(cfg, gecmis_rows, gecmis_state), 0, "retro"))
-        _write(out / "veri" / "gecmis.json", json.dumps(gecmis_rows, ensure_ascii=False, indent=1))
 
-    # ---------- Kanıt zinciri ----------
-    rows = [[E(c["gun"]), f'<span class="mono">{c["gun_hash"]}</span>', f'<span class="mono">{c["kayit_hash"][:16]}…</span>',
-             "evet" if c.get("opentimestamps") else "hayır",
-             f'<a href="arsiv/{c["gun"]}/MANIFEST.sha256">manifest</a> · <a href="arsiv/{c["gun"]}/ozet.json">özet</a>'
-             f' · <a href="{ham_url(c["gun"])}">ham veri</a>'
-             + (f' · <a href="arsiv/{c["gun"]}/MANIFEST.sha256.ots">.ots</a>' if c.get("opentimestamps") else "")]
+def _kanit(cfg, chain) -> str:
+    rows = [[E(c["gun"]), f'<span class="kod">{c["gun_hash"]}</span>', f'<span class="kod">{c["kayit_hash"][:16]}…</span>',
+             "var" if c.get("opentimestamps") else "yok",
+             f'<a href="arsiv/{c["gun"]}/MANIFEST.sha256">manifest</a>, <a href="arsiv/{c["gun"]}/ozet.json">özet</a>, '
+             f'<a href="arsiv/{c["gun"]}/izler.json">izler</a>, <a href="{ham_url(c["gun"])}">ham veri</a>'
+             + (f', <a href="arsiv/{c["gun"]}/MANIFEST.sha256.ots">damga</a>' if c.get("opentimestamps") else "")]
             for c in reversed(chain)]
-    b = ("<h1>Kanıt zinciri</h1><p class='lede'>Her gün bittiğinde o günün bütün dosyaları (ham AIS mesajları, ziyaret "
-         "listeleri, haritalar, olaylar) tek tek SHA-256 ile hash'lenir. Bu listenin hash'i 'gün hash'idir'. Her gün bir "
-         "önceki günün kaydına bağlanır; geçmişteki tek bir bayt değişirse zincir kırılır. OpenTimestamps açıksa gün hash'i "
-         "Bitcoin blok zincirine damgalanır ve dosyanın o tarihte var olduğu bağımsız olarak kanıtlanır.</p>"
-         "<h2>Nasıl doğrularım?</h2><ol class='small'>"
-         "<li>Bir günün klasöründen dosyaları, <span class='mono'>MANIFEST.sha256</span> dosyasını ve 'ham veri' bağlantısındaki "
-         "<span class='mono'>ham.jsonl.gz</span> dosyasını aynı klasöre indir.</li>"
-         "<li>Linux/Mac'te klasörde <span class='mono'>sha256sum -c MANIFEST.sha256</span> çalıştır; her satır OK olmalı.</li>"
-         "<li><span class='mono'>sha256sum MANIFEST.sha256</span> sonucu aşağıdaki gün hash'iyle aynı olmalı.</li>"
-         "<li>Damga varsa <span class='mono'>ots verify MANIFEST.sha256.ots</span> ile Bitcoin kaydını kontrol et.</li>"
-         "<li>Ham veri <span class='mono'>ham.jsonl.gz</span> dosyasındadır; harita ve tablolar bundan yeniden üretilebilir.</li></ol>"
-         f"<p class='small'>Zincirin tamamı: <a href='kanit/zincir.jsonl'>zincir.jsonl</a></p>"
-         + _tbl(["Gün", "Gün hash'i (SHA-256)", "Zincir kaydı", "Bitcoin damgası", "Dosyalar"], rows))
-    _write(out / "kanit.html", _page(cfg, "Kanıt zinciri", b, 0, "proof"))
+    body = ('<main class="sayfa" id="icerik"><header><h1>Kanıt zinciri</h1><p class="giris">Her gün bittiğinde o günün bütün '
+            'dosyaları (ham AIS mesajları, ziyaret listeleri, gemi izleri, haritalar, olaylar) tek tek SHA-256 ile özetlenir. '
+            'Bu listenin özeti “gün hash’i”dir. Her gün bir önceki günün kaydına bağlanır; geçmişteki tek bir bayt değişirse '
+            'zincir kırılır. Gün hash’i ayrıca Bitcoin blok zincirine damgalanır (OpenTimestamps).</p></header>'
+            '<h2>Bir günü kendin doğrula</h2><ol class="adim-liste">'
+            '<li>Günün klasöründeki dosyaları, <code>MANIFEST.sha256</code> dosyasını ve “ham veri” bağlantısındaki '
+            '<code>ham.jsonl.gz</code> dosyasını aynı klasöre indir.</li>'
+            '<li>Klasörde <code>sha256sum -c MANIFEST.sha256</code> çalıştır; her satır OK olmalı.</li>'
+            '<li><code>sha256sum MANIFEST.sha256</code> sonucu aşağıdaki gün hash’iyle aynı olmalı.</li>'
+            '<li>Damga varsa <code>ots verify MANIFEST.sha256.ots</code> ile Bitcoin kaydını kontrol et.</li></ol>'
+            '<p>Zincirin tamamı: <a href="kanit/zincir.jsonl">zincir.jsonl</a></p>'
+            + _tbl(["Gün", "Gün hash’i (SHA-256)", "Zincir kaydı", "Bitcoin damgası", "Dosyalar"], rows,
+                   bos="Henüz arşivlenmiş gün yok. İlk gün, gece yarısından sonraki ilk çalıştırmada mühürlenir.")
+            + "</main>")
+    return _page(cfg, "Kanıt zinciri", body, 0, "kanit")
 
-    # ---------- Yöntem ----------
+
+def _yontem(cfg) -> str:
     th = cfg.th
-    b = f"""<h1>Yöntem ve sınırlar</h1>
-<h2>Veri</h2><p>Gemilerin kendi yayınladığı AIS mesajları <a href="https://aisstream.io">aisstream.io</a> üzerinden 7/24 toplanır.
-Her mesaj değiştirilmeden günlük ham dosyaya yazılır. Limanların çevresindeki tüm gemiler ve takipteki gemiler dinlenir.</p>
-<h2>Ziyaret</h2><p>Bir gemi liman alanına girip en az {th['ziyaret_min_dakika']} dakika kalır ve bu sürede en az bir kez durursa
-(hız &lt; {th['durma_hizi_knot']} knot) ziyaret sayılır. Durmadan geçenler sayılmaz. Gemiden {th['cikis_tolerans_dakika']} dakika
-ses gelmezse çıkmış kabul edilir.</p>
-<h2>Takip</h2><p>İzlenen bir limana uğrayan her gemi {th['takip_gun']} gün boyunca dünya genelinde izlenir. Beyan testi
-açıkken takip ara ülkelerde bitmez; yalnızca hedef ülkeye varınca veya süre dolunca biter. Aynı anda izlenebilecek gemi sayısı
-sınırlı olduğundan tankerler, varış beyanı şüpheli olanlar, daha önce hedef ülkeye gitmiş olanlar ve denizde takipli bir gemiyle
-buluşan gemiler önceliklidir. Denizde takipli bir gemiyle buluşan gemi de otomatik olarak takibe alınır.</p>
-<h2>İşaretler</h2><ul>
-<li><b>AIS boşluğu:</b> limanlardan {th['liman_uzaklik_km']} km'den uzakta {th['ais_bosluk_saat']} saatten uzun sinyal yok.
-Bizim toplayıcımızın kapalı olduğu süreler hariç tutulur. Açık denizde alıcı kapsaması zayıf olabilir; boşluk tek başına
-AIS'in kapatıldığını kanıtlamaz.</li>
-<li><b>Liman dışı durak:</b> liman dışında {th['durak_sure_saat']} saatten uzun durma.</li>
-<li><b>Denizde buluşma:</b> iki takipli gemi {th['sts_mesafe_m']} m'den yakın ve duruk hâlde {th['sts_sure_saat']} saatten uzun.
-Yalnızca iki gemi de izleniyorsa görülebilir.</li>
-<li><b>Limansız su çekimi değişimi:</b> liman ziyareti olmadan su çekiminde {th['draft_degisim_m']} m'den büyük değişim.</li>
-<li><b>Konum tutarsızlığı:</b> geminin konumu bir önceki kayda göre fiziksel olarak imkânsız bir hızla (60 knot üstü) sıçradı.
-GPS karıştırma veya sahte konum yayını olabilir. Bu konumlar ham arşive yazılır ama analizde kullanılmaz.</li></ul>
-<h2>Beyan testi sınıfları</h2><ul>
-<li><b>Doğrudan:</b> A ülkesi limanından çıkış, kesintisiz izleme, B ülkesi limanına varış.</li>
-<li><b>Doğrudan (ara güzergâh izlenemedi):</b> çıkış ve varış kayıtlı, ara yol izlenemedi.</li>
-<li><b>Ara duraklı:</b> arada üçüncü bir limana veya açık denizde uzun durağa uğradı.</li>
-<li><b>Karanlık bacak:</b> yol sırasında AIS boşluğu var.</li>
-<li><b>Denizde buluşma:</b> yol sırasında başka bir gemiyle yan yana durdu.</li>
-<li><b>Dolaylı:</b> A'dan çıkan gemi denizde başka bir gemiyle buluştu; o gemi B'ye vardı.</li>
-<li><b>Hedef ülke kıyısında AIS kapandı:</b> gemi B ülkesinin kıyı yaklaşma alanına girdi, hiçbir limanda kaydı yok ve ardından en az
-{th['yaklasma_sessizlik_saat']} saat sinyal vermedi.</li>
-<li><b>Karanlık sefer:</b> gemi A'dan çıktı, B'de hiçbir kaydı yok, ama izlenen deniz bölgesinde en az {th['karanlik_sefer_saat']} saat
-AIS boşluğu var. Boşluktan sonra su çekimi düştüyse yük boşaltılmış olabilir. Bu sınıftaki kayıtlar için hedef ülke limanlarının
-o tarihlerdeki uydu görüntülerine bağlantı verilir; görüntülerin incelenmesi elle yapılmalıdır.</li></ul>
-<p>Bir hareket {th['guzergah_max_gun']} günden uzun sürdüyse sayılmaz. <b>Varış beyanı farklı</b> işareti, gemi A'dan çıkarken
-AIS'e yazdığı varış noktasının B ülkesini göstermediği anlamına gelir.</p>
+    body = f'''<main class="sayfa" id="icerik"><header><h1>Yöntem ve sınırlar</h1><p class="giris">Bu site gemilerin kendi
+yayınladığı AIS mesajlarını toplar, liman ziyaretlerini ve açık denizdeki davranışları kurala dayalı olarak sınıflandırır.
+Kurallar aşağıda; aynı veriden herkes aynı sonuca ulaşabilir.</p></header>
+<h2>Veri</h2><p>AIS mesajları <a href="https://aisstream.io">aisstream.io</a> üzerinden toplanır. Kaydedilen her mesaj
+değiştirilmeden günlük ham dosyaya yazılır; aynı geminin çok sık tekrarlanan konumları seyreltilir. Limanların çevresindeki
+bütün gemiler ve takipteki gemiler dünyanın her yerinde dinlenir. Toplayıcının veri alamadığı süreler kesinti olarak kaydedilir.</p>
+<h2>Ziyaret ve takip</h2><p>Bir gemi liman alanına girip en az {th["ziyaret_min_dakika"]} dakika kalır ve bu sürede en az bir kez
+durursa ziyaret sayılır. İzlenen limana uğrayan her gemi {th["takip_gun"]} gün boyunca ya da hedef ülkeye varana kadar izlenir.
+Denizde takipli bir gemiyle buluşan gemi de takibe alınır.</p>
+<h2>Sefer türleri</h2><p>Haritadaki renkler dört aileyi gösterir:</p><ul>
+<li><span class="isaret" style="--c:var(--c-dogrudan)"><b>Doğrudan</b></span>: çıkış limanından arada başka limana uğramadan varış.</li>
+<li><span class="isaret" style="--c:var(--c-liman)"><b>Ara limanlı</b></span>: arada üçüncü bir ülkenin limanına ya da açık denizde uzun durağa uğradı.</li>
+<li><span class="isaret" style="--c:var(--c-sts)"><b>Gemiden gemiye</b></span>: yolda başka bir gemiyle {th["sts_mesafe_m"]} m’den yakın ve
+duruk hâlde en az {th["sts_sure_saat"]} saat kaldı; ya da çıkış limanından gelen gemi yükünü denizde başka bir gemiye verdi ve o gemi varış ülkesine gitti.</li>
+<li><span class="isaret" style="--c:var(--c-karanlik)"><b>AIS kapatılmış</b></span>: yolda en az {th["ais_bosluk_saat"]} saat sinyal yok
+(karanlık bacak); hedef ülkenin kıyı alanına girip hiçbir limana uğramadan en az {th["yaklasma_sessizlik_saat"]} saat sinyal vermedi
+(kıyıda kayboldu); ya da varış ülkesinde hiç kaydı yok ama izlenen deniz bölgesinde en az {th["karanlik_sefer_saat"]} saat AIS boşluğu
+var (karanlık sefer).</li></ul>
+<p>Haritada düz çizgi bu sitenin kaydettiği gerçek AIS izidir. Kesik çizgi geçmiş taramadaki limanlar arası bağlantıdır; gerçek
+güzergâhı göstermez. Macenta noktalı çizgi AIS sinyalinin kesildiği aralıktır; boş macenta daire sinyalin kesildiği, dolu daire
+yeniden geldiği yerdir.</p>
+<h2>Konum tutarsızlıkları</h2><p>Geminin konumu bir önceki kayda göre fiziksel olarak imkânsız bir hızla (60 knot üstü) sıçrarsa
+bu konum GPS karıştırma ya da sahte konum sayılır: ham arşive yazılır ama analizde kullanılmaz.</p>
 <h2>Muhtemel yük</h2><p>Gemi tipi, yanaştığı terminal ve limanlardaki su çekimi değişiminden çıkarılır; dayanakları her
-harekette listelenir. Üç veya daha fazla dayanak uyuşuyorsa güven 'yüksek', iki ise 'orta', biri ise 'düşük'tür.
-Su çekimi mürettebatın elle girdiği bir değerdir ve güncellenmeyebilir. Konteyner gemilerinin içeriği bu yöntemle bilinemez.</p>
-<h2>Uydu bağlantıları</h2><p>Bağlantılar Copernicus Browser'ı ilgili konum ve tarih aralığında açar. Sentinel-1 (radar) bulut ve
-geceden etkilenmez, gemiler parlak noktalar olarak görünür; Sentinel-2 (optik) bulutsuz günlerde gerçek renkli görüntü verir.
-Uydular bir noktadan genellikle birkaç günde bir geçer; her tarih için görüntü olmayabilir. Tarayıcı açıldığında katman seçmek
-gerekebilir.</p>
-<h2>Sınırlar</h2><ul><li>AIS'i tamamen kapalı olan veya sahte konum yayınlayan gemiler görülmez.</li>
-<li>Kayıtlar gemi hareketini gösterir; ticaretin yasal olup olmadığı hakkında hüküm vermez.</li>
-<li>Veri kesintileri ana sayfada ve her günün arşivinde (<span class='mono'>kesintiler.json</span>) yayımlanır.</li></ul>"""
-    _write(out / "yontem.html", _page(cfg, "Yöntem", b, 0, "method"))
-
-    # ---------- Ham JSON dışa aktarım + paylaşım taslakları ----------
-    _write(out / "veri" / "guzergahlar.json", json.dumps(routes, ensure_ascii=False, indent=1))
-    _write(out / "veri" / "olaylar.json", json.dumps(events, ensure_ascii=False, indent=1))
-    _write(out / "veri" / "paylasim_taslaklari.json", json.dumps(_share_drafts(cfg, routes, days, chain, port_name),
-                                                                  ensure_ascii=False, indent=1))
-    _write(out / "_headers", "/arsiv/*\n  Cache-Control: public, max-age=31536000, immutable\n")
+seferde listelenir. Üç ya da daha fazla dayanak uyuşuyorsa güven “yüksek”, iki ise “orta”, biri ise “düşük”tür. Su çekimini
+mürettebat elle girer ve güncellenmeyebilir. Konteyner gemilerinin içeriği bu yöntemle bilinemez.</p>
+<h2>Uydu görüntüleri</h2><p>Şüpheli seferlerde hedef ülke limanlarının o tarihlerdeki Sentinel-1 (radar) ve Sentinel-2 (optik)
+görüntülerine bağlantı verilir. Uydular bir noktadan genellikle birkaç günde bir geçer; her tarih için görüntü olmayabilir.
+Görüntülerin incelenmesi elle yapılmalıdır.</p>
+<h2>Sınırlar</h2><ul><li>AIS’i tamamen kapalı olan ya da sahte konum yayınlayan gemiler görülmez; açık denizde alıcı kapsaması zayıf olabilir.</li>
+<li>Kayıtlar gemi hareketini gösterir; yükün sahibini, satıcısını ya da ticaretin hukuki durumunu göstermez.</li>
+<li>Bu sitedeki işaretler tespittir, hüküm değildir.</li></ul></main>'''
+    return _page(cfg, "Yöntem", body, 0, "yontem")
 
 
-def _route_table(cfg, routes, vlink, port_name, depth, detail=False) -> str:
-    tz = cfg.tz
-    rows = []
-    for r in routes:
-        flags = json.loads(r["flags"] or "{}")
-        chips = [f'<span class="chip{" w" if r["cls"] != "dogrudan_izlenmedi" else ""}">{E(CLASS_LABELS[r["cls"]])}</span>']
-        if flags.get("karanlik_saat"):
-            chips.append(f'<span class="chip w">{flags["karanlik_saat"]} saat AIS kapalı</span>')
-        if flags.get("draft_dustu"):
-            chips.append('<span class="chip w">Sonra su çekimi düştü</span>')
-        if flags.get("sessizlik_saat"):
-            chips.append(f'<span class="chip w">Kıyıda {flags["sessizlik_saat"]} saat sessizlik</span>')
-        if r["masked"]:
-            chips.append(f'<span class="chip w">Varış beyanı farklı: {E(r["dest_text"] or "")}</span>')
-        elif flags.get("varis_beyani") == "bos":
-            chips.append('<span class="chip">Varış beyanı boş</span>')
-        via = ""
-        if r["via_mmsi"]:
-            via = f"<div class='small muted'>Yükü veren: {vlink(r['via_mmsi'], depth)}</div>"
-        mids = json.loads(r["mids"] or "[]")
-        mid = "<div class='small muted'>Ara: " + ", ".join(E(m["liman"]) for m in mids) + "</div>" if mids and detail else ""
-        sat = ""
-        if detail and r["cls"] in ("karanlik_sefer", "kiyida_kayboldu", "karanlik_bacak", "denizde_aktarma", "dolayli_sts"):
-            sat = sat_links(cfg, r["t_dep"], r["t_arr"])
-        if r["dest_port"]:
-            dest = f"{E(port_name.get(r['dest_port'], r['dest_port']))}<div class='small muted'>{E(fmt_local(r['t_arr'], tz))}</div>"
-        else:
-            nxt = flags.get("sonraki_liman")
-            dest = ("<i>Bilinmiyor</i><div class='small muted'>AIS yeniden açıldı: " + E(fmt_local(r["t_arr"], tz))
-                    + (f"<br>Sonraki kayıtlı liman: {E(nxt)}" if nxt else "") + "</div>")
-        cargo = f"{E(r['cargo'] or '–')} <span class='chip'>güven: {E(r['cargo_conf'] or '–')}</span>"
-        if detail:
-            cargo += "<ul class='basis'>" + "".join(f"<li>{E(x)}</li>" for x in json.loads(r["cargo_basis"] or "[]")) + "</ul>"
-        rows.append([vlink(r["mmsi"], depth) + via,
-                     f"{E(port_name.get(r['origin_port'], r['origin_port']))}<div class='small muted'>{E(fmt_local(r['t_dep'], tz))}</div>",
-                     dest, "".join(chips) + mid + sat, cargo])
-    return _tbl(["Gemi", "Çıkış", "Varış", "Sınıf", "Muhtemel yük"], rows)
-
-
-def _share_drafts(cfg, routes, days, chain, port_name) -> list[dict]:
-    """Tweet veya başka paylaşımlar için hazır metinler (otomatik gönderilmez)."""
+def _share_drafts(cfg, routes, chain, port_name) -> list[dict]:
+    """Paylaşım için hazır metinler (otomatik gönderilmez)."""
     out = []
     if chain:
         c = chain[-1]
         out.append({"tur": "gunluk_ozet", "gun": c["gun"],
-                    "metin": f"{cfg.name} · {c['gun']} arşivi mühürlendi.\nGün hash'i: {c['gun_hash'][:16]}…"})
+                    "metin": f"{cfg.name}: {c['gun']} arşivi mühürlendi.\nGün hash'i: {c['gun_hash'][:16]}…"})
     for r in routes[:20]:
         out.append({"tur": "beyan_hareketi", "id": r["id"], "metin": (
-            f"{r['name']}: {port_name.get(r['origin_port'])} ({fmt_local(r['t_dep'], cfg.tz)[:10]}) → "
-            f"{port_name.get(r['dest_port']) or 'varış limanı kayıtsız (AIS kapalı)'} ({fmt_local(r['t_arr'], cfg.tz)[:10]})\n"
-            f"Sınıf: {CLASS_LABELS[r['cls']]}\nMuhtemel yük: {r['cargo']} (güven: {r['cargo_conf']})\n"
+            f"{r['name']}: {port_name.get(r['origin_port'])} ({_tarih(cfg, r['t_dep'])}) → "
+            f"{port_name.get(r['dest_port']) or 'varış limanı kayıtsız (AIS kapalı)'} ({_tarih(cfg, r['t_arr'])})\n"
+            f"Tür: {CLASS_LABELS[r['cls']]}\nMuhtemel yük: {r['cargo']} (güven: {r['cargo_conf']})\n"
             "Bu bir tespittir, hüküm değildir.")})
     return out
 
 
-def _gecmis_body(cfg, rows, st) -> str:
-    from .gecmis import CLASS_LABELS as GL
-    tz = cfg.tz
-    t = st.get("hedef") or {}
-    done, total = (st.get("gorev") or [0, 0])
-    prog = ("Tarama tamamlandı." if st.get("tamam") else
-            f"Tarama sürüyor: {done} / {total} sorgu tamam. Her saatlik çalıştırmada kaldığı yerden devam eder.")
-    b = [f"<h1>Geçmiş tarama</h1><p class='lede'>{E(t.get('baslangic', '?'))} – {E(t.get('bitis', '?'))} arası. Kaynak: "
-         "<a href='https://globalfishingwatch.org'>Global Fishing Watch</a> liman ziyareti ve AIS boşluğu verileri "
-         "(AIS'ten üretilmiş, ticari olmayan kullanım için açık veri). " + E(prog) + "</p>",
-         "<p class='small'><a href='https://globalfishingwatch.org'>Powered by Global Fishing Watch.</a> "
-         "Veri lisansı: CC BY-NC 4.0, ticari olmayan kullanım.</p>"
-         "<p class='small muted'>Bu sayfa canlı arşivden ayrıdır: kayıtlar GFW'nin hesapladığı olaylara dayanır, bu sitenin "
-         "kanıt zincirinde ham verisi yoktur. Her kaydın uydu bağlantılarıyla elle doğrulanması önerilir.</p>"]
-    for (A, B) in cfg.directions:
-        dr = [r for r in rows if r["direction"] == f"{A}>{B}"]
-        b.append(f"<h2>{E(cfg.country_name(A))} → {E(cfg.country_name(B))}</h2>")
-        months = sorted({(r["t_arr"] or r["t_dep"] or "")[:7] for r in dr}, reverse=True)
-        cnt = Counter(((r["t_arr"] or r["t_dep"] or "")[:7], r["cls"]) for r in dr)
-        b.append(_tbl(["Ay"] + list(GL.values()) + ["Toplam"], [
-            [E(m)] + [str(cnt.get((m, c), 0) or "–") for c in GL] + [f"<b>{sum(cnt.get((m, c), 0) for c in GL)}</b>"]
-            for m in months]))
-        trs = []
-        for r in dr:
-            gaps = json.loads(r["gaps"] or "[]")
-            mids = json.loads(r["mids"] or "[]")
-            chips = f'<span class="chip w">{E(GL[r["cls"]])}</span>'
-            for g in gaps[:3]:
-                chips += f'<span class="chip w">{g["saat"]} saat AIS kapalı</span>'
-            extra = ("<div class='small muted'>Ara: " + ", ".join(E(m["liman"]) for m in mids) + "</div>") if mids else ""
-            pts = [("Kapanış noktası", tuple(g["kapanis"])) for g in gaps[:1] if None not in g["kapanis"]]
-            t0 = gaps[0]["baslangic"] if gaps else r["t_dep"]
-            t1 = gaps[0]["bitis"] if gaps else r["t_arr"]
-            sat = sat_links(cfg, t0, t1, pts) if (gaps or r["cls"] != "dogrudan") else ""
-            dest = (f"{E(r['dest'])}<div class='small muted'>{E(fmt_local(r['t_arr'], tz))}</div>" if r["dest"] else
-                    "<i>Bilinmiyor</i><div class='small muted'>AIS yeniden açıldı: " + E(fmt_local(r["t_arr"], tz))
-                    + (f"<br>Sonraki liman: {E(r['next_port'])}" if r["next_port"] else "") + "</div>")
-            trs.append([f"{E(r['name'] or '?')}<div class='small muted'>MMSI {E(str(r['ssvid'] or '?'))} · "
-                        f"{E(r['flag'] or '?')} · {E(r['vtype'] or '?')}</div>",
-                        f"{E(r['origin'])}<div class='small muted'>{E(fmt_local(r['t_dep'], tz))}</div>",
-                        dest, chips + extra + sat])
-        b.append("<h3>Kayıtlar</h3>" + _tbl(["Gemi", "Çıkış", "Varış", "Sınıf ve ayrıntı"], trs))
-    return "".join(b)
+# --------------------------------------------------------------------------- hepsi
+def build(cfg, con) -> None:
+    out = cfg.site_dir
+    out.mkdir(parents=True, exist_ok=True)
+    cfg._surum = _version()
+    cfg._con = con
+    gecmis_state = json.loads(get_meta(con, "gecmis_durum", "{}") or "{}")
+    cfg._has_gecmis = bool(gecmis_state) or con.execute("SELECT 1 FROM gecmis LIMIT 1").fetchone() is not None
+    assets = out / "assets"
+    assets.mkdir(parents=True, exist_ok=True)
+    for a in ASSETS:
+        shutil.copyfile(WEB / a, assets / a)
+    (out / "_headers").unlink(missing_ok=True)
+
+    recs = harita.voyages(cfg, con)
+    meta = {"olusturma": iso(now_utc())}
+    harita.build(cfg, con, out, recs=recs)
+    port_name = {p.code: p.name for p in cfg.ports}
+    days = sorted([r["day"] for r in con.execute("SELECT day FROM archived_days")], reverse=True)
+    chain = proof.read_chain(cfg)
+    live_routes = [dict(r) for r in con.execute("SELECT * FROM routes ORDER BY t_arr DESC")]
+
+    _write(out / "index.html", _index(cfg, recs, meta))
+    if cfg.directions:
+        _write(out / "beyan.html", _beyan(cfg, recs, live_routes, port_name))
+    else:
+        (out / "beyan.html").unlink(missing_ok=True)
+    vessels = {r["mmsi"]: dict(r) for r in con.execute("SELECT * FROM vessels")}
+    names = {m: v.get("name") for m, v in vessels.items()}
+    tracking = {r["mmsi"]: dict(r) for r in con.execute("SELECT * FROM tracking")}
+    keys = harita.relevant_keys(con)
+    gdir = out / "gemiler"
+    if gdir.exists():
+        for f in gdir.glob("*.html"):
+            if f.stem != "index" and f.stem not in keys:
+                f.unlink()
+    for key, mmsis in keys.items():
+        _write(gdir / f"{key}.html", _gemi(cfg, con, key, mmsis, vessels, tracking, port_name, names))
+    _write(gdir / "index.html", _gemiler(cfg, con, keys, vessels, tracking))
+    _limanlar(cfg, con, days, keys)
+    if cfg._has_gecmis:
+        _write(out / "gecmis.html", _gecmis(cfg, recs, gecmis_state))
+        _write(out / "veri" / "gecmis.json", json.dumps(
+            [dict(r) for r in con.execute("SELECT * FROM gecmis ORDER BY t_arr DESC")], ensure_ascii=False))
+    _write(out / "kanit.html", _kanit(cfg, chain))
+    _write(out / "yontem.html", _yontem(cfg))
+    _write(out / "veri" / "guzergahlar.json", json.dumps(live_routes, ensure_ascii=False))
+    _write(out / "veri" / "olaylar.json", json.dumps(
+        [dict(e) for e in con.execute("SELECT * FROM events WHERE kind != 'spoof' ORDER BY t_start DESC")], ensure_ascii=False))
+    _write(out / "veri" / "paylasim_taslaklari.json", json.dumps(
+        _share_drafts(cfg, live_routes, chain, port_name), ensure_ascii=False, indent=1))

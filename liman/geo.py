@@ -84,3 +84,35 @@ class Area:
             dlon = self.radius_km / (111.32 * max(0.05, math.cos(math.radians(self.center[0])))) * math.cos(a)
             pts.append((self.center[0] + dlat, self.center[1] + dlon))
         return pts
+
+
+def simplify(pts: list, tol: float) -> list:
+    """Douglas–Peucker sadeleştirme. pts: ilk iki öğesi (boylam, enlem) olan diziler; diğer öğeler korunur."""
+    n = len(pts)
+    if n <= 2 or tol <= 0:
+        return list(pts)
+    keep = [False] * n
+    keep[0] = keep[-1] = True
+    stack = [(0, n - 1)]
+    tol2 = tol * tol
+    while stack:
+        a, b = stack.pop()
+        ax, ay = pts[a][0], pts[a][1]
+        dx, dy = pts[b][0] - ax, pts[b][1] - ay
+        length = dx * dx + dy * dy
+        best, idx = -1.0, -1
+        for i in range(a + 1, b):
+            px, py = pts[i][0] - ax, pts[i][1] - ay
+            if length == 0:
+                d = px * px + py * py
+            else:
+                t = max(0.0, min(1.0, (px * dx + py * dy) / length))
+                ex, ey = px - t * dx, py - t * dy
+                d = ex * ex + ey * ey
+            if d > best:
+                best, idx = d, i
+        if idx > 0 and best > tol2:
+            keep[idx] = True
+            stack.append((a, idx))
+            stack.append((idx, b))
+    return [p for p, k in zip(pts, keep) if k]
