@@ -17,7 +17,13 @@ ISO3_AD = {
     "PRT": "Portekiz", "QAT": "Katar", "ROU": "Romanya", "RUS": "Rusya", "SAU": "Suudi Arabistan", "SGP": "Singapur",
     "SLE": "Sierra Leone", "STP": "São Tomé ve Príncipe", "SVN": "Slovenya", "SWE": "İsveç", "SYR": "Suriye",
     "TGO": "Togo", "TUN": "Tunus", "TUR": "Türkiye", "TUV": "Tuvalu", "TZA": "Tanzanya", "UKR": "Ukrayna",
-    "USA": "ABD", "VCT": "Saint Vincent ve Grenadinler", "VUT": "Vanuatu", "XXX": "X ülkesi", "YYY": "Y ülkesi",
+    "USA": "ABD", "MYS": "Malezya", "VNM": "Vietnam", "URY": "Uruguay", "COL": "Kolombiya", "LKA": "Sri Lanka",
+    "ZAF": "Güney Afrika", "BRA": "Brezilya", "ARG": "Arjantin", "MEX": "Meksika", "CAN": "Kanada", "IDN": "Endonezya",
+    "THA": "Tayland", "TWN": "Tayvan", "PHL": "Filipinler", "BGD": "Bangladeş", "AUS": "Avustralya", "NGA": "Nijerya",
+    "SEN": "Senegal", "CIV": "Fildişi Sahili", "GHA": "Gana", "KEN": "Kenya", "SDN": "Sudan", "YEM": "Yemen",
+    "ERI": "Eritre", "FIN": "Finlandiya", "POL": "Polonya", "LVA": "Letonya", "LTU": "Litvanya", "EST": "Estonya",
+    "IRL": "İrlanda", "ISL": "İzlanda", "PER": "Peru", "CHL": "Şili", "ECU": "Ekvador", "VEN": "Venezuela",
+    "TTO": "Trinidad ve Tobago", "CUB": "Küba", "DOM": "Dominik Cumhuriyeti", "PRI": "Porto Riko", "VCT": "Saint Vincent ve Grenadinler", "VUT": "Vanuatu", "XXX": "X ülkesi", "YYY": "Y ülkesi",
 }
 
 # MMSI'nin ilk üç hanesi (Maritime Identification Digits) → ISO3; sık görülen bayraklar
