@@ -48,6 +48,7 @@ jobs:
           mkdir -p _onizleme/ek
           cp -r site/vendor _onizleme/ek/vendor
           cp -r site/veri/harita _onizleme/ek/harita
+          cp site/veri/tankerler.json _onizleme/ek/ 2>/dev/null || true
 
       - name: Sonuçları 'onizleme' dalına yaz
         env:

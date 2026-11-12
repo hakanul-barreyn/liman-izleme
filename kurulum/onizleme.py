@@ -63,7 +63,58 @@ def db_ozet() -> dict:
     out["ceyhan_tani"] = {"uzaklik_km": sorted(yak.items()), "tip": tip.most_common(8),
                           "nokta": [list(k) + [v] for k, v in nokta.most_common(10)],
                           "gemi": len(gemi), "gecmisi_alinan": len(gemi & cached)}
+    try:
+        out["tanker_tani"] = tanker_tani(con, cached)
+    except Exception as e:  # noqa: BLE001
+        out["tanker_tani"] = {"hata": repr(e)}
     con.close()
+    return out
+
+
+def tanker_tani(con, cached: set) -> dict:
+    """Tanker dosyalarının sağlaması: basında adı geçen tankerler veride var mı, Ceyhan çıkışlarından sonra ne oldu?"""
+    import json as _j, collections
+    from liman.gecmis import CEYHAN
+    from liman.geo import haversine_km
+    isimler = {"KIMOLOS", "SEAVIGOUR", "NISSOS TINOS"}
+    meta = dict(con.execute("SELECT k, v FROM meta WHERE k IN ('ceyhan_cikislari')").fetchall())
+    cik = _j.loads(meta.get("ceyhan_cikislari") or "[]")
+    out: dict = {"cikis": len(cik), "gemi": len({x["vid"] for x in cik})}
+    ulke = collections.Counter(x.get("ulke") or "?" for x in cik)
+    out["sonraki_ulke"] = ulke.most_common(15)
+    bos = [g for x in cik for g in x.get("bosluk") or []]
+    out["bosluk"] = {"cikis_bosluklu": sum(1 for x in cik if x.get("bosluk")), "bosluk": len(bos),
+                     "il_kutusu": sum(1 for g in bos if g.get("il")),
+                     "kasitli": collections.Counter(str(g.get("kasitli")) for g in bos).most_common(),
+                     "saat_dagilim": collections.Counter(min(int((g.get("saat") or 0) // 24), 10) for g in bos).most_common()}
+    out["acik_bekleme"] = sum(1 for x in cik if x.get("acik"))
+    out["gecmis_sinif"] = [list(r) for r in con.execute(
+        "SELECT cls, count(*), count(DISTINCT vessel_id) FROM gecmis WHERE direction='TR>IL' GROUP BY cls")]
+    # basındaki adlar: alan sorgularında (Ceyhan'a uğrayanlar) ve gemi geçmişlerinde
+    bul: dict = {}
+    for key, data in con.execute("SELECT key, data FROM gfw_cache WHERE key LIKE 'area_pv:ISK:%' OR key LIKE 'v_pv:%'"):
+        for e in _j.loads(data) or []:
+            v = e.get("vessel") or {}
+            n = (v.get("name") or "").upper().strip()
+            if n not in isimler:
+                continue
+            b = bul.setdefault(n, {}).setdefault(v.get("id"), {"ssvid": v.get("ssvid"), "bayrak": v.get("flag"),
+                                                                 "tip": v.get("type"), "ceyhan": set(), "gecmis": False})
+            pos = e.get("position") or {}
+            if pos.get("lat") is not None and haversine_km(pos["lat"], pos["lon"], *CEYHAN) <= 11:
+                b["ceyhan"].add((e.get("start") or "")[:10])
+            if key.startswith("v_pv:"):
+                b["gecmis"] = True
+    for n, vs in bul.items():
+        for vid, b in vs.items():
+            b["ceyhan"] = sorted(b["ceyhan"])
+            b["gecmisi_alinan"] = vid in cached
+            b["cikislar"] = [{k: x.get(k) for k in ("t", "sonraki", "ulke", "t1", "karanlik", "bosluk", "acik", "sonrakiler")}
+                             for x in cik if x.get("vid") == vid][:12]
+            b["kayitlar"] = [list(r) for r in con.execute(
+                "SELECT cls, origin, t_dep, dest, t_arr, next_port FROM gecmis WHERE vessel_id=? ORDER BY t_dep", (vid,))]
+    out["basindaki"] = bul
+    out["basinda_bulunmayan"] = sorted(isimler - set(bul))
     return out
 
 
@@ -114,6 +165,13 @@ def main() -> int:
     ]
     if real_ship:
         shots.append(("gercek-gemi", "gercek", f"gemiler/{real_ship}.html", 1280, 1100, "light", False))
+    shots += [("gercek-tankerler", "gercek", "tankerler/index.html", 1280, 1800, "light", False),
+              ("gercek-tankerler-mobil", "gercek", "tankerler/index.html", 390, 1400, "light", True)]
+    tf = Path("site", "veri", "tankerler.json")
+    if tf.exists():
+        ds = json.loads(tf.read_text(encoding="utf-8"))
+        if ds:
+            shots.append(("gercek-tanker-dosya", "gercek", f"tankerler/{ds[0]['dosya']}.html", 1280, 1800, "light", False))
     for name, frag in ornekler("site"):
         shots.append((name, "gercek", f"index.html#{frag}", 1440, 900, "light", False))
     report = {}

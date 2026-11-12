@@ -7,3 +7,28 @@
 #     rol: "işletmeci"          # sahip, işletmeci, yönetici...
 #     kaynak: "https://..."
 gemiler: {}
+
+# Basında adı geçen gemiler: tanker dosyasında "Basında" başlığıyla, sitenin kendi tespitiyle karşılaştırmak için
+# gösterilir. Eşleşme IMO ile yapılır; IMO yazılmamışsa gemi adıyla (yalnızca bu sitede Ceyhan uğrağı olan gemiler).
+# Özet, haberin söylediğidir; sitenin verisi değildir.
+basin:
+  - ad: "KIMOLOS"
+    kaynak: "Middle East Eye"
+    tarih: 2024
+    url: "https://www.middleeasteye.net/news/new-evidence-reveals-routine-oil-shipments-turkey-israel"
+    ozet: "Habere göre Suezmax tanker bir yılda Ceyhan’dan Aşkelon’a 10 sefer yaptı (8’i Mayıs 2024 kararından sonra); liman kayıtlarında varış Mısır görünüyor, AIS sinyali Doğu Akdeniz’de günlerce kapalı kaldı."
+  - ad: "KIMOLOS"
+    kaynak: "Greek City Times"
+    tarih: 2025
+    url: "https://greekcitytimes.com/2025/10/07/greek-ship-transports-oil-turkey/"
+    ozet: "Habere göre 27 Eylül 2025’te Ceyhan’dan Port Said beyanıyla çıktı ve Aşkelon’da görüldü; No Harbour for Genocide’ın 36 gemilik listesinde."
+  - ad: "SEAVIGOUR"
+    kaynak: "Middle East Eye"
+    tarih: 2024
+    url: "https://www.middleeasteye.net/news/new-evidence-reveals-routine-oil-shipments-turkey-israel"
+    ozet: "Habere göre Suezmax tanker Ceyhan’dan Aşkelon yakınındaki boru hattına ham petrol taşıdı; AIS’i kapattı, günler sonra Sicilya açıklarında yeniden göründü."
+  - ad: "NISSOS TINOS"
+    kaynak: "Greek City Times"
+    tarih: 2025
+    url: "https://greekcitytimes.com/2025/10/07/greek-ship-transports-oil-turkey/"
+    ozet: "Habere göre 23 Eylül 2025’te Ceyhan’dan çıktı, iki gün sonra Aşkelon’a vardı; 4 Ekim’de yeniden Ceyhan’da yükleme yaptı. Yolda takip sistemi kapalıydı."

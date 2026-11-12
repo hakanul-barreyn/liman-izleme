@@ -98,6 +98,13 @@ def test_retro_scan(tmp_path):
     site.build(cfg, con)
     assert not site.HATALAR
     assert "İskele kayıtsız" in (cfg.site_dir / "raporlar" / "tr-il-petrol.html").read_text()
+    # tanker dosyaları: Ceyhan'dan çıkan bütün seferler tek gemide toplanır
+    td = cfg.site_dir / "tankerler"
+    assert 'class="dosya"' in (td / "index.html").read_text()
+    dosya = json.loads((cfg.site_dir / "veri" / "tankerler.json").read_text())
+    assert len(dosya) == 1 and len(dosya[0]["seferler"]) == 3 and dosya[0]["kanit"] == "kayitli"
+    sayfa_ = (td / f'{dosya[0]["dosya"]}.html').read_text()
+    assert "Seferler" in sayfa_ and "Tespit, hüküm değil" in sayfa_ and "x.com/intent/post" in sayfa_
     page = (cfg.site_dir / "gecmis.html").read_text()
     assert "Geçmiş tarama" in page and "Powered by Global Fishing Watch" in page
     data = json.loads((cfg.site_dir / "veri" / "harita" / "seferler.json").read_text())
@@ -226,3 +233,13 @@ def test_israil_aciklarinda_ais_kapali(tmp_path):
     r = rows["V9"]
     assert r["dest"] == "İsrail açıkları (AIS kapalıyken)" and r["dest_country"] == "IL" and r["next_port"]
     assert (r["d_lat"], r["d_lon"]) == (31.8, 34.3) and json.loads(r["gaps"])[0]["kasitli"] is False
+    # tanker dosyası: kanıt "AIS İsrail açıklarında kapalı", paylaşım metni yeri anlatır
+    site.HATALAR.clear()
+    site.build(cfg, con)
+    assert not site.HATALAR
+    dosya = json.loads((cfg.site_dir / "veri" / "tankerler.json").read_text())
+    assert [d["kanit"] for d in dosya] == ["acik"]
+    sayfa_ = (cfg.site_dir / "tankerler" / f'{dosya[0]["dosya"]}.html').read_text()
+    assert "Aşkelon’un" in sayfa_ and "kapandi" in sayfa_ and "acildi-il" in sayfa_
+    # Ceyhan uğrakları tablosu: yoldaki boşluk İsrail açığı olarak işaretli
+    assert "İsrail açığı" in sayfa_

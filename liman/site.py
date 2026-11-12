@@ -17,7 +17,7 @@ from collections import Counter
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import harita, proof, rapor
+from . import harita, proof, rapor, tanker
 from .db import get_meta
 from .routes import CLASS_LABELS, vessel_keys
 from .util import SHIP_GROUP_LABELS, add_hours, hazard_category, iso, now_utc, parse_iso, ship_group
@@ -40,6 +40,7 @@ WEB = Path(__file__).parent / "web"
 ASSETS = ("stil.css", "ortak.js", "harita.js", "gemi.js")
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 NAV = [("index.html", "Harita", "harita"), ("raporlar/index.html", "Raporlar", "raporlar"),
+       ("tankerler/index.html", "Tankerler", "tankerler"),
        ("beyan.html", "Beyan testi", "beyan"), ("gemiler/index.html", "Gemiler", "gemiler"),
        ("limanlar/index.html", "Limanlar", "limanlar"), ("gecmis.html", "Geçmiş tarama", "gecmis"),
        ("kanit.html", "Kanıt zinciri", "kanit"), ("yontem.html", "Yöntem", "yontem")]
@@ -660,6 +661,7 @@ def build(cfg, con) -> None:
         _write(gdir / f"{key}.html", _gemi(cfg, con, key, mmsis, vessels, tracking, port_name, names))
     _write(gdir / "index.html", _gemiler(cfg, con, keys, vessels, tracking))
     _dene("raporlar", rapor.build, cfg, con, recs, out)
+    _dene("tanker dosyaları", tanker.build, cfg, con, recs, out)
     _dene("limanlar", _limanlar, cfg, con, days, keys)
     if cfg._has_gecmis:
         _dene("geçmiş tarama", lambda: _write(out / "gecmis.html", _gecmis(cfg, recs, gecmis_state)))

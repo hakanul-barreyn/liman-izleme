@@ -193,6 +193,33 @@ hepsi.forEach(function(d){liste.appendChild(d)});});});
 goster();})();</script>'''
 
 
+def bilgi_kaynagi(cfg, con):
+    """MMSI ve IMO'dan geminin kimlik bilgisi: GFW kimliği, sicildeki sahip ya da elle girilen firma, fotoğraf."""
+    from . import gemi_bilgi
+    m2vid = {}
+    for ssvid, vid in con.execute("SELECT ssvid, vessel_id FROM gecmis WHERE vessel_id IS NOT NULL GROUP BY ssvid, vessel_id"):
+        try:
+            m2vid.setdefault(int(ssvid), vid)
+        except (TypeError, ValueError):
+            pass
+    elle = gemi_bilgi.elle(cfg)
+
+    def bilgi(mmsi, imo, vid=None):
+        vid = vid or m2vid.get(mmsi)
+        k = (gemi_bilgi.oku(con, f"gkimlik:{vid}") if vid else None) or {}
+        imo = str(imo or k.get("imo") or "") or None
+        e = elle.get(str(imo)) or elle.get(str(mmsi)) or {}
+        firma = []
+        if e.get("firma"):
+            firma.append({"ad": e["firma"], "not": e.get("rol"), "kaynak": e.get("kaynak") or "elle girildi"})
+        else:
+            sah = sorted(k.get("sahipler") or [], key=lambda o: o.get("son") or "9999", reverse=True)
+            firma = [{"ad": o["ad"], "not": "sicildeki sahip", "kaynak": "Global Fishing Watch"} for o in sah[:2]]
+        return {"vid": vid, "imo": imo, "cagri": k.get("cagri"), "firma": firma,
+                "foto": (gemi_bilgi.oku(con, f"foto:{imo}") if imo else None) or []}
+    return bilgi
+
+
 def build(cfg, con, recs: list[dict], out: Path) -> None:
     from .routes import vessel_keys
     from .db import get_meta
@@ -213,27 +240,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                                           '<p class="not">Beyan testi kapalı; rapor yok.</p></main>', 1, "raporlar"))
         return
     vessels = {r["mmsi"]: dict(r) for r in con.execute("SELECT mmsi, imo, name FROM vessels")}
-    from . import gemi_bilgi
-    m2vid = {}
-    for ssvid, vid in con.execute("SELECT ssvid, vessel_id FROM gecmis WHERE vessel_id IS NOT NULL GROUP BY ssvid, vessel_id"):
-        try:
-            m2vid.setdefault(int(ssvid), vid)
-        except (TypeError, ValueError):
-            pass
-    elle = gemi_bilgi.elle(cfg)
-
-    def bilgi(mmsi, imo):
-        vid = m2vid.get(mmsi)
-        k = (gemi_bilgi.oku(con, f"gkimlik:{vid}") if vid else None) or {}
-        imo = str(imo or k.get("imo") or "") or None
-        e = elle.get(str(imo)) or elle.get(str(mmsi)) or {}
-        firma = []
-        if e.get("firma"):
-            firma.append({"ad": e["firma"], "not": e.get("rol"), "kaynak": e.get("kaynak") or "elle girildi"})
-        else:
-            sah = sorted(k.get("sahipler") or [], key=lambda o: o.get("son") or "9999", reverse=True)
-            firma = [{"ad": o["ad"], "not": "sicildeki sahip", "kaynak": "Global Fishing Watch"} for o in sah[:2]]
-        return {"vid": vid, "imo": imo, "firma": firma, "foto": (gemi_bilgi.oku(con, f"foto:{imo}") if imo else None) or []}
+    bilgi = bilgi_kaynagi(cfg, con)
     m2k, _ = vessel_keys(con)
     pages = {f.stem for f in (out / "gemiler").glob("*.html")}
     legend = "".join(f'<span class="isaret" style="--c:var(--c-{k})">{E(harita.FAMILY_LABELS[k])}</span>'
@@ -272,7 +279,8 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
         if petrol:
             petrol_not = (f'<p class="petrol-ozet">Bunların <b>{_n(len(petrol))} seferi ({_n(gemi_say(petrol))} gemi)</b> '
                           f'petrol tankeri ya da petrol iskelesinden; <b>{_n(len(ceyhan))} seferi ({_n(gemi_say(ceyhan))} gemi)</b> '
-                          f'Ceyhan petrol terminallerinden (BTC ve Kerkük-Ceyhan). <a href="{sl}-petrol.html">Petrol tankerleri raporu</a></p>')
+                          f'Ceyhan petrol terminallerinden (BTC ve Kerkük-Ceyhan). <a href="{sl}-petrol.html">Petrol tankerleri raporu</a> '
+                          f'<a href="../tankerler/index.html">Tanker dosyaları</a></p>')
 
         # Ceyhan'dan çıkan bütün gemiler: sonraki uğrak (yalnızca beyanı veren ülkeden çıkan yönde)
         ceyhan_html = ""
@@ -378,7 +386,9 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 f'<main class="sayfa rapor" id="icerik"><header>{yol}<h1>Petrol ve akaryakıt tankerleri</h1>'
                 f'<p class="giris">{E(a_ad)} tarafında petrol ya da akaryakıt iskelesine yanaşan ya da AIS’te kendini tanker '
                 f'olarak bildiren ve {E(b_ad)} limanlarına giden {_n(len(sh_p))} gemi, {_n(len(petrol))} sefer. Yükün türü '
-                '(ham petrol, akaryakıt, kimyasal) AIS verisinden kesin bilinemez.</p></header>'
+                '(ham petrol, akaryakıt, kimyasal) AIS verisinden kesin bilinemez.</p>'
+                '<p class="petrol-ozet">Gemi gemi kanıtlar, AIS’in nerede kesilip nerede geldiği ve paylaşım metni: '
+                '<a href="../tankerler/index.html">Tanker dosyaları</a></p></header>'
                 '<p class="not">Ceyhan’daki BTC (Bakü-Tiflis-Ceyhan) ve Kerkük-Ceyhan terminalleri birbirine bir iki kilometre '
                 'uzaklıkta; AIS konumuyla ayırt edilemedikleri için birlikte sayılır. Geçmiş taramada geminin tipi bilinmez; '
                 'tip, gemi canlı kayıtta bir kez görüldüğünde öğrenilir. Bu yüzden liste zamanla uzar.</p>'

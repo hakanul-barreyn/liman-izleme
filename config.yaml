@@ -168,6 +168,8 @@ gecmis:
   max_gemi_liman: 8000         # karanlık sefer taramasında liman başına en fazla gemi (tarama saatlik dilimlerle ilerler)
 
 yayin:
+  # Sitenin herkese açık adresi: paylaşım metinlerindeki bağlantılar bununla kurulur
+  adres: "https://hakanul-barreyn.github.io/liman-izleme/"
   ham_veri_yayinla: true
   opentimestamps: true
   site_guncelleme_dakika: 60

@@ -541,6 +541,14 @@ def compute(cfg, con, *_eski) -> int:
     # ara liman sayılan ülkeler: yapılandırmadaki diğer ülkeler (Yunanistan, Bulgaristan, Mısır, Kıbrıs).
     # Başka bir ülkenin limanına uğrayan geminin yükü oradan gelmiş olabilir (ör. Ambarlı → Novorossiysk → Hayfa).
     aktarma = set(th.get("aktarma_ulkeleri") or []) or (set(cfg.countries) - home - cfg.dest_countries())
+    # hedef ülke kıyı açığındaki bekleme dönemleri, gemi gemi (Ceyhan çıkışlarıyla eşleştirmek için)
+    acik: dict[str, list] = {}
+    for z in offshore_zones(cfg):
+        rows = []
+        for (key,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE ?", (f"pres:{z.code}:%",)):
+            rows += _cache_get(con, key) or []
+        for vid_, (e0, e1, saat, _o) in _episodes(rows):
+            acik.setdefault(vid_, []).append({"bas": e0, "son": e1, "saat": round(saat, 1)})
     n = 0
     for vid in ids:
         if not vkeys[vid]["pv"]:
@@ -584,7 +592,17 @@ def compute(cfg, con, *_eski) -> int:
                 nx = visits[i + 1] if i + 1 < len(visits) else None
                 kapali = [g for g in gl if v["end"] <= g["baslangic"] < (nx["start"] if nx else "9999")
                           and g["saat"] >= dark_h and g.get("kasitli") is not False]
+                # tanker dosyaları için: sonraki uğraklar (45 gün), yoldaki AIS boşlukları, kıyı açığında bekleme
+                bit = nx["start"] if nx else add_hours(v["end"], dark_win)
+                sonra = [w for w in visits[i + 1:i + 6] if hours_between(v["end"], w["start"]) <= 45 * 24]
+                bos = [{**g, "il": cfg.in_dest_offshore(*g["kapanis"]) or cfg.in_dest_offshore(*g["acilis"])}
+                       for g in gl if v["end"] <= g["baslangic"] < bit and g["saat"] >= acik_h]
+                bekle = [e for e in acik.get(vid, []) if v["end"][:10] <= e["bas"] <= bit[:10]]
                 ceyhan.append({"vid": vid, "ad": v["vessel"].get("name"), "m": v["vessel"].get("ssvid"),
+                               "t0": v["start"], "nokta": [round(v["lat"], 3), round(v["lon"], 3)],
+                               "sonrakiler": [{"ad": w["name"], "c": w["c"], "giris": w["start"], "cikis": w["end"],
+                                               "lat": w["lat"], "lon": w["lon"]} for w in sonra],
+                               "bosluk": bos, "acik": bekle,
                                "tip": v["vessel"].get("type"),
                                "b": v["vessel"].get("flag"), "t": v["end"], "sonraki": nx["name"] if nx else None,
                                "ulke": nx["c"] if nx else None, "t1": nx["start"] if nx else None,
