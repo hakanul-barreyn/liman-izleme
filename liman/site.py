@@ -67,6 +67,8 @@ def _page(cfg, title: str, body: str, depth: int, active: str = "") -> str:
         links.append(("gecmis.html", "Geçmiş tarama", "retro"))
     links += [("kanit.html", "Kanıt zinciri", "proof"), ("yontem.html", "Yöntem", "method")]
     nav = "".join(f'<a href="{r}{h}" class="{"on" if k == active else ""}">{E(t)}</a>' for h, t, k in links)
+    gfw = (' · Geçmiş tarama: <a href="https://globalfishingwatch.org">Powered by Global Fishing Watch.</a>'
+           if getattr(cfg, "_has_gecmis", False) else "")
     banner = ('<div class="banner"><b>Kurgusal demo.</b> Bu sayfadaki limanlar, ülkeler ve gemiler test için '
               'uydurulmuştur; gerçek bir olayı göstermez.</div>') if cfg.fictional else ""
     return f"""<!doctype html><html lang="tr"><head><meta charset="utf-8">
@@ -76,7 +78,7 @@ def _page(cfg, title: str, body: str, depth: int, active: str = "") -> str:
 <main><div class="wrap">{banner}{body}</div></main>
 <footer><div class="wrap">Son güncelleme: {E(fmt_local(iso(now_utc()), cfg.tz))} ({E(cfg.tz)}) ·
 Veri: AIS (aisstream.io) · Her günün dosyaları hash'lenip zincirlenir, bkz. <a href="{r}kanit.html">Kanıt zinciri</a>.
-Bu sitedeki işaretler tespittir, hüküm değildir.</div></footer></body></html>"""
+Bu sitedeki işaretler tespittir, hüküm değildir.{gfw}</div></footer></body></html>"""
 
 
 def _tbl(head: list[str], rows: list[list[str]]) -> str:
@@ -484,6 +486,8 @@ def _gecmis_body(cfg, rows, st) -> str:
     b = [f"<h1>Geçmiş tarama</h1><p class='lede'>{E(t.get('baslangic', '?'))} – {E(t.get('bitis', '?'))} arası. Kaynak: "
          "<a href='https://globalfishingwatch.org'>Global Fishing Watch</a> liman ziyareti ve AIS boşluğu verileri "
          "(AIS'ten üretilmiş, ticari olmayan kullanım için açık veri). " + E(prog) + "</p>",
+         "<p class='small'><a href='https://globalfishingwatch.org'>Powered by Global Fishing Watch.</a> "
+         "Veri lisansı: CC BY-NC 4.0, ticari olmayan kullanım.</p>"
          "<p class='small muted'>Bu sayfa canlı arşivden ayrıdır: kayıtlar GFW'nin hesapladığı olaylara dayanır, bu sitenin "
          "kanıt zincirinde ham verisi yoktur. Her kaydın uydu bağlantılarıyla elle doğrulanması önerilir.</p>"]
     for (A, B) in cfg.directions:
