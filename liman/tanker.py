@@ -489,6 +489,62 @@ def _basin_blok(E, d: dict) -> str:
             f'değildir; sitenin tespitiyle karşılaştırmak için verilir.</p><ul class="basin">{li}</ul>')
 
 
+def _basin_sagla(cfg, E, con, ds: list[dict]) -> str:
+    """Basında adı geçen tankerler bu sitenin verisinde nasıl görünüyor? (sağlama tablosu)"""
+    from .db import get_meta
+    from .site import _tbl
+    adlar = []
+    for b in _basin(cfg):
+        a = str(b.get("ad") or "").upper().strip()
+        if a and a not in adlar:
+            adlar.append(a)
+    if not adlar:
+        return ""
+    cik = json.loads(get_meta(con, "ceyhan_cikislari", "[]") or "[]")
+    # geçmişi henüz alınmamış gemiler: İskenderun Körfezi alan sorgularındaki Ceyhan uğrakları
+    from .gecmis import CEYHAN, CEYHAN_KM
+    alan: dict[str, set] = defaultdict(set)
+    kod = cfg.locate(*CEYHAN)[0] or "%"
+    for (data,) in con.execute("SELECT data FROM gfw_cache WHERE key LIKE ?", (f"area_pv:{kod}:%",)):
+        try:
+            evs = json.loads(data) or []
+        except ValueError:
+            continue
+        for e in evs:
+            ad_ = str((e.get("vessel") or {}).get("name") or "").upper().strip()
+            pos = e.get("position") or {}
+            if ad_ in adlar and pos.get("lat") is not None and e.get("start") and \
+                    haversine_km(pos["lat"], pos["lon"], *CEYHAN) <= CEYHAN_KM:
+                alan[ad_].add(e["start"][:19] + "Z" if len(e["start"]) >= 19 else e["start"])
+    alan = {k: sorted(v) for k, v in alan.items()}
+    dosya = {}
+    for d in ds:
+        for n in [d["ad"], *d["adlar"]]:
+            dosya.setdefault((n or "").upper(), d)
+    rows = []
+    for a in adlar:
+        xs = [x for x in cik if (x.get("ad") or "").upper().strip() == a]
+        d = dosya.get(a)
+        if not xs and not d:
+            g = alan.get(a) or []
+            rows.append([f"<b>{E(a)}</b>", (f"{len(g)} uğrak" + (f' <span class="not tarih">({E(aralik(cfg, g[0], g[-1]))})</span>'
+                                                                  if g else "") if g else "kayıt yok")
+                         + '<br><span class="not">geçmişi taranıyor</span>', "–", "–", "–"])
+            continue
+        il_liman = sum(1 for x in xs if x.get("ulke") in cfg.dest_countries())
+        il_acik = sum(1 for x in xs if any(g.get("il") for g in x.get("bosluk") or []))
+        bekle = sum(1 for x in xs if x.get("acik"))
+        ts = sorted(x["t"] for x in xs if x.get("t"))
+        ad_h = f'<a href="{E(d["anahtar"])}.html"><b>{E(a)}</b></a>' if d else f"<b>{E(a)}</b>"
+        rows.append([ad_h, f"{len(xs)} çıkış" + (f' <span class="not tarih">({E(aralik(cfg, ts[0], ts[-1]))})</span>' if ts else ""),
+                     str(il_liman), f'<span class="uyari">{il_acik}</span>' if il_acik else "0", str(bekle)])
+    return ('<h2>Basında adı geçen tankerler bu veride</h2><p class="not">Haberlerde Ceyhan’dan İsrail’e petrol taşıdığı '
+            'yazılan tankerler ve bu sitenin Global Fishing Watch verisinde gördükleri. Haberdeki bilgiler gemi '
+            'dosyalarında “Basında” başlığında, kaynağıyla.</p>'
+            + _tbl(["Gemi", "Ceyhan’dan", "Sonraki uğrak İsrail", "AIS İsrail açıklarında kesik", "İsrail açığında bekleme"],
+                   rows, num=(2, 3, 4)))
+
+
 def _paylas_blok(E, metin: str, url: str) -> str:
     x = "https://x.com/intent/post?" + urlencode({"text": metin})
     return (f'<h2>Paylaş</h2><div class="paylas"><textarea readonly rows="8" aria-label="Paylaşım metni">{E(metin)}</textarea>'
@@ -608,6 +664,7 @@ def build(cfg, con, recs: list[dict], out: Path) -> list[dict]:
         ilerleme = (f'<p class="not">Geçmiş tarama sürüyor ({_n(a_)} / {_n(b_)} sorgu); liste her saat uzar. '
                     f'Ceyhan’a uğrayan gemilerin geçmişi öncelikli alınıyor.</p>')
     govde = (f'<main class="sayfa rapor tankerler" id="icerik"><header>{yol}<h1>Tanker dosyaları</h1>{giris}{ilerleme}</header>'
+             + _basin_sagla(cfg, E, con, ds)
              + (f'<dl class="duzey-tanim">{tanim}</dl>' if tanim else "") + liste
              + (f'<p class="not">İndir: <a href="tankerler.csv">tankerler.csv</a> (sefer sefer), '
                 f'<a href="../veri/tankerler.json">tankerler.json</a></p>' if ds else "") + not_ + "</main>")
