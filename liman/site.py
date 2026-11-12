@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 from . import harita, proof
 from .db import get_meta
 from .routes import CLASS_LABELS, vessel_keys
-from .util import SHIP_GROUP_LABELS, hazard_category, iso, now_utc, parse_iso, ship_group
+from .util import SHIP_GROUP_LABELS, add_hours, hazard_category, iso, now_utc, parse_iso, ship_group
 
 E = html.escape
 WEB = Path(__file__).parent / "web"
@@ -363,6 +363,22 @@ def _gemiler(cfg, con, keys, vessels, tracking) -> str:
 
 
 # --------------------------------------------------------------------------- limanlar
+def _kapsama(cfg, con) -> str:
+    """Canlı kayıtta hiç ziyaret görülmeyen izlenen limanlar (kıyı alıcısı yoksa canlı veri gelmez)."""
+    first = con.execute("SELECT min(t_in) FROM visits").fetchone()[0]
+    if not first:
+        return ""
+    since = add_hours(iso(now_utc()), -24 * 7)
+    cnt = Counter(r[0] for r in con.execute("SELECT port FROM visits WHERE t_in >= ?", (since,)))
+    eksik = [p.name for p in cfg.ports if p.role == "izlenen" and not cnt.get(p.code)]
+    if not eksik:
+        return ""
+    donem = "Son 7 günde" if first <= since else "Canlı toplama başladığından beri"
+    return (f'<p class="not">{donem} canlı kayıtta hiç gemi görülmeyen izlenen limanlar: {E(", ".join(eksik))}. '
+            'aisstream.io gönüllülerin kıyıya kurduğu alıcılarla çalışır ve bu limanların çevresinde alıcısı yok gibi görünüyor; '
+            'buralardan çıkan seferler yalnızca geçmiş taramada (Global Fishing Watch) görünür.</p>')
+
+
 def _limanlar(cfg, con, days, keys) -> None:
     out = cfg.site_dir
     counts = Counter(r[0] for r in con.execute("SELECT port FROM visits WHERE transit IS NOT 1"))
@@ -388,7 +404,7 @@ def _limanlar(cfg, con, days, keys) -> None:
              E("Kıyı yaklaşma alanı" if p.approach else rol.get(p.role, p.role)), _n(counts.get(p.code, 0))] for p in cfg.ports]
     body = ('<main class="sayfa" id="icerik"><header><h1>Limanlar</h1><p class="giris">İzlenen limanlara uğrayan her gemi '
             'takibe alınır. Diğer limanlar ve kıyı alanı, takipteki gemilerin nereye vardığını kaydetmek için dinlenir.'
-            '</p></header>' + (f'<div class="limanlar">{"".join(figs)}</div>' if figs else "")
+            '</p></header>' + _kapsama(cfg, con) + (f'<div class="limanlar">{"".join(figs)}</div>' if figs else "")
             + "<h2>Bütün alanlar</h2>" + _tbl(["Liman", "Ülke", "Rol", "Ziyaret"], rows, num=(3,)) + "</main>")
     _write(out / "limanlar" / "index.html", _page(cfg, "Limanlar", body, 1, "limanlar"))
     names = {r["mmsi"]: r["name"] for r in con.execute("SELECT mmsi, name FROM vessels")}
@@ -475,27 +491,44 @@ def _kanit(cfg, chain) -> str:
 
 def _yontem(cfg) -> str:
     th = cfg.th
+    home = {p.country for p in cfg.ports if p.role == "izlenen"}
+    aktarma = set(th.get("aktarma_ulkeleri") or []) or (set(cfg.countries) - home - cfg.dest_countries())
+    ara_ulke = ", ".join(sorted(cfg.country_name(c) for c in aktarma)) or "yapılandırmadaki diğer ülkeler"
+    bogaz = ", ".join(z["ad"] for z in th.get("gecis_bolgeleri") or [])
     body = f'''<main class="sayfa" id="icerik"><header><h1>Yöntem ve sınırlar</h1><p class="giris">Bu site gemilerin kendi
 yayınladığı AIS mesajlarını toplar, liman ziyaretlerini ve açık denizdeki davranışları kurala dayalı olarak sınıflandırır.
 Kurallar aşağıda; aynı veriden herkes aynı sonuca ulaşabilir.</p></header>
-<h2>Veri</h2><p>AIS mesajları <a href="https://aisstream.io">aisstream.io</a> üzerinden toplanır. Kaydedilen her mesaj
+<h2>Veri</h2><p>Canlı kayıt: AIS mesajları <a href="https://aisstream.io">aisstream.io</a> üzerinden toplanır. Kaydedilen her mesaj
 değiştirilmeden günlük ham dosyaya yazılır; aynı geminin çok sık tekrarlanan konumları seyreltilir. Limanların çevresindeki
-bütün gemiler ve takipteki gemiler dünyanın her yerinde dinlenir. Toplayıcının veri alamadığı süreler kesinti olarak kaydedilir.</p>
+bütün gemiler ve takipteki gemiler dünyanın her yerinde dinlenir. Toplayıcının veri alamadığı süreler kesinti olarak kaydedilir.
+aisstream.io gönüllülerin kıyıya kurduğu alıcılarla çalışır; alıcısı olmayan limanlardan canlı veri gelmez.</p>{_kapsama(cfg, cfg._con)}
+<p>Geçmiş tarama: <a href="https://globalfishingwatch.org">Global Fishing Watch</a>’ın uydu ve kıyı alıcılarının AIS verisinden
+hesapladığı liman ziyaretleri ve AIS boşlukları. Beyan tarihinden bu yana bütün dönem taranır, sonra her hafta yeni dönem eklenir;
+GFW verisi birkaç gün geç oluştuğu için son günler bir sonraki haftada gelir.</p>
 <h2>Ziyaret ve takip</h2><p>Bir gemi liman alanına girip en az {th["ziyaret_min_dakika"]} dakika kalır ve bu sürede en az bir kez
 durursa ziyaret sayılır. İzlenen limana uğrayan her gemi {th["takip_gun"]} gün boyunca ya da hedef ülkeye varana kadar izlenir.
 Denizde takipli bir gemiyle buluşan gemi de takibe alınır.</p>
+<p>{E(bogaz)} içindeki demirlemeler liman uğrağı sayılmaz: Karadeniz’den gelen gemiler buralarda geçiş sırası bekler ve bu
+bekleyiş Türk limanından çıkış gibi görünürdü.</p>
 <h2>Sefer türleri</h2><p>Haritadaki renkler dört aileyi gösterir:</p><ul>
-<li><span class="isaret" style="--c:var(--c-dogrudan)"><b>Doğrudan</b></span>: çıkış limanından arada başka limana uğramadan varış.</li>
-<li><span class="isaret" style="--c:var(--c-liman)"><b>Ara limanlı</b></span>: arada üçüncü bir ülkenin limanına ya da açık denizde uzun durağa uğradı.</li>
-<li><span class="isaret" style="--c:var(--c-sts)"><b>Gemiden gemiye</b></span>: yolda başka bir gemiyle {th["sts_mesafe_m"]} m’den yakın ve
-duruk hâlde en az {th["sts_sure_saat"]} saat kaldı; ya da çıkış limanından gelen gemi yükünü denizde başka bir gemiye verdi ve o gemi varış ülkesine gitti.</li>
+<li><span class="isaret" style="--c:var(--c-dogrudan)"><b>Doğrudan</b></span>: çıkış limanından arada başka limana uğramadan,
+en fazla {th["dogrudan_max_gun"]} günde varış.</li>
+<li><span class="isaret" style="--c:var(--c-liman)"><b>Ara limanlı</b></span>: arada en fazla {th["aktarma_max_liman"]} ara limana
+uğrayıp en fazla {th["aktarma_max_gun"]} günde varış. Ara liman yalnızca şu ülkelerde sayılır: {E(ara_ulke)}. Başka bir
+ülkenin limanına uğrayan geminin yükü oradan gelmiş olabileceği için o sefer sayılmaz.</li>
+<li><span class="isaret" style="--c:var(--c-sts)"><b>Gemiden gemiye</b></span>: takipteki gemi limanlardan en az
+{th.get("sts_liman_km", 10)} km uzakta başka bir gemiyle {th["sts_mesafe_m"]} m’den yakın ve duruk hâlde en az
+{th["sts_sure_saat"]} saat kaldı; ya da çıkış limanından gelen gemi yükünü denizde başka bir gemiye verdi ve o gemi varış ülkesine gitti.</li>
 <li><span class="isaret" style="--c:var(--c-karanlik)"><b>AIS kapatılmış</b></span>: yolda en az {th["ais_bosluk_saat"]} saat sinyal yok
 (karanlık bacak); hedef ülkenin kıyı alanına girip hiçbir limana uğramadan en az {th["yaklasma_sessizlik_saat"]} saat sinyal vermedi
 (kıyıda kayboldu); ya da varış ülkesinde hiç kaydı yok ama izlenen deniz bölgesinde en az {th["karanlik_sefer_saat"]} saat AIS boşluğu
 var (karanlık sefer).</li></ul>
-<p>Haritada düz çizgi bu sitenin kaydettiği gerçek AIS izidir. Kesik çizgi geçmiş taramadaki limanlar arası bağlantıdır; gerçek
-güzergâhı göstermez. Macenta noktalı çizgi AIS sinyalinin kesildiği aralıktır; boş macenta daire sinyalin kesildiği, dolu daire
-yeniden geldiği yerdir.</p>
+<p>Beyan tarihi kuralı: ihracatta Türk limanından çıkış, ithalatta Türk limanına varış beyan tarihinden sonra olmalıdır.</p>
+<h2>Haritayı okumak</h2><p>Kavisli çizgi çıkış ve varış limanlarını bağlar, gerçek güzergâhı göstermez; kalınlığı o hattaki sefer
+sayısıdır. Yeşil daireler ara limanlardır, büyüklükleri oraya uğrayan sefer sayısıdır. Bir hatta ya da ara limana tıklayınca
+oradan geçen seferlerin bütün bacakları çizilir. İnce düz çizgi bu sitenin kaydettiği gerçek AIS izidir. Macenta noktalı çizgi AIS
+sinyalinin kesildiği aralıktır; boş macenta daire sinyalin kesildiği, dolu daire yeniden geldiği yerdir. Zaman çizelgesindeki
+kesik dikey çizgiler resmî açıklamaların tarihleridir.</p>
 <h2>Konum tutarsızlıkları</h2><p>Geminin konumu bir önceki kayda göre fiziksel olarak imkânsız bir hızla (60 knot üstü) sıçrarsa
 bu konum GPS karıştırma ya da sahte konum sayılır: ham arşive yazılır ama analizde kullanılmaz.</p>
 <h2>Muhtemel yük</h2><p>Gemi tipi, yanaştığı terminal ve limanlardaki su çekimi değişiminden çıkarılır; dayanakları her
@@ -505,6 +538,7 @@ mürettebat elle girer ve güncellenmeyebilir. Konteyner gemilerinin içeriği b
 görüntülerine bağlantı verilir. Uydular bir noktadan genellikle birkaç günde bir geçer; her tarih için görüntü olmayabilir.
 Görüntülerin incelenmesi elle yapılmalıdır.</p>
 <h2>Sınırlar</h2><ul><li>AIS’i tamamen kapalı olan ya da sahte konum yayınlayan gemiler görülmez; açık denizde alıcı kapsaması zayıf olabilir.</li>
+<li>Ara limanlı seferlerin bir kısmı düzenli hat seferidir; ara limanda yükün el değiştirdiğini göstermez.</li>
 <li>Kayıtlar gemi hareketini gösterir; yükün sahibini, satıcısını ya da ticaretin hukuki durumunu göstermez.</li>
 <li>Bu sitedeki işaretler tespittir, hüküm değildir.</li></ul></main>'''
     return _page(cfg, "Yöntem", body, 0, "yontem")

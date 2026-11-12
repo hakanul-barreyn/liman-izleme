@@ -50,8 +50,9 @@ DEFAULTS: dict = {
         # Geçiş bekleme alanları: buradaki demirlemeler liman uğrağı sayılmaz (Karadeniz'den gelen
         # gemiler İstanbul ve Çanakkale boğazlarının girişinde sıra bekler).
         "gecis_bolgeleri": [
-            {"ad": "İstanbul Boğazı ve giriş demirlemeleri", "kutu": [[40.95, 28.85], [41.35, 29.40]]},
-            {"ad": "Çanakkale Boğazı ve giriş demirlemeleri", "kutu": [[39.95, 26.10], [40.45, 26.75]]},
+            {"ad": "İstanbul Boğazı ve giriş demirlemeleri", "kutu": [[40.95, 28.80], [41.45, 29.45]]},
+            # güney girişte Bozcaada açıklarındaki bekleme yerleri dahil
+            {"ad": "Çanakkale Boğazı ve giriş demirlemeleri", "kutu": [[39.70, 25.85], [40.55, 26.95]]},
         ],
     },
     "gemi_filtresi": {"tipler": ["kargo", "tanker", "bilinmiyor"], "min_boy_m": 0},
