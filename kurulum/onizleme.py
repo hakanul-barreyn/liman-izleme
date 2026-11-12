@@ -42,6 +42,27 @@ def db_ozet() -> dict:
                      "FROM outages GROUP BY 1"),
         "meta": q("SELECT k, substr(v, 1, 300) FROM meta WHERE k LIKE 'gecmis%' OR k LIKE 'son%'"),
     }
+    # tanı: İskenderun Körfezi alan sorgularında Ceyhan çevresindeki liman ziyaretleri
+    import json as _j, math, collections
+    def km(a, b, c, d):
+        return 6371 * math.acos(min(1, math.sin(math.radians(a)) * math.sin(math.radians(c))
+                                    + math.cos(math.radians(a)) * math.cos(math.radians(c)) * math.cos(math.radians(b - d))))
+    yak, tip, nokta, gemi = collections.Counter(), collections.Counter(), collections.Counter(), set()
+    for (data,) in con.execute("SELECT data FROM gfw_cache WHERE key LIKE 'area_pv:ISK:%'"):
+        for e in _j.loads(data):
+            pos = e.get("position") or {}
+            if pos.get("lat") is None:
+                continue
+            dkm = km(pos["lat"], pos["lon"], 36.875, 35.925)
+            yak[int(dkm // 2) * 2 if dkm < 20 else 99] += 1
+            if dkm < 12:
+                tip[str((e.get("vessel") or {}).get("type"))] += 1
+                nokta[(round(pos["lat"], 2), round(pos["lon"], 2))] += 1
+                gemi.add((e.get("vessel") or {}).get("id"))
+    cached = {r[0].split(":")[1] for r in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")}
+    out["ceyhan_tani"] = {"uzaklik_km": sorted(yak.items()), "tip": tip.most_common(8),
+                          "nokta": [list(k) + [v] for k, v in nokta.most_common(10)],
+                          "gemi": len(gemi), "gecmisi_alinan": len(gemi & cached)}
     con.close()
     return out
 
