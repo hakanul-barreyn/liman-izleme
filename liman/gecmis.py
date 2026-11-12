@@ -532,7 +532,7 @@ def _gap_info(g: dict) -> dict:
     dur = gp.get("durationHours")
     if dur is None and g.get("start") and g.get("end"):
         dur = hours_between(g["start"], g["end"])
-    return {"baslangic": g.get("start"), "bitis": g.get("end"), "saat": round(dur or 0, 1),
+    return {"eid": g.get("id"), "baslangic": g.get("start"), "bitis": g.get("end"), "saat": round(dur or 0, 1),
             "kapanis": [off.get("lat"), off.get("lon")], "acilis": [on.get("lat"), on.get("lon")],
             "mesafe_km": gp.get("distanceKm"), "kasitli": gp.get("intentionalDisabling")}
 
@@ -605,12 +605,15 @@ def compute(cfg, con, *_eski) -> int:
             prev = visits[-1] if visits else None
             if prev and prev["name"] == name and prev["c"] == c and hours_between(prev["end"], e["start"]) <= 72:
                 # aynı limanda art arda iki kayıt (demirleme, sonra rıhtım): tek uğrak
+                if end >= prev["end"]:
+                    prev["eid_son"] = e.get("id")
                 prev["end"] = max(prev["end"], end)
                 continue
             pv_ = e.get("port_visit") or {}
             anc = pv_.get("startAnchorage") or pv_.get("endAnchorage") or {}
             visits.append({"c": c, "name": name, "code": code, "lat": lat, "lon": lon, "iso3": anc.get("flag"),
-                           "anc": str(anc.get("name") or "").upper(), "start": e["start"], "end": end, "vessel": e["vessel"]})
+                           "anc": str(anc.get("name") or "").upper(), "start": e["start"], "end": end, "vessel": e["vessel"],
+                           "eid": e.get("id")})
         gl = sorted((_gap_info(g) for g in gaps if g.get("start")), key=lambda g: g["baslangic"])
         # Ceyhan'a uğrayan gemi başka petrol iskelelerine de uğruyor mu? (tanker olduğunun rotadan kanıtı)
         if any(v["lat"] is not None and haversine_km(v["lat"], v["lon"], *CEYHAN) <= CEYHAN_KM for v in visits):
@@ -783,17 +786,21 @@ def _offshore(cfg, con, vkeys, period, home, aktarma, via_h, direct_h, max_mids)
 
 
 def _insert(con, A, B, cls, vid, vessel, o, d, nxt, mids, gaps):
+    # kaynak: seferin dayandığı GFW olaylarının kimlikleri (çıkış ve varış liman ziyareti, ara uğraklar, AIS boşlukları)
+    kaynak = {"cikis": o.get("eid_son") or o.get("eid"), "varis": d.get("eid") if d else None,
+              "ara": [m.get("eid") for m in mids if m.get("eid")], "bosluk": [g.get("eid") for g in gaps if g.get("eid")]}
     con.execute(
         """INSERT INTO gecmis(direction,cls,vessel_id,ssvid,name,flag,vtype,origin,origin_country,t_dep,dest,
-           dest_country,t_arr,next_port,mids,gaps,o_lat,o_lon,d_lat,d_lon)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           dest_country,t_arr,next_port,mids,gaps,o_lat,o_lon,d_lat,d_lon,kaynak)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (f"{A}>{B}", cls, vid, vessel.get("ssvid"), vessel.get("name"), vessel.get("flag"), vessel.get("type"),
          o["name"], o["c"], o["end"], d["name"] if d else None, d["c"] if d else None,
          d["start"] if d else (gaps[0]["bitis"] if gaps else None), nxt["name"] if nxt else None,
          json.dumps([{"liman": m["name"], "ulke": m["c"], "giris": m["start"], "cikis": m["end"],
                       "lat": m.get("lat"), "lon": m.get("lon")} for m in mids], ensure_ascii=False),
          json.dumps(gaps, ensure_ascii=False),
-         o.get("lat"), o.get("lon"), d.get("lat") if d else None, d.get("lon") if d else None))
+         o.get("lat"), o.get("lon"), d.get("lat") if d else None, d.get("lon") if d else None,
+         json.dumps(kaynak, ensure_ascii=False)))
 
 
 def run(cfg, start: str | None, end: str | None, budget_min: float | None, istek: int | None = None) -> dict:

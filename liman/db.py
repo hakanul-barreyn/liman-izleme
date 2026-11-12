@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS dunya(
 CREATE TABLE IF NOT EXISTS gecmis(
   id INTEGER PRIMARY KEY, direction TEXT, cls TEXT, vessel_id TEXT, ssvid TEXT, name TEXT, flag TEXT,
   vtype TEXT, origin TEXT, origin_country TEXT, t_dep TEXT, dest TEXT, dest_country TEXT, t_arr TEXT,
-  next_port TEXT, mids TEXT, gaps TEXT, o_lat REAL, o_lon REAL, d_lat REAL, d_lon REAL);
+  next_port TEXT, mids TEXT, gaps TEXT, o_lat REAL, o_lon REAL, d_lat REAL, d_lon REAL, kaynak TEXT);
 
 CREATE TABLE IF NOT EXISTS archived_days(day TEXT PRIMARY KEY, day_hash TEXT, created TEXT);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
@@ -88,6 +88,8 @@ def _migrate(con) -> None:
     for c in ("o_lat", "o_lon", "d_lat", "d_lon"):
         if c not in cols:
             con.execute(f"ALTER TABLE gecmis ADD COLUMN {c} REAL")
+    if "kaynak" not in cols:  # GFW olay kimlikleri: her sefer GFW'deki kaynak olaylarına bağlanır
+        con.execute("ALTER TABLE gecmis ADD COLUMN kaynak TEXT")
     con.commit()
 
 

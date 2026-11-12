@@ -254,6 +254,13 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
             return ""
         return f'<a href="dunya.html"{" aria-current=page" if aktif else ""}>Dünya → {E(hedef_ad)}</a>'
 
+    kaynak, gvid = {}, {}
+    for gid, vid, k in con.execute("SELECT id, vessel_id, kaynak FROM gecmis"):
+        gvid[f"g{gid}"] = vid or ""
+        try:
+            kaynak[f"g{gid}"] = json.loads(k) if k else {}
+        except ValueError:
+            pass
     for y in directions:
         A, B = y.split(">")
         a_ad, b_ad = cfg.country_name(A), cfg.country_name(B)
@@ -424,12 +431,19 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 "; ".join(f["ad"] for f in s.get("firma") or []), (dis_baglantilar(s) or [("", "")])[0][1], s["n"],
                 *[s["aile"].get(k, 0) for k in harita.FAMILY_ORDER], s["ilk"], s["son"],
                 f'{s["hatlar"][0][0][0]} → {s["hatlar"][0][0][1]}' if s["hatlar"] else ""] for s in sh]))
+        # GFW kaynak olayları: her seferin dayandığı liman ziyareti ve AIS boşluğu olaylarının kimlikleri
+        def ky(r, alan):
+            k = kaynak.get(r["id"]) or {}
+            v = k.get(alan)
+            return "; ".join(v) if isinstance(v, list) else (v or "")
         (rdir / f"{sl}-seferler.csv").write_bytes(_csv(
             [["Gemi", "MMSI", "IMO", "Bayrak", "Tür", "Çıkış limanı", "Çıkış tarihi", "Ara limanlar", "Varış limanı",
-              "Varış tarihi", "Türk tarafındaki terminal", "Kaynak", "Kayıt"]]
+              "Varış tarihi", "Türk tarafındaki terminal", "Kaynak", "Kayıt", "GFW gemi kimliği", "GFW çıkış olayı",
+              "GFW varış olayı", "GFW ara uğrak olayları", "GFW AIS boşluğu olayları"]]
             + [[r.get("n") or "", r.get("m") or "", r.get("imo") or "", bayrak(r.get("b"), r.get("m")),
                 harita.ALL_LABELS.get(r["k"], r["k"]), r.get("o") or "", r.get("t0") or "", ", ".join(r.get("ara") or []),
-                r.get("d") or "", r.get("t1") or "", r.get("ter") or "", "Canlı kayıt" if r["s"] == "c" else "Geçmiş tarama (GFW)", r["id"]]
+                r.get("d") or "", r.get("t1") or "", r.get("ter") or "", "Canlı kayıt" if r["s"] == "c" else "Geçmiş tarama (GFW)", r["id"],
+                gvid.get(r["id"], ""), ky(r, "cikis"), ky(r, "varis"), ky(r, "ara"), ky(r, "bosluk")]
                for r in sorted(sel, key=lambda r: r.get("t0") or "")]))
 
     if dunya:

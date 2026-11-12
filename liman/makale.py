@@ -333,7 +333,9 @@ saymadığı (tankerlerin bulunduğu sınıftaki) gemiler “muhtemel tanker” 
 <h3>3.5 Kanıt bütünlüğü</h3>
 <p>Bu sürümün dayandığı bütün sefer kayıtlarının (kimlik, tür, gemi, çıkış ve varış limanı ve zamanı) sabit sıralı özetinin SHA-256
 değeri künyede yazılıdır: <code>{E(o["veri_hash"][:16])}…</code>. Aynı kayıtlardan herkes aynı değeri hesaplayabilir. Kayıtların tamamı
-CSV olarak indirilebilir; sınıflandırmayı yapan kod açık kaynaklıdır.</p>
+CSV olarak indirilebilir; her seferin satırında dayandığı GFW olaylarının (çıkış ve varış liman ziyareti, ara uğraklar, AIS boşlukları)
+kimlikleri ve geminin GFW kimliği yazılıdır, böylece her sefer GFW’nin kendi kayıtlarından bağımsız olarak doğrulanabilir.
+Sınıflandırmayı yapan kod açık kaynaklıdır.</p>
 
 <h2 id="bulgular">4. Bulgular</h2>
 <h3>4.1 Genel tablo</h3>
@@ -655,7 +657,9 @@ class that contains tankers) are marked separately as probable tankers.</p>
 <h3>3.5 Evidence integrity</h3>
 <p>The SHA-256 digest of a fixed-order summary of all voyage records used in this version (identifier, type, vessel, departure and
 arrival port and time) is printed in the header: <code>{E(o["veri_hash"][:16])}…</code>. Anyone can compute the same value from the
-same records. All records can be downloaded as CSV; the classification code is open source.</p>
+same records. All records can be downloaded as CSV; each voyage row lists the identifiers of the GFW events it rests on (departure and
+arrival port visits, intermediate calls, AIS gaps) and the vessel’s GFW identifier, so that every voyage can be verified independently
+against GFW’s own records. The classification code is open source.</p>
 
 <h2 id="results">4. Results</h2>
 <h3>4.1 Overview</h3>

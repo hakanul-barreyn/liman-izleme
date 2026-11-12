@@ -128,6 +128,9 @@ def test_retro_scan(tmp_path):
     # örnek gemilerin hepsi aynı MMSI'yi (111) taşıyor: gemiler MMSI ile gruplanır
     assert rp.count('<details class="gemi"') == 1 and "1 gemi, 3 sefer" in rp
     assert (rd / "tr-il-seferler.csv").read_bytes().startswith("\ufeff".encode())
+    # her sefer GFW'deki kaynak olaylarına bağlı (çıkış ve varış liman ziyareti kimlikleri)
+    csv_ = (rd / "tr-il-seferler.csv").read_text(encoding="utf-8-sig")
+    assert "GFW çıkış olayı" in csv_ and "V1-2025-01-01" in csv_ and "V1-2025-01-08" in csv_
     assert list(rd.glob("tr-il-2025-0*.html"))
     # dünyadan İsrail'e: her varış önceki uğrağıyla
     dp = (rd / "dunya.html").read_text()
