@@ -262,7 +262,7 @@ def _tr(cfg, o, E) -> str:
   <h1>Beyan ve kayıt: Türkiye’nin İsrail’le ticareti durdurma kararından sonra Türk limanlarından İsrail limanlarına gemi seferleri</h1>
   <p class="alt-baslik">AIS verisine dayanan bağımsız bir inceleme, 7 Ekim 2023 – {E(_gun(o["son_gun"]))}</p>
   <dl class="kunye-rapor">
-    <div><dt>Hazırlayan</dt><dd>Avvam, açık kaynak gemi izleme projesi</dd></div>
+    <div><dt>Hazırlayan</dt><dd>{E((cfg.raw.get("rapor") or {}).get("hazirlayan") or "Avvam, açık kaynak gemi izleme projesi")}</dd></div>
     <div><dt>Sürüm</dt><dd>{E(_gun(o["olusturma"][:10]))}, {E(o["olusturma"][11:16])} UTC</dd></div>
     <div><dt>Veri dönemi</dt><dd>7 Ekim 2023 – {E(_gun(o["son_gun"]))}</dd></div>
     <div class="genis"><dt>Veri kesitinin özeti (SHA-256)</dt><dd><code>{E(o["veri_hash"])}</code></dd></div>
@@ -597,7 +597,7 @@ def _en(cfg, o, E) -> str:
   <h1>Declaration and record: vessel voyages from Turkish to Israeli ports after Türkiye declared a halt to trade with Israel</h1>
   <p class="alt-baslik">An independent study based on AIS data, 7 October 2023 – {E(g(o["son_gun"]))}</p>
   <dl class="kunye-rapor">
-    <div><dt>Prepared by</dt><dd>Avvam, an open-source vessel monitoring project</dd></div>
+    <div><dt>Prepared by</dt><dd>{E((cfg.raw.get("rapor") or {}).get("hazirlayan_en") or "Avvam, an open-source vessel monitoring project")}</dd></div>
     <div><dt>Version</dt><dd>{E(g(o["olusturma"][:10]))}, {E(o["olusturma"][11:16])} UTC</dd></div>
     <div><dt>Data period</dt><dd>7 October 2023 – {E(g(o["son_gun"]))}</dd></div>
     <div class="genis"><dt>Data snapshot digest (SHA-256)</dt><dd><code>{E(o["veri_hash"])}</code></dd></div>

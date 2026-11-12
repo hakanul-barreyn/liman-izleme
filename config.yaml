@@ -83,6 +83,12 @@ beyan:
     yetkililerinin acentelere sözlü bildirimiyle uygulandı. Bu sitedeki kayıtlar gemi hareketini gösterir;
     yükün sahibini, satıcısını veya hukuki durumunu göstermez.
 
+# --- Rapor künyesi --------------------------------------------------------------
+# Raporun "Hazırlayan" satırı. Kurumlara sunarken kişi ya da kuruluş adı yazılabilir (sitede herkese açık görünür).
+rapor:
+  hazirlayan: "Avvam, açık kaynak gemi izleme projesi"
+  hazirlayan_en: "Avvam, an open-source vessel monitoring project"
+
 # --- Ülkeler --------------------------------------------------------------------
 # varis_anahtarlari: gemilerin AIS'e yazdığı varış noktasında bu ülkeyi gösteren kelimeler
 ulkeler:
