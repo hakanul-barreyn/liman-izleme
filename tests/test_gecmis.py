@@ -105,6 +105,15 @@ def test_retro_scan(tmp_path):
     assert len(dosya) == 1 and len(dosya[0]["seferler"]) == 3 and dosya[0]["kanit"] == "kayitli"
     sayfa_ = (td / f'{dosya[0]["dosya"]}.html').read_text()
     assert "Seferler" in sayfa_ and "Tespit, hüküm değil" in sayfa_ and "x.com/intent/post" in sayfa_
+    # ana sayfa: açıklama ve kayıt; harita ayrı sayfada; rapor Türkçe ve İngilizce
+    ana = (cfg.site_dir / "index.html").read_text()
+    assert "sefer</b> yapıldı" in ana and 'class="aylik"' in ana and "harita.html" in ana
+    assert 'id="harita"' in (cfg.site_dir / "harita.html").read_text()
+    rp = (cfg.site_dir / "rapor" / "index.html").read_text()
+    assert "Özet" in rp and "Kaynakça" in rp and "SHA-256" in rp
+    assert "Abstract" in (cfg.site_dir / "rapor" / "en.html").read_text()
+    oz = json.loads((cfg.site_dir / "veri" / "rapor-ozet.json").read_text())
+    assert len(oz["veri_hash"]) == 64 and oz["yonler"]["TR>IL"]["toplam"] == 3
     page = (cfg.site_dir / "gecmis.html").read_text()
     assert "Geçmiş tarama" in page and "Powered by Global Fishing Watch" in page
     data = json.loads((cfg.site_dir / "veri" / "harita" / "seferler.json").read_text())

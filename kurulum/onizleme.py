@@ -163,13 +163,18 @@ def main() -> int:
     time.sleep(1.5)
     real_ship = biggest_ship("site")
     shots = [
-        ("gercek-masaustu", "gercek", "index.html", 1440, 900, "light", False),
-        ("gercek-koyu", "gercek", "index.html", 1440, 900, "dark", False),
-        ("gercek-gecmis", "gercek", "index.html#k=g", 1440, 900, "light", False),
-        ("gercek-mobil", "gercek", "index.html", 390, 844, "light", True),
-        ("demo-masaustu", "demo", "index.html", 1440, 900, "light", False),
-        ("demo-secili", "demo", "index.html#sec=c4", 1440, 900, "light", False),
-        ("gercek-mobil-koyu", "gercek", "index.html", 390, 844, "dark", True),
+        ("gercek-ozet", "gercek", "index.html", 1280, 2400, "light", False),
+        ("gercek-ozet-mobil", "gercek", "index.html", 390, 2000, "light", True),
+        ("gercek-ozet-koyu", "gercek", "index.html", 1280, 1000, "dark", False),
+        ("gercek-rapor", "gercek", "rapor/index.html", 1280, 2600, "light", False),
+        ("gercek-rapor-en", "gercek", "rapor/en.html", 1280, 1400, "light", False),
+        ("gercek-masaustu", "gercek", "harita.html", 1440, 900, "light", False),
+        ("gercek-koyu", "gercek", "harita.html", 1440, 900, "dark", False),
+        ("gercek-gecmis", "gercek", "harita.html#k=g", 1440, 900, "light", False),
+        ("gercek-mobil", "gercek", "harita.html", 390, 844, "light", True),
+        ("demo-masaustu", "demo", "harita.html", 1440, 900, "light", False),
+        ("demo-secili", "demo", "harita.html#sec=c4", 1440, 900, "light", False),
+        ("gercek-mobil-koyu", "gercek", "harita.html", 390, 844, "dark", True),
         ("demo-gemi", "demo", "gemiler/imo9000003.html", 1280, 1100, "light", False),
         ("gercek-beyan", "gercek", "beyan.html", 1280, 1300, "light", False),
         ("gercek-yontem", "gercek", "yontem.html", 1280, 1800, "light", False),
@@ -189,7 +194,7 @@ def main() -> int:
         if ds:
             shots.append(("gercek-tanker-dosya", "gercek", f"tankerler/{ds[0]['dosya']}.html", 1280, 1800, "light", False))
     for name, frag in ornekler("site"):
-        shots.append((name, "gercek", f"index.html#{frag}", 1440, 900, "light", False))
+        shots.append((name, "gercek", f"harita.html#{frag}", 1440, 900, "light", False))
     report = {}
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])

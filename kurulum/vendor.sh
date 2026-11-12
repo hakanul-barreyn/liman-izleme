@@ -29,3 +29,18 @@ if npm pack "@fontsource-variable/archivo" --silent >/dev/null 2>&1; then
 else
   echo "Yazı tipi indirilemedi; sistem yazı tipi kullanılacak"
 fi
+
+# rapor gövdesi ve resmî açıklama alıntıları için serif yazı tipi (Source Serif 4, SIL Open Font License)
+if npm pack "@fontsource-variable/source-serif-4" --silent >/dev/null 2>&1; then
+  mkdir ss && tar -xzf fontsource-variable-source-serif-4-*.tgz -C ss
+  for sub in latin latin-ext; do
+    f=""
+    for kind in full wght opsz; do
+      c="ss/package/files/source-serif-4-$sub-$kind-normal.woff2"
+      if [ -f "$c" ]; then f="$c"; break; fi
+    done
+    if [ -n "$f" ]; then cp "$f" "$OUT/fonts/source-serif-4-$sub.woff2"; echo "Yazı tipi: $(basename "$f")"; fi
+  done
+else
+  echo "Serif yazı tipi indirilemedi; sistem yazı tipi kullanılacak"
+fi

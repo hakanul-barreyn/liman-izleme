@@ -21,6 +21,8 @@ beyan:
       tarih: "2 Mayıs 2024"
       gun: "2024-05-02"
       etiket: "Ticaret durduruldu"
+      etiket_en: "Trade halted"
+      metin_en: "Export and import transactions related to Israel have been stopped, covering all products."
       kaynak: "Bloomberg HT"
       url: "https://www.bloomberght.com/israille-ticaret-tamamen-durduruldu-2352057"
     - metin: "İsrail ile ticaretimizi tamamen kestik. Türk gemilerinin İsrail limanlarına gitmesine izin vermiyoruz."
@@ -28,11 +30,51 @@ beyan:
       tarih: "29 Ağustos 2025"
       gun: "2025-08-29"
       etiket: "Liman kısıtlamaları"
+      etiket_en: "Port restrictions"
+      metin_en: "We have completely cut our trade with Israel. We do not allow Turkish ships to go to Israeli ports."
       kaynak: "Al Jazeera"
       url: "https://www.aljazeera.com/news/2025/8/29/turkiye-closes-airspace-to-israel-entirely-cutting-ties-over-gaza-war"
   isaretler:
-    - {gun: "2023-10-07", etiket: "7 Ekim"}
-    - {gun: "2024-04-09", etiket: "54 üründe kısıtlama"}
+    - {gun: "2023-10-07", etiket: "7 Ekim", etiket_en: "7 October"}
+    - {gun: "2024-04-09", etiket: "54 ürün grubunda kısıtlama", etiket_en: "Export curbs (54 groups)"}
+  # Verinin sınadığı resmî açıklamalar (ana sayfa ve rapor). "aktarim: true" olanlar doğrudan alıntı değil,
+  # kaynağın aktardığı açıklamanın özetidir; tırnaksız gösterilir.
+  testler:
+    - kimlik: ticaret
+      metin: "İsrail'le ilgili ihracat ve ithalat işlemleri tüm ürünleri kapsayacak şekilde durdurulmuştur."
+      metin_en: "Export and import transactions related to Israel have been stopped, covering all products."
+      kim: "T.C. Ticaret Bakanlığı"
+      kim_en: "Ministry of Trade of Türkiye"
+      gun: "2024-05-02"
+      kaynak: "Al Jazeera"
+      url: "https://www.aljazeera.com/news/2024/5/2/turkey-says-it-halts-trade-with-israel-over-gaza-aid-access"
+    - kimlik: ceyhan
+      metin: "BTC boru hattıyla Ceyhan'daki terminale petrol gönderen şirketler Türkiye'nin İsrail'le ticareti durdurma kararına uydu; İsrail varışlı sevkiyat olmadı."
+      metin_en: "Companies shipping oil through the BTC pipeline to the Ceyhan terminal have complied with Türkiye's decision to halt trade with Israel; no shipments with an Israeli destination have taken place."
+      kim: "T.C. Enerji ve Tabii Kaynaklar Bakanlığı, yazılı açıklama"
+      kim_en: "Ministry of Energy and Natural Resources of Türkiye, written statement"
+      gun: "2024-11-11"
+      kaynak: "Daily Sabah"
+      url: "https://dailysabah.com/business/energy/turkiye-rejects-claims-of-oil-flowing-to-israel-from-ceyhan"
+      aktarim: true
+    - kimlik: bayrak
+      metin: "Türk bayraklı gemilerin İsrail limanlarına gitmesine izin vermiyoruz."
+      metin_en: "Turkish-flagged ships are not allowed to call at Israeli ports."
+      kim: "Dışişleri Bakanı Hakan Fidan, TBMM"
+      kim_en: "Foreign Minister Hakan Fidan, Grand National Assembly"
+      gun: "2025-08-29"
+      kaynak: "gCaptain (Reuters)"
+      url: "https://gcaptain.com/turkey-halts-trade-with-israel-shuts-ports-to-all-shipping-links"
+      aktarim: true
+    - kimlik: hepsi
+      metin: "2 Mayıs 2024'ten bu yana İsrail'le ihracat, ithalat, serbest bölge ve transit ticaretin tamamı durdu; İsrail'den gelen sevkiyat da yok. Filistin'e giden ürünler, Filistin'in limanı olmadığı için İsrail limanları üzerinden gidiyor (ayda 50-60 milyon dolar)."
+      metin_en: "Since 2 May 2024 all exports, imports, free-zone and transit trade with Israel have stopped, and no shipments arrive from Israel. Goods for Palestine, which has no port of its own, pass through Israeli ports (USD 50-60 million a month)."
+      kim: "T.C. Ticaret Bakanlığı, basın açıklaması"
+      kim_en: "Ministry of Trade of Türkiye, press statement"
+      gun: "2026-03-30"
+      kaynak: "ticaret.gov.tr"
+      url: "https://ticaret.gov.tr/haberler/israil-ile-ticaretin-surdugune-dair-asilsiz-iddialar-hakkinda-aciklama"
+      aktarim: true
   karsi_gorus: >-
     Türkiye, BTC boru hattıyla Ceyhan'a gelen Azerbaycan petrolünün satışını kendisinin yapmadığını ve
     alıcısını belirlemediğini söylüyor; Enerji Bakanlığı BOTAŞ'ın bu satışlarda yer almadığını belirtti.
@@ -170,6 +212,8 @@ gecmis:
 yayin:
   # Sitenin herkese açık adresi: paylaşım metinlerindeki bağlantılar bununla kurulur
   adres: "https://hakanul-barreyn.github.io/liman-izleme/"
+  # GitHub deposu: raporun tarihli PDF sürümleri bu deponun Releases bölümünde (rapor-AAAA-AA-GG, rapor-son)
+  depo: "hakanul-barreyn/liman-izleme"
   ham_veri_yayinla: true
   opentimestamps: true
   site_guncelleme_dakika: 60

@@ -489,20 +489,19 @@ def _basin_blok(E, d: dict) -> str:
             f'değildir; sitenin tespitiyle karşılaştırmak için verilir.</p><ul class="basin">{li}</ul>')
 
 
-def _basin_sagla(cfg, E, con, ds: list[dict]) -> str:
-    """Basında adı geçen tankerler bu sitenin verisinde nasıl görünüyor? (sağlama tablosu)"""
+def basin_ozeti(cfg, con, ds: list[dict]) -> list[dict]:
+    """Basında adı geçen her tanker için bu sitenin verisinde görünen: Ceyhan çıkışları, İsrail limanına kayıtlı varış,
+    AIS'in İsrail açıklarında kesildiği çıkışlar, kıyı açığında bekleme; geçmişi taranmamışsa alan sorgusundaki uğraklar."""
     from .db import get_meta
-    from .site import _tbl
+    from .gecmis import CEYHAN, CEYHAN_KM
     adlar = []
     for b in _basin(cfg):
         a = str(b.get("ad") or "").upper().strip()
         if a and a not in adlar:
             adlar.append(a)
     if not adlar:
-        return ""
+        return []
     cik = json.loads(get_meta(con, "ceyhan_cikislari", "[]") or "[]")
-    # geçmişi henüz alınmamış gemiler: İskenderun Körfezi alan sorgularındaki Ceyhan uğrakları
-    from .gecmis import CEYHAN, CEYHAN_KM
     alan: dict[str, set] = defaultdict(set)
     kod = cfg.locate(*CEYHAN)[0] or "%"
     for (data,) in con.execute("SELECT data FROM gfw_cache WHERE key LIKE ?", (f"area_pv:{kod}:%",)):
@@ -516,28 +515,39 @@ def _basin_sagla(cfg, E, con, ds: list[dict]) -> str:
             if ad_ in adlar and pos.get("lat") is not None and e.get("start") and \
                     haversine_km(pos["lat"], pos["lon"], *CEYHAN) <= CEYHAN_KM:
                 alan[ad_].add(e["start"][:19] + "Z" if len(e["start"]) >= 19 else e["start"])
-    alan = {k: sorted(v) for k, v in alan.items()}
     dosya = {}
     for d in ds:
-        for n in [d["ad"], *d["adlar"]]:
-            dosya.setdefault((n or "").upper(), d)
-    rows = []
+        for nm in [d["ad"], *d["adlar"]]:
+            dosya.setdefault((nm or "").upper(), d)
+    out = []
     for a in adlar:
         xs = [x for x in cik if (x.get("ad") or "").upper().strip() == a]
         d = dosya.get(a)
-        if not xs and not d:
-            g = alan.get(a) or []
-            rows.append([f"<b>{E(a)}</b>", (f"{len(g)} uğrak" + (f' <span class="not tarih">({E(aralik(cfg, g[0], g[-1]))})</span>'
-                                                                  if g else "") if g else "kayıt yok")
-                         + '<br><span class="not">geçmişi taranıyor</span>', "–", "–", "–"])
-            continue
-        il_liman = sum(1 for x in xs if x.get("ulke") in cfg.dest_countries())
-        il_acik = sum(1 for x in xs if any(g.get("il") for g in x.get("bosluk") or []))
-        bekle = sum(1 for x in xs if x.get("acik"))
         ts = sorted(x["t"] for x in xs if x.get("t"))
-        ad_h = f'<a href="{E(d["anahtar"])}.html"><b>{E(a)}</b></a>' if d else f"<b>{E(a)}</b>"
-        rows.append([ad_h, f"{len(xs)} çıkış" + (f' <span class="not tarih">({E(aralik(cfg, ts[0], ts[-1]))})</span>' if ts else ""),
-                     str(il_liman), f'<span class="uyari">{il_acik}</span>' if il_acik else "0", str(bekle)])
+        out.append({"ad": a, "taranan": bool(xs or d), "cikis": len(xs), "ilk": ts[0] if ts else None, "son": ts[-1] if ts else None,
+                    "alan": sorted(alan.get(a) or []),
+                    "il_liman": sum(1 for x in xs if x.get("ulke") in cfg.dest_countries()),
+                    "il_acik": sum(1 for x in xs if any(g.get("il") for g in x.get("bosluk") or [])),
+                    "bekleme": sum(1 for x in xs if x.get("acik")), "anahtar": d["anahtar"] if d else None})
+    return out
+
+
+def _basin_sagla(cfg, E, con, ds: list[dict]) -> str:
+    """Basında adı geçen tankerler bu sitenin verisinde nasıl görünüyor? (sağlama tablosu)"""
+    from .site import _tbl
+    rows = []
+    for b in basin_ozeti(cfg, con, ds):
+        ad_h = f'<a href="{E(b["anahtar"])}.html"><b>{E(b["ad"])}</b></a>' if b["anahtar"] else f"<b>{E(b['ad'])}</b>"
+        if not b["taranan"]:
+            g = b["alan"]
+            rows.append([ad_h, (f"{len(g)} uğrak" + (f' <span class="not tarih">({E(aralik(cfg, g[0], g[-1]))})</span>' if g else "")
+                                if g else "kayıt yok") + '<br><span class="not">geçmişi taranıyor</span>', "–", "–", "–"])
+            continue
+        rows.append([ad_h, f"{b['cikis']} çıkış" + (f' <span class="not tarih">({E(aralik(cfg, b["ilk"], b["son"]))})</span>'
+                                                    if b["ilk"] else ""),
+                     str(b["il_liman"]), f'<span class="uyari">{b["il_acik"]}</span>' if b["il_acik"] else "0", str(b["bekleme"])])
+    if not rows:
+        return ""
     return ('<h2>Basında adı geçen tankerler bu veride</h2><p class="not">Haberlerde Ceyhan’dan İsrail’e petrol taşıdığı '
             'yazılan tankerler ve bu sitenin Global Fishing Watch verisinde gördükleri. Haberdeki bilgiler gemi '
             'dosyalarında “Basında” başlığında, kaynağıyla.</p>'

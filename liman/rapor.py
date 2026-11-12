@@ -89,7 +89,7 @@ def ships(recs: list[dict], y: str, vessels: dict, m2k: dict, pages: set[str], b
 
 def _harita_link(directions, r) -> str:
     y = "" if r["y"] == directions[0] else f"y={quote(r['y'])}&"
-    return f"../index.html#{y}sec={r['id']}"
+    return f"../harita.html#{y}sec={r['id']}"
 
 
 def _sefer_li(cfg, E, directions, r) -> str:
@@ -111,7 +111,7 @@ def _satir(cfg, E, directions, s: dict, top: int) -> str:
     if len(s["hatlar"]) > 2:
         hat += f', <small>{len(s["hatlar"]) - 2} hat daha</small>'
     ailesi = ", ".join(f'{harita.FAMILY_LABELS[a].lower()} {s["aile"][a]}' for a in harita.FAMILY_ORDER if s["aile"].get(a))
-    baglanti = ([f'<a href="../index.html#q={quote(str(s["mmsi"] or s["ad"]))}">Haritada bütün seferleri</a>']
+    baglanti = ([f'<a href="../harita.html#q={quote(str(s["mmsi"] or s["ad"]))}">Haritada bütün seferleri</a>']
                 if any(r["id"][0] in "cg" for r in s["seferler"]) else [])
     if s["sayfa"]:
         baglanti.append(f'<a href="../gemiler/{E(s["sayfa"])}.html">Gemi sayfası</a>')

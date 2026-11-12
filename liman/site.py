@@ -17,7 +17,7 @@ from collections import Counter
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import harita, proof, rapor, tanker
+from . import anasayfa, harita, makale, ozet, proof, rapor, tanker
 from .db import get_meta
 from .routes import CLASS_LABELS, vessel_keys
 from .util import SHIP_GROUP_LABELS, add_hours, hazard_category, iso, now_utc, parse_iso, ship_group
@@ -39,11 +39,13 @@ def _dene(ad: str, fn, *a, **k):
 WEB = Path(__file__).parent / "web"
 ASSETS = ("stil.css", "ortak.js", "harita.js", "gemi.js")
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
-NAV = [("index.html", "Harita", "harita"), ("raporlar/index.html", "Raporlar", "raporlar"),
-       ("tankerler/index.html", "Tankerler", "tankerler"),
-       ("beyan.html", "Beyan testi", "beyan"), ("gemiler/index.html", "Gemiler", "gemiler"),
-       ("limanlar/index.html", "Limanlar", "limanlar"), ("gecmis.html", "Geçmiş tarama", "gecmis"),
-       ("kanit.html", "Kanıt zinciri", "kanit"), ("yontem.html", "Yöntem", "yontem")]
+# Ana menü sade: özet, rapor, harita, gemiler, tankerler, yöntem. Diğer sayfalar (beyan testi, canlı takip, limanlar,
+# geçmiş tarama, kanıt zinciri) Yöntem sayfasından ve ilgili yerlerden açılır; adresleri değişmez.
+NAV = [("index.html", "Özet", "ozet"), ("rapor/index.html", "Rapor", "rapor"), ("harita.html", "Harita", "harita"),
+       ("raporlar/index.html", "Gemiler", "raporlar"), ("tankerler/index.html", "Tankerler", "tankerler"),
+       ("yontem.html", "Yöntem", "yontem")]
+# menüde olmayan sayfaların menüde hangi bölümün altında görüneceği
+NAV_UST = {"beyan": "ozet", "gemiler": "raporlar", "limanlar": "yontem", "gecmis": "yontem", "kanit": "yontem"}
 TEMA = "<script>try{var t=localStorage.getItem('tema');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>"
 EVENT_LABELS = {"gap": "AIS sinyali kesildi", "stop": "Açık denizde uzun durdu", "sts": "Denizde başka bir gemiyle buluştu",
                 "draught": "Limanda olmadan su çekimi değişti", "spoof": "Konum tutarsızlığı"}
@@ -115,8 +117,9 @@ def _page(cfg, title: str, body: str, depth: int, active: str, *, app: bool = Fa
           head: str = "") -> str:
     r = "../" * depth
     v = cfg._surum
-    nav = "".join(f'<a href="{r}{h}"{" aria-current=page" if k == active else ""}>{E(t)}</a>'
-                  for h, t, k in NAV if (k != "gecmis" or cfg._has_gecmis) and (k != "beyan" or cfg.directions))
+    aktif = NAV_UST.get(active, active)
+    nav = "".join(f'<a href="{r}{h}"{" aria-current=page" if k == aktif else ""}>{E(t)}</a>'
+                  for h, t, k in NAV if (k not in ("rapor", "ozet") or cfg.directions))
     ad, alt = _marka(cfg)
     kurgu = ('<div class="kurgu">Kurgusal deneme verisi: limanlar, ülkeler ve gemiler test için uydurulmuştur; '
              'gerçek bir olayı göstermez.</div>') if cfg.fictional else ""
@@ -254,6 +257,13 @@ def _index(cfg, recs, meta) -> str:
                  desc=f"{head}. {sub}")
 
 
+def _ana(cfg, o) -> str:
+    d = next(iter(o["yonler"].values()), None)
+    desc = (f"Türkiye’nin İsrail’le ticareti durdurduğunu açıkladığı 2 Mayıs 2024’ten bu yana Türk limanlarından İsrail limanlarına "
+            f"{_n(d['sonra'])} sefer, {_n(d['gemi_sonra'])} gemi.") if d else cfg.description
+    return _page(cfg, "Beyan ve kayıt", anasayfa.build(cfg, o, E), 0, "ozet", desc=desc)
+
+
 # --------------------------------------------------------------------------- beyan
 def _aylik(recs, y):
     sel = [r for r in recs if r["y"] == y]
@@ -286,7 +296,7 @@ def _beyan(cfg, recs, live_routes, port_name) -> str:
         y = f"{A}>{B}"
         b.append(f'<h2>{E(cfg.country_name(A))} → {E(cfg.country_name(B))}</h2>'
                  f'<p class="not">Canlı kayıt ve geçmiş tarama birlikte. Ayrıntılar ve uydu bağlantıları için '
-                 f'<a href="index.html#y={E(y)}">haritada aç</a>.</p>')
+                 f'<a href="harita.html#y={E(y)}">haritada aç</a>.</p>')
         b.append(_tbl(head, _aylik(recs, y), num=(1, 2, 3, 4, 5)))
         rows = []
         for r in [x for x in live_routes if x["direction"] == y][:60]:
@@ -294,7 +304,7 @@ def _beyan(cfg, recs, live_routes, port_name) -> str:
                          f'{E(port_name.get(r["origin_port"], r["origin_port"]))}<br><span class="not">{E(_tarih(cfg, r["t_dep"]))}</span>',
                          (f'{E(port_name.get(r["dest_port"], r["dest_port"]))}<br><span class="not">{E(_tarih(cfg, r["t_arr"]))}</span>'
                           if r["dest_port"] else '<span class="uyari">Kayıtsız</span>'),
-                         _isaret(r["cls"]), f'<a href="index.html#sec=c{r["id"]}">Haritada</a>'])
+                         _isaret(r["cls"]), f'<a href="harita.html#sec=c{r["id"]}">Haritada</a>'])
         b.append("<h3>Canlı kayıttaki son seferler</h3>" + _tbl(["Gemi", "Çıkış", "Varış", "Tür", ""], rows,
                                                                  bos="Canlı kayıtta henüz sefer yok."))
     b.append("</main>")
@@ -344,7 +354,7 @@ def _gemi(cfg, con, key, mmsis, vessels, tracking, port_name, names) -> str:
                  _isaret(r["cls"]) + (f'<br><span class="not">Yükü veren: {E(r["via_name"])}</span>'
                                        if r["via_mmsi"] and r["mmsi"] in mmsis else ""),
                  f'{E(r["cargo"] or "–")}<br><span class="not">güven: {E(r["cargo_conf"] or "–")}</span>',
-                 f'<a href="../index.html#sec=c{r["id"]}">Haritada</a>'] for r in routes]
+                 f'<a href="../harita.html#sec=c{r["id"]}">Haritada</a>'] for r in routes]
         b.append("<h2>Seferler</h2>" + _tbl(["Çıkış", "Varış", "Tür", "Muhtemel yük", ""], rows))
     b.append("<h2>Liman ziyaretleri</h2>" + _tbl(["Liman", "Giriş", "Çıkış", "Terminal", "Su çekimi", "Beyan edilen varış"], [
         [E(port_name.get(v["port"], v["port"])), E(_tarih(cfg, v["t_in"], True)),
@@ -492,7 +502,7 @@ def _gecmis(cfg, recs, st) -> str:
          '<p class="not"><a href="https://globalfishingwatch.org">Powered by Global Fishing Watch.</a> Veri lisansı CC BY-NC 4.0, '
          'ticari olmayan kullanım. Bu kayıtlar GFW’nin hesapladığı olaylara dayanır ve bu sitenin kanıt zincirinde ham verisi '
          'yoktur; her kaydın uydu bağlantılarıyla elle doğrulanması önerilir.</p>',
-         '<p class="eylemler"><a class="eylem ana" href="index.html#k=g">Geçmiş taramayı haritada gör</a>'
+         '<p class="eylemler"><a class="eylem ana" href="harita.html#k=g">Geçmiş taramayı haritada gör</a>'
          '<a class="eylem" href="veri/gecmis.json">Bütün kayıtlar (JSON)</a></p>']
     head = ["Ay"] + [harita.FAMILY_LABELS[k] for k in harita.FAMILY_ORDER] + ["Toplam"]
     for (A, B) in cfg.directions:
@@ -535,6 +545,10 @@ def _yontem(cfg) -> str:
     body = f'''<main class="sayfa" id="icerik"><header><h1>Yöntem ve sınırlar</h1><p class="giris">Bu site gemilerin kendi
 yayınladığı AIS mesajlarını toplar, liman ziyaretlerini ve açık denizdeki davranışları kurala dayalı olarak sınıflandırır.
 Kurallar aşağıda; aynı veriden herkes aynı sonuca ulaşabilir.</p></header>
+<nav class="alt-sayfalar" aria-label="Ayrıntılı sayfalar"><a href="rapor/index.html">Rapor (makale)</a>
+<a href="beyan.html">Beyan testi: aylık karşılaştırma</a><a href="gemiler/index.html">Canlı takipteki gemiler</a>
+<a href="limanlar/index.html">Limanlar ve kapsama</a>{'<a href="gecmis.html">Geçmiş tarama durumu</a>' if cfg._has_gecmis else ""}
+<a href="kanit.html">Kanıt zinciri</a></nav>
 <h2>Veri</h2><p>Canlı kayıt: AIS mesajları <a href="https://aisstream.io">aisstream.io</a> üzerinden toplanır. Kaydedilen her mesaj
 değiştirilmeden günlük ham dosyaya yazılır; aynı geminin çok sık tekrarlanan konumları seyreltilir. Limanların çevresindeki
 bütün gemiler ve takipteki gemiler dünyanın her yerinde dinlenir. Toplayıcının veri alamadığı süreler kesinti olarak kaydedilir.
@@ -646,7 +660,7 @@ def build(cfg, con) -> None:
     chain = proof.read_chain(cfg)
     live_routes = [dict(r) for r in con.execute("SELECT * FROM routes ORDER BY t_arr DESC")]
 
-    _write(out / "index.html", _index(cfg, recs, meta))
+    _write(out / "harita.html", _index(cfg, recs, meta))
     if cfg.directions:
         _write(out / "beyan.html", _beyan(cfg, recs, live_routes, port_name))
     else:
@@ -664,7 +678,14 @@ def build(cfg, con) -> None:
         _write(gdir / f"{key}.html", _gemi(cfg, con, key, mmsis, vessels, tracking, port_name, names))
     _write(gdir / "index.html", _gemiler(cfg, con, keys, vessels, tracking))
     _dene("raporlar", rapor.build, cfg, con, recs, out)
-    _dene("tanker dosyaları", tanker.build, cfg, con, recs, out)
+    ds = _dene("tanker dosyaları", tanker.build, cfg, con, recs, out) or []
+    # özet: ana sayfa ve rapor aynı sayılardan
+    o = _dene("özet", ozet.hesapla, cfg, con, recs, ds)
+    if o is not None:
+        _dene("ana sayfa", lambda: _write(out / "index.html", _ana(cfg, o)))
+        _dene("rapor", makale.build, cfg, o, out)
+    else:
+        _write(out / "index.html", _index(cfg, recs, meta))
     _dene("limanlar", _limanlar, cfg, con, days, keys)
     if cfg._has_gecmis:
         _dene("geçmiş tarama", lambda: _write(out / "gecmis.html", _gecmis(cfg, recs, gecmis_state)))

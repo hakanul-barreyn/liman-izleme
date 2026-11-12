@@ -1,0 +1,72 @@
+# Rapor PDF: raporun Türkçe ve İngilizce sürümünü son kaydedilmiş veriyle üretir, PDF'e yazdırır ve
+# GitHub Releases'ta tarihli bir sürüm (rapor-YYYY-AA-GG) ile "rapor-son" adında en son sürüm olarak yayımlar.
+# Sürüm notlarında her PDF'in ve veri kesitinin SHA-256 özeti yazar; kurumlara teslim edilen dosya bu özetle doğrulanır.
+name: Rapor PDF
+
+on:
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rapor-pdf
+  cancel-in-progress: true
+
+jobs:
+  pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Kütüphaneleri kur
+        run: |
+          pip install -q -r requirements.txt playwright
+          python -m playwright install --with-deps chromium
+      - name: Son durumu önbellekten al
+        uses: actions/cache/restore@v4
+        with:
+          path: _durum
+          key: durum-pdf-${{ github.run_id }}
+          restore-keys: durum-
+      - name: Siteyi son verilerle üret
+        run: |
+          python -m liman durum-yukle _durum
+          python -m liman gecmis || true
+          python -m liman saatlik
+          bash kurulum/vendor.sh site/vendor
+      - name: Raporu PDF olarak yazdır
+        run: python kurulum/rapor_pdf.py site _pdf
+      - name: Tarihli sürüm ve en son sürüm olarak yayımla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gun=$(date -u +%F)
+          python - > _pdf/notlar.md <<'EOF'
+          import json
+          o = json.load(open("_pdf/ozet.json"))
+          print("Avvam raporu: Beyan ve kayıt / Declaration and record.")
+          print()
+          print(f"Veri kesitinin SHA-256 özeti / data snapshot digest: `{o.get('veri_hash')}`")
+          print()
+          for d in ("tr", "en"):
+              if d in o:
+                  print(f"- {o[d]['dosya']} ({o[d]['tarih']}): SHA-256 `{o[d]['sha256']}`")
+          print()
+          print("Doğrulama / verify: `sha256sum avvam-rapor-tr.pdf`")
+          EOF
+          cat _pdf/notlar.md
+          dosyalar="_pdf/avvam-rapor-tr.pdf _pdf/avvam-rapor-en.pdf _pdf/ozet.json site/veri/rapor-ozet.json site/veri/rapor-kesit.json"
+          gh release create "rapor-$gun" $dosyalar --title "Rapor $gun" --notes-file _pdf/notlar.md --latest=false \
+            || gh release upload "rapor-$gun" $dosyalar --clobber
+          gh release edit "rapor-$gun" --notes-file _pdf/notlar.md || true
+          gh release view rapor-son >/dev/null 2>&1 \
+            || gh release create rapor-son --title "Rapor (en son sürüm)" --notes-file _pdf/notlar.md --latest=false
+          gh release upload rapor-son $dosyalar --clobber
+          gh release edit rapor-son --notes-file _pdf/notlar.md

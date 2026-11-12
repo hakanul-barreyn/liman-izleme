@@ -358,6 +358,9 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
     pv_extra = {"confidences": ["3", "4"]}
     plan = _Plan(con, client, deadline)
     errors = False
+    # öncelik grubu -> [tamamlanan, toplam] gemi sorgusu (-1 basın, 0 varış limanı, 1 Ceyhan ve kıyı açığı,
+    # 2 varış limanı erken dönem, 3 Ceyhan erken dönem, 4-5 diğerleri)
+    oncelik: dict[str, list[int]] = {}
     segs = segments(t, today)
     try:
         # 1) ana tarama
@@ -423,9 +426,14 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
 
         def yurut(isler):
             for _p, _i, vid, w0, w1 in sorted(isler):
+                say = oncelik.setdefault(str(_p), [0, 0])
+                say[1] += 1
+                once = plan.done
                 for ds, kind in ((DS_PV, "v_pv"), (DS_GAP, "v_gap")):
                     plan.ensure(f"{kind}:{vid}:{w0}:{w1}",
                                 lambda ds=ds, vid=vid, w0=w0, w1=w1: client.vessel_events(ds, vid, w0, w1))
+                if plan.done - once == 2:
+                    say[0] += 1
         # önce basındaki gemiler ve varış limanlarına uğrayanlar; sonra kıyı açığı sorguları; sonra kalanlar
         yurut([g for g in gorev if g[0] <= 0])
         gorev = [g for g in gorev if g[0] > 0]
@@ -472,6 +480,7 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
     complete = not plan.out and not errors
     n = compute(cfg, con)
     status = {"hedef": t, "tamam": complete, "imza": _imza(cfg, t), "gorev": [plan.done, plan.total], "kayit": n,
+              "oncelik": oncelik,
               "dilim": len(segs), "son_dilim": segs[-1][1] if segs else None,
               "istek": client.requests if client else 0, "guncelleme": iso(now_utc())}
     set_meta(con, "gecmis_durum", json.dumps(status))
