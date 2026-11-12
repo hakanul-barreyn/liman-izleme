@@ -140,7 +140,21 @@ def hesapla(cfg, con, recs: list[dict], tankerler: list[dict] | None = None) -> 
         }
     # tankerler
     ds = tankerler or []
+    # Ceyhan'dan çıkıp İsrail limanına kayıtlı varışı olan tanker seferleri (en yeni önce): somut örnekler
+    cey_ornek = []
+    for d in ds:
+        for s_ in d["seferler"]:
+            if (s_.get("ter") or "").startswith("Ceyhan") and s_.get("duzey") in ("kayitli", "aktarma") and \
+                    (s_.get("t0") or "") >= (beyan or ""):
+                cey_ornek.append({"ad": d["ad"], "anahtar": d["anahtar"], "imo": d["imo"], "bayrak": d["bayrak"],
+                                  "dogrulandi": d["dogrulandi"], "t0": s_.get("t0"), "t1": s_.get("t1"), "d": s_.get("d"),
+                                  "ara": s_.get("ara") or [], "id": s_.get("id")})
+    cey_ornek.sort(key=lambda x: x["t1"] or "", reverse=True)
     out["tanker"] = {
+        "ceyhan_kayitli": len({x["anahtar"] for x in cey_ornek}), "ceyhan_kayitli_sefer": len(cey_ornek),
+        "ceyhan_gizli": sum(1 for d in ds if any((s_.get("ter") or "").startswith("Ceyhan") and
+                                                s_.get("duzey") in ("acik", "iz", "bekleme", "karanlik") for s_ in d["seferler"])),
+        "ceyhan_ornek": cey_ornek[:8],
         "gemi": len(ds), "sefer": sum(len(d["seferler"]) for d in ds),
         "dogrulanan": sum(1 for d in ds if d["dogrulandi"]),
         "duzey": Counter(s["duzey"] for d in ds for s in d["seferler"]),

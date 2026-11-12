@@ -19,6 +19,14 @@ YON_SVG = {
 }
 
 
+def _ts(s: str | None) -> float:
+    import datetime as dt
+    try:
+        return dt.datetime.fromisoformat((s or "").replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+
+
 def _sayi(n) -> str:
     return f"{n:,}".replace(",", ".") if isinstance(n, int) else str(n).replace(".", ",")
 
@@ -99,9 +107,17 @@ def build(cfg, o: dict, E) -> str:
     if test.get("ceyhan"):
         ek = (f' Ayrıca {_sayi(o["ceyhan"]["il_acik"])} Ceyhan çıkışında AIS sinyali İsrail açıklarında kesildi ya da orada '
               'yeniden geldi.') if o["ceyhan"]["il_acik"] else ""
+        # örnek: önce Aşkelon'daki EAPC petrol terminaline varan ve tankerliği doğrulanan sefer
+        adaylar = sorted(tk.get("ceyhan_ornek") or [], key=lambda x: ("Aşkelon" not in (x.get("d") or ""),
+                                                                       not x.get("dogrulandi"), -_ts(x.get("t1"))))
+        orn = adaylar[0] if adaylar else None
+        ornek = ""
+        if orn:  # Türkçe tarih eki tarihe göre değişir: "… tarihinde" kalıbı her tarihte doğru
+            ornek = (f' Örnek: <a href="tankerler/{E(orn["anahtar"])}.html">{E(orn["ad"])}</a> {E(_gun(orn["t0"]))} tarihinde '
+                     f'Ceyhan’dan çıktı, {E(_gun(orn["t1"]))} tarihinde {E(_lim(orn["d"]))} limanına vardı.')
         ekle(test["ceyhan"], f'<p><b>{_sayi(cey)} sefer</b> Ceyhan terminallerinin önünden çıkıp {E(B)} limanına '
-                             f'ya da açıklarına gitti; tanker dosyalarında {_sayi(tk["gemi"])} gemi, {_sayi(tk["sefer"])} sefer var.'
-                             f'{ek}</p>', '<a href="tankerler/index.html">Tanker dosyaları</a>')
+                             f'ya da açıklarına gitti; {_sayi(tk.get("ceyhan_kayitli", 0))} tanker ya da muhtemel tanker İsrail '
+                             f'limanına kayıtlı olarak vardı.{ornek}{ek}</p>', '<a href="tankerler/index.html">Tanker dosyaları</a>')
     if test.get("bayrak") and o.get("liman_kisit"):
         ekle(test["bayrak"], f'<p><b>{_sayi(d["kisit_sonra"])} sefer</b> bu açıklamadan sonra {E(A)} limanından {E(B)} '
                              f'limanına vardı. Bunların {_sayi(d["tr_bayrak_kisit"])} tanesinde gemi Türk bayraklıydı; '
@@ -110,8 +126,8 @@ def build(cfg, o: dict, E) -> str:
     if test.get("hepsi") and ithal:
         ekle(test["hepsi"], f'<p><b>{_sayi(ithal["sonra"])} sefer</b> {E(B)} limanından çıkıp {E(A)} limanına vardı '
                             f'({_sayi(ithal["gemi_sonra"])} gemi); ayda ortalama {_sayi(ithal["ort_sonra"])}. '
-                            f'Gemi hareketi yükün Filistin’e mi, {E(B)}’e mi gittiğini göstermez; bu ayrım için raporda '
-                            'sefer sayısı savaş öncesiyle karşılaştırılıyor.</p>',
+                            f'Gemi hareketi yükün nereden geldiğini (Filistin mi, {E(B)} mi) göstermez; bu ayrım için '
+                            'raporda sefer sayısı savaş öncesiyle karşılaştırılıyor.</p>',
             '<a href="rapor/index.html#tartisma">Raporda tartışma</a>')
     karsi = (f'<section class="karsi" aria-labelledby="k-baslik"><h2 id="k-baslik">Açıklamalar ve kayıtlar</h2>'
              f'<p class="giris-kisa">Her resmî açıklamanın yanında, aynı dönemde gemi kayıtlarının gösterdiği.</p>'

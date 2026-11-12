@@ -247,7 +247,7 @@ def _tr(cfg, o, E) -> str:
                           [[f'<a href="../tankerler/{E(t["anahtar"])}.html"><b>{E(t["ad"])}</b></a>' + (" *" if t["basin"] else ""),
                             E(t["imo"] or "–"), E(t["bayrak"] or "–"), E(_duzey_tr(t["duzey"])), n(t["n"])]
                            for t in tk["ornekler"][:10]], num=(4,),
-                          baslik="Tablo 7. Tanker dosyalarından örnekler (en güçlü kanıt önce)",
+                          baslik="Tablo 8. Tanker dosyalarından örnekler (en güçlü kanıt önce)",
                           not_="* Basında da adı geçiyor. Her geminin dosyasında seferler, AIS’in kesildiği ve yeniden geldiği "
                                "noktalar ve o günlere ait uydu görüntüsü bağlantıları var.")
     kaynak = "".join(f'<li>{E(m)} <a href="{E(u)}" rel="noopener">{E(u)}</a></li>' for m, u in _kaynakca(o))
@@ -386,7 +386,8 @@ uğramadan {th.get("limansiz_donus_gun") or 20} gün içinde Ceyhan’a döndü:
 çıkışta geminin AIS konumu bir sonraki liman uğrağından önce İsrail açıklarında ya da Beyrut havalimanındaki sahte konum noktasında
 göründü{(", bunların " + n(cy["iz_donus"]) + " tanesi limansız dönüş") if cy.get("iz_donus") else ""}. Tanker dosyalarında
 {n(tk["gemi"])} gemi ve {n(tk["sefer"])} sefer var; bunların
-{n(tk["dogrulanan"])} gemisinin tanker olduğu AIS tipi, iskele, rota ya da basın kaydıyla doğrulandı (Tablo 7). {_basin_tr(o)}</p>
+{n(tk["dogrulanan"])} gemisinin tanker olduğu AIS tipi, iskele, rota ya da basın kaydıyla doğrulandı (Tablo 8). İsrail limanına kayıtlı varışı olan Ceyhan seferleri Tablo 7’de. {_basin_tr(o)}</p>
+{_cey_ornek_tr(o, E)}
 {tablo_tanker}
 <h3>4.7 İsrail’den Türkiye’ye seferler</h3>
 <p>{(f"Aynı dönemde İsrail limanlarından çıkıp Türk limanlarına varan {n(i['sonra'])} sefer ({n(i['gemi_sonra'])} gemi, ayda ortalama "
@@ -433,8 +434,7 @@ GFW verisi kullanıldı.</li>
 <p>Gemilerin kendi yayınladığı konum sinyallerinden üretilen açık kayıtlar, Türkiye’nin İsrail’le ticareti durdurduğunu açıkladığı
 2 Mayıs 2024’ten sonra Türk limanlarından İsrail limanlarına gemi seferlerinin durmadığını gösteriyor: {n(d["sonra"])} sefer,
 {n(d["gemi_sonra"])} gemi ve {sifir_tr_kisa}. Seferlerin bir bölümü üçüncü ülke limanları üzerinden yapıldı, bir
-bölümünde gemi yolda AIS sinyalini kapattı. Ceyhan’dan çıkan tankerlerin bir kısmı İsrail limanlarına girdi ya da İsrail açıklarında
-sinyalini kapattı. Bu bulgular yükün sahibini ve ticaretin taraflarını belirlemez; ancak her sefer gemi adı, IMO numarası, liman ve
+bölümünde gemi yolda AIS sinyalini kapattı. {_cey_sonuc_tr(o)} Bu bulgular yükün sahibini ve ticaretin taraflarını belirlemez; ancak her sefer gemi adı, IMO numarası, liman ve
 saatle listelendiği için, yetkili kurumlar bu listeyi gümrük beyannameleri, konşimentolar ve liman kayıtlarıyla doğrulayabilir.
 Önerimiz, bu listenin bağımsız denetimle karşılaştırılması ve uyumsuzlukların kamuoyuyla paylaşılmasıdır.</p>
 
@@ -451,6 +451,54 @@ Türkiye (CSV)</a>; tankerler: <a href="../tankerler/tankerler.csv">tankerler.cs
 <h2 id="kaynakca">Kaynakça</h2><ol class="kaynakca">{kaynak}</ol>'''
 
 
+def _cey_sonuc_tr(o) -> str:
+    t = o["tanker"]
+    if t.get("ceyhan_kayitli"):
+        return (f"Ceyhan terminallerinin önünden çıkan {t['ceyhan_kayitli']} tanker ya da muhtemel tanker beyandan sonra İsrail limanına "
+                f"girdi ({t['ceyhan_kayitli_sefer']} sefer); {t.get('ceyhan_gizli', 0)} tanker ya da muhtemel tankerin Ceyhan çıkışlı "
+                "seferlerinde AIS sinyali kapandı ya da konumu gizlendi.")
+    if t.get("ceyhan_gizli"):
+        return (f"Ceyhan terminallerinin önünden çıkan {t['ceyhan_gizli']} tanker ya da muhtemel tankerin seferlerinde AIS sinyali "
+                "kapandı ya da konumu gizlendi; bu sürümde Ceyhan’dan İsrail limanına kayıtlı tanker varışı yok.")
+    return "Bu sürümde Ceyhan’dan İsrail’e kayıtlı tanker seferi yok; Ceyhan gemilerinin geçmiş taraması sürüyor."
+
+
+def _cey_sonuc_en(o) -> str:
+    t = o["tanker"]
+    if t.get("ceyhan_kayitli"):
+        return (f"{t['ceyhan_kayitli']} tankers or probable tankers leaving the Ceyhan terminals entered Israeli ports after the "
+                f"declaration ({t['ceyhan_kayitli_sefer']} voyages); on voyages from Ceyhan of {t.get('ceyhan_gizli', 0)} tankers or "
+                "probable tankers the AIS signal went off or the position was concealed.")
+    if t.get("ceyhan_gizli"):
+        return (f"On voyages from Ceyhan of {t['ceyhan_gizli']} tankers or probable tankers the AIS signal went off or the position "
+                "was concealed; this version has no recorded tanker arrival from Ceyhan at an Israeli port.")
+    return "This version has no recorded tanker voyage from Ceyhan to Israel; the historical scan of Ceyhan vessels is in progress."
+
+
+def _cey_ornek_tr(o, E) -> str:
+    xs = o["tanker"].get("ceyhan_ornek") or []
+    if not xs:
+        return ""
+    rows = [[f'<a href="../tankerler/{E(x["anahtar"])}.html"><b>{E(x["ad"])}</b></a>', E(x["imo"] or "–"), E(x["bayrak"] or "–"),
+             E(_gun(x["t0"])), E(", ".join(x["ara"]) or "–"), E(liman_tr(x["d"])), E(_gun(x["t1"]))] for x in xs]
+    return _tablo(E, ["Gemi", "IMO", "Bayrak", "Ceyhan’dan çıkış", "Ara liman", "Varış", "Varış tarihi"], rows,
+                  baslik="Tablo 7. Ceyhan terminallerinin önünden çıkıp İsrail limanına kayıtlı varışı olan tanker seferleri (en yeni önce)",
+                  not_="Varış, Global Fishing Watch’ın liman ziyareti kaydıdır (gemi o limanın demirleme ya da iskele alanında görüldü).")
+
+
+def _cey_ornek_en(o, E) -> str:
+    xs = o["tanker"].get("ceyhan_ornek") or []
+    if not xs:
+        return ""
+    rows = [[f'<a href="../tankerler/{E(x["anahtar"])}.html"><b>{E(x["ad"])}</b></a>', E(x["imo"] or "–"), E(x["bayrak"] or "–"),
+             E(_gun(x["t0"], True)), E(", ".join(liman_en(a) for a in x["ara"]) or "–"), E(liman_en(x["d"])), E(_gun(x["t1"], True))]
+            for x in xs]
+    return _tablo(E, ["Vessel", "IMO", "Flag", "Left Ceyhan", "Intermediate port", "Arrival", "Arrival date"], rows,
+                  baslik="Table 7. Tanker voyages from the Ceyhan terminals with a recorded arrival at an Israeli port (latest first)",
+                  not_="The arrival is a Global Fishing Watch port-visit record (the vessel was seen in the anchorage or berth area of "
+                       "that port). Flag names in Turkish.")
+
+
 def _basin_tr(o) -> str:
     b = o.get("basin") or []
     if not b:
@@ -458,7 +506,8 @@ def _basin_tr(o) -> str:
     p = []
     for x in b:
         if not x["taranan"]:
-            p.append(f"{x['ad']} Ceyhan’a {len(x['alan'])} kez uğradı (geçmişi taranıyor)")
+            p.append(f"{x['ad']} Ceyhan’a {len(x['alan'])} kez uğradı (geçmişi taranıyor)" if x["alan"]
+                     else f"{x['ad']} için geçmiş taraması sürüyor")
         else:
             p.append(f"{x['ad']} Ceyhan’dan {x['cikis']} kez çıktı; bunların {x['il_liman']} tanesinde sonraki uğrak İsrail limanı, "
                      f"{x['il_acik']} tanesinde AIS sinyali İsrail açıklarında kesildi ya da orada yeniden geldi")
@@ -478,7 +527,8 @@ def _basin_en(o) -> str:
     p = []
     for x in b:
         if not x["taranan"]:
-            p.append(f"{x['ad']} called at Ceyhan {len(x['alan'])} times (history scan in progress)")
+            p.append(f"{x['ad']} called at Ceyhan {len(x['alan'])} times (history scan in progress)" if x["alan"]
+                     else f"the history scan of {x['ad']} is in progress")
         else:
             p.append(f"{x['ad']} left Ceyhan {x['cikis']} times; the next call was an Israeli port in {x['il_liman']} of them, and in "
                      f"{x['il_acik']} the AIS signal stopped or resumed near Israel")
@@ -574,7 +624,7 @@ def _en(cfg, o, E) -> str:
     t_tank = _tablo(E, ["Vessel", "IMO", "Evidence", "Voyages"],
                     [[f'<a href="../tankerler/{E(t["anahtar"])}.html"><b>{E(t["ad"])}</b></a>' + (" *" if t["basin"] else ""),
                       E(t["imo"] or "–"), E(DUZEY_EN.get(t["duzey"], t["duzey"])), n(t["n"])] for t in tk["ornekler"][:10]],
-                    num=(3,), baslik="Table 7. Examples from the tanker files (strongest evidence first)",
+                    num=(3,), baslik="Table 8. Examples from the tanker files (strongest evidence first)",
                     not_="* Also named in press reports. Each vessel file lists its voyages, the points where AIS went off and came "
                          "back on, and satellite imagery links for those dates (in Turkish).")
     refs = "".join(f'<li>{E(m)} <a href="{E(u)}" rel="noopener">{E(u)}</a></li>' for m, u in _kaynakca(o, en=True))
@@ -722,7 +772,8 @@ or resumed near Israel. In {n(cy["donus"])} departures ({n(cy["donus_gemi"])} ve
 {n(cy["iz"])} departures the vessel’s AIS position appeared off Israel or at the spoofed position at Beirut airport before its next port
 call{(", " + n(cy["iz_donus"]) + " of them returns without a port call") if cy.get("iz_donus") else ""}. The tanker files contain
 {n(tk["gemi"])} vessels and {n(tk["sefer"])} voyages; for {n(tk["dogrulanan"])} of these
-vessels the tanker type is confirmed by AIS type, berth, route or press record (Table 7). {_basin_en(o)}</p>
+vessels the tanker type is confirmed by AIS type, berth, route or press record (Table 8). Voyages from Ceyhan with a recorded arrival at an Israeli port are listed in Table 7. {_basin_en(o)}</p>
+{_cey_ornek_en(o, E)}
 {t_tank}
 <h3>4.7 Voyages from Israel to Türkiye</h3>
 <p>{imp}</p>
@@ -766,7 +817,7 @@ were used for these ports.</li>
 <p>Open records derived from the position signals that ships broadcast themselves show that vessel voyages from Turkish to Israeli ports
 did not stop after 2 May 2024, when Türkiye declared that it had halted trade with Israel: {n(d["sonra"])} voyages, {n(d["gemi_sonra"])}
 vessels, and {sifir_en_kisa}. Some voyages went via third-country ports; in some, the vessel switched off
-its AIS en route. Some tankers leaving Ceyhan entered Israeli ports or switched off their signal near Israel. These findings do not
+its AIS en route. {_cey_sonuc_en(o)} These findings do not
 identify the owner of the cargo or the parties to the trade; but because every voyage is listed with vessel name, IMO number, port and
 time, competent authorities can verify the list against customs declarations, bills of lading and port records. We recommend that the
 list be compared with these records under independent oversight and that discrepancies be made public.</p>
