@@ -10,7 +10,7 @@
 
   /* ---------- durum ---------- */
   const durum = {
-    y: ayar.yonler[0], aile: new Set(), kaynak: new Set(['c', 'g']), q: '', t: null, sec: null, hat: null, limit: 80,
+    y: ayar.yonler[0], aile: new Set(), kaynak: new Set(['c', 'g']), q: '', t: null, sec: null, hat: null, petrol: '', limit: 80,
     katman: { canli: true, olay: false, sahte: false },
   };
   let VERI = null, KAYIT = [], ID = new Map(), AILE = [], ALAN = null, CANLI = null, OLAY = null;
@@ -44,6 +44,7 @@
     }
     if (p.get('sec')) durum.sec = p.get('sec');
     if (p.get('hat')) durum.hat = p.get('hat');
+    if (p.get('p') === 'sv' || p.get('p') === 'ceyhan') durum.petrol = p.get('p');
   }
   function hashYaz() {
     const p = new URLSearchParams();
@@ -53,6 +54,7 @@
     if (durum.q) p.set('q', durum.q);
     if (durum.t) p.set('t', `${ayKodu(durum.t[0])}_${ayKodu(durum.t[1])}`);
     if (durum.hat) p.set('hat', durum.hat);
+    if (durum.petrol) p.set('p', durum.petrol);
     if (durum.sec) p.set('sec', durum.sec);
     const h = p.toString();
     history.replaceState(null, '', h ? `#${h}` : location.pathname + location.search);
@@ -65,7 +67,9 @@
     return (r.n || '').toLocaleLowerCase('tr').includes(q) || String(r.m || '').includes(q) || String(r.imo || '').includes(q);
   }
   const hatta = (r) => !durum.hat || (r._hat && r._hat.has(durum.hat));
-  const kaynaksiz = (r) => r.y === durum.y && aramaUyar(r) && hatta(r);
+  const ceyhanMi = (r) => !!r.ter && r.ter.startsWith('Ceyhan');
+  const petrolUyar = (r) => !durum.petrol || (durum.petrol === 'ceyhan' ? ceyhanMi(r) : !!r.sv);
+  const kaynaksiz = (r) => r.y === durum.y && aramaUyar(r) && hatta(r) && petrolUyar(r);
   const temel = (r) => kaynaksiz(r) && durum.kaynak.has(r.s);
   const zamanda = (r) => !durum.t || (r._ay >= durum.t[0] && r._ay <= durum.t[1]);
   const uyar = (r) => temel(r) && durum.aile.has(r.a) && zamanda(r);
@@ -119,7 +123,8 @@
     const [A, B] = durum.y.split('>');
     const n = list.length;
     const karanlik = list.filter((r) => r.a === 'karanlik').length;
-    $('#manset').textContent = !durum.hat ? `${ulke(A)} limanlarından ${ulke(B)} yönüne ${LI.sayi(n)} sefer`
+    const pe = durum.petrol === 'ceyhan' ? 'Ceyhan petrol terminallerinden ' : durum.petrol ? 'petrol terminallerinden ' : '';
+    $('#manset').textContent = !durum.hat ? (pe ? `${pe.charAt(0).toLocaleUpperCase('tr') + pe.slice(1)}${ulke(B)} yönüne ${LI.sayi(n)} sefer` : `${ulke(A)} limanlarından ${ulke(B)} yönüne ${LI.sayi(n)} sefer`)
       : dugumMu(durum.hat) ? `${hatAdi(durum.hat)} üzerinden ${LI.sayi(n)} sefer`
       : `${hatAdi(durum.hat)} hattında ${LI.sayi(n)} sefer`;
     let donem;
@@ -147,6 +152,15 @@
     document.querySelectorAll('[data-k]').forEach((b) => {
       const s = b.querySelector('.sayi');
       if (s) s.textContent = LI.sayi(ks[b.dataset.k] || 0);
+    });
+    const ps = { '': 0, sv: 0, ceyhan: 0 };
+    for (const r of KAYIT) {
+      if (!(r.y === durum.y && aramaUyar(r) && hatta(r) && durum.kaynak.has(r.s) && durum.aile.has(r.a) && zamanda(r))) continue;
+      ps['']++; if (r.sv) ps.sv++; if (ceyhanMi(r)) ps.ceyhan++;
+    }
+    document.querySelectorAll('[data-p]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.p === durum.petrol));
+      const x = b.querySelector('.sayi'); if (x) x.textContent = LI.sayi(ps[b.dataset.p] || 0);
     });
     const hat = $('#hat');
     if (hat) {
@@ -233,7 +247,7 @@
   /* ---------- sefer ayrıntısı ---------- */
   function adimlar(r) {
     const out = [];
-    out.push(`<li><b>Çıkış: ${esc(r.o)}</b><span>${LI.tarih(r.t0, true)}${r.oc ? `, ${esc(ulke(r.oc))}` : ''}</span></li>`);
+    out.push(`<li><b>Çıkış: ${esc(r.o)}</b><span>${LI.tarih(r.t0, true)}${r.oc ? `, ${esc(ulke(r.oc))}` : ''}${r.ter && r.oc && r.y.startsWith(r.oc) ? `<br>Terminal: ${esc(r.ter)}` : ''}</span></li>`);
     (r.ara || []).forEach((x, i) => {
       const at = (r.at || [])[i] || [];
       const sure = at[0] && at[1] ? (Date.parse(at[1]) - Date.parse(at[0])) / 36e5 : null;
@@ -599,7 +613,7 @@
   function suzgec() {
     const f = ['all', ['==', ['get', 'y'], durum.y], ['in', ['get', 's'], ['literal', [...durum.kaynak]]], ['in', ['get', 'a'], ['literal', [...durum.aile]]]];
     if (durum.t) f.push(['>=', ['get', 'ay'], durum.t[0]], ['<=', ['get', 'ay'], durum.t[1]]);
-    if (durum.q || durum.hat) f.push(['in', ['get', 'id'], ['literal', GORUNEN.map((r) => r.id)]]);
+    if (durum.q || durum.hat || durum.petrol) f.push(['in', ['get', 'id'], ['literal', GORUNEN.map((r) => r.id)]]);
     return f;
   }
   // çok sayıda iz üst üste bindiğinde tek tek okunabilsin diye saydamlık görünen sefer sayısına göre azalır
@@ -805,6 +819,7 @@
     else if (t.id === 'geri') kapat();
     else if (t.id === 'daha') { durum.limit += 200; uygula(); }
     else if (t.id === 'hat-kapat') { durum.hat = null; durum.limit = 80; uygula(); }
+    else if (t.matches('[data-p]')) { durum.petrol = t.dataset.p; durum.limit = 80; if (durum.sec) kapat(); else uygula(); }
     else if (t.matches('.sinif')) {
       const a = t.dataset.a;
       if (durum.aile.has(a)) { if (durum.aile.size > 1) durum.aile.delete(a); } else durum.aile.add(a);

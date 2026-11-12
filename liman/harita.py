@@ -13,6 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from . import tracks
+from .config import CARGO_LABELS
 from .gecmis import CLASS_LABELS as RETRO_LABELS
 from .routes import CLASS_LABELS, vessel_keys
 from .util import SHIP_GROUP_LABELS, add_hours, iso, now_utc, ship_group
@@ -74,6 +75,10 @@ def _port_by_name(cfg):
     return {p.name: p for p in cfg.ports}
 
 
+def cfg_home(cfg) -> set[str]:
+    return {p.country for p in cfg.ports if p.role == "izlenen"}
+
+
 def voyages(cfg, con) -> list[dict]:
     out = []
     pmap = cfg.port_by_code
@@ -114,7 +119,11 @@ def voyages(cfg, con) -> list[dict]:
         if d:
             w.append(_ll(*d.area.center))
         v = vessels.get(r["mmsi"]) or {}
-        rec = {"id": f"c{r['id']}", "s": "c", "y": r["direction"], "k": r["cls"], "a": FAMILY[r["cls"]],
+        tv = con.execute("SELECT terminal FROM visits WHERE port=? AND t_out=? AND terminal IS NOT NULL LIMIT 1",
+                         (r["origin_port"], r["t_dep"])).fetchone()
+        ter = tv[0] if tv else None
+        sv = cfg.terminal_cargo(r["origin_port"], ter) == "sivi_dokme" if ter else False
+        rec = {"ter": ter, "sv": 1 if sv else None, "id": f"c{r['id']}", "s": "c", "y": r["direction"], "k": r["cls"], "a": FAMILY[r["cls"]],
                "n": r["name"], "m": r["mmsi"], "imo": v.get("imo"),
                "tip": SHIP_GROUP_LABELS[ship_group(v.get("type"))],
                "o": o.name if o else r["origin_port"], "oc": o.country if o else None, "t0": r["t_dep"],
@@ -144,7 +153,16 @@ def voyages(cfg, con) -> list[dict]:
             mmsi = int(r["ssvid"]) if r["ssvid"] else None
         except ValueError:
             mmsi = r["ssvid"]
-        out.append(_clean({"id": f"g{r['id']}", "s": "g", "y": r["direction"], "k": r["cls"], "a": FAMILY[r["cls"]],
+        # Türk tarafındaki uğrağın terminali (ihracatta çıkış, ithalatta varış)
+        home = r["origin_country"] in cfg_home(cfg)
+        la, lo = (r.get("o_lat"), r.get("o_lon")) if home else (r.get("d_lat"), r.get("d_lon"))
+        ter = cfg.locate(la, lo)[1] if la is not None and lo is not None else None
+        tcode = cfg.locate(la, lo)[0] if ter else None
+        sv = cfg.terminal_cargo(tcode, ter) == "sivi_dokme" if ter else False
+        out.append(_clean({"ter": ter, "sv": 1 if sv else None,
+                           "yuk": CARGO_LABELS["sivi_dokme"] if sv else None, "gv": "orta" if sv else None,
+                           "dy": [f"{'Çıkış' if home else 'Varış'} terminali: {ter} (yalnızca sıvı dökme yük iskelesi)"] if sv else None,
+                           "id": f"g{r['id']}", "s": "g", "y": r["direction"], "k": r["cls"], "a": FAMILY[r["cls"]],
                            "n": r["name"], "m": mmsi, "b": r["flag"], "tip": r["vtype"],
                            "o": r["origin"], "oc": r["origin_country"], "t0": r["t_dep"],
                            "d": r["dest"], "dc": r["dest_country"], "t1": r["t_arr"],

@@ -131,9 +131,9 @@ def guncelle(cfg, budget_min: float = 3) -> dict:
             except Exception as e:  # noqa: BLE001
                 n["hata"] += 1
                 log.warning("Commons sorgusu başarısız (IMO %s): %s", imo, e)
-                if n["hata"] > 40:
-                    break
-            time.sleep(0.1)
+                if "429" in str(e) or n["hata"] > 40:
+                    break  # hız sınırı: kalanlar bir sonraki çalıştırmada
+            time.sleep(1.0)
         kim = [json.loads(r[0]) for r in con.execute("SELECT data FROM gfw_cache WHERE key LIKE 'gkimlik:%'")]
         fot = [json.loads(r[0]) for r in con.execute("SELECT data FROM gfw_cache WHERE key LIKE 'foto:%'")]
         n.update({"gemi": len(vids), "imo_bilinen": sum(1 for k in kim if k.get("imo")),

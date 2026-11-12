@@ -248,34 +248,88 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                         f'<span>{_n(len(rs))} sefer, {_n(len({x.get("m") or x.get("n") for x in rs}))} gemi</span></a></li>'
                         for m, rs in sorted(aylar.items(), reverse=True))
         donem = f"{_tarih(cfg, ts[0])} ile {_tarih(cfg, ts[-1])} arasında" if ts else ""
+        petrol = [r for r in sel if r.get("sv")]
+        ceyhan = [r for r in petrol if (r.get("ter") or "").startswith("Ceyhan")]
+        gemi_say = lambda rs: len({x.get("m") or x.get("n") for x in rs})  # noqa: E731
+        petrol_not = ""
+        if petrol:
+            petrol_not = (f'<p class="petrol-ozet">Bunların <b>{_n(len(petrol))} seferi ({_n(gemi_say(petrol))} gemi)</b> '
+                          f'petrol ve akaryakıt iskelelerinden; <b>{_n(len(ceyhan))} seferi ({_n(gemi_say(ceyhan))} gemi)</b> '
+                          f'Ceyhan petrol terminallerinden (BTC ve Kerkük-Ceyhan). <a href="{sl}-petrol.html">Petrol tankerleri raporu</a></p>')
+
+        def liste(sh_):
+            top_ = max((x["n"] for x in sh_), default=1)
+            return (f'<div class="arac"><label class="ara"><span class="gizli">Gemi ya da liman ara</span>'
+                    '<input type="search" id="rapor-ara" placeholder="Gemi adı, IMO, MMSI, bayrak, firma ya da liman" autocomplete="off"></label>'
+                    '<div class="dugmeler" role="group" aria-label="Sıralama"><button type="button" data-sirala="n" aria-pressed="true">'
+                    'Sefer sayısı</button><button type="button" data-sirala="son" aria-pressed="false">Son sefer</button>'
+                    '<button type="button" data-sirala="ad" aria-pressed="false">Ad</button></div>'
+                    f'<output id="rapor-say" aria-live="polite">{_n(len(sh_))} gemi</output></div>'
+                    f'<p class="lejant">{legend}</p>'
+                    '<div class="gemi-liste" id="gemi-liste"><div class="gemi-bas" aria-hidden="true"><span>Gemi</span>'
+                    '<span>Sefer</span><span>Son sefer</span><span>Başlıca hat</span></div>'
+                    + "".join(_satir(cfg, E, directions, x, top_) for x in sh_) + "</div>" + (ARAC if sh_ else ""))
+
         body = (f'<main class="sayfa rapor" id="icerik"><header><h1>Raporlar</h1>'
                 f'<p class="giris">{E(a_ad)} limanlarından {E(b_ad)} limanlarına doğrudan ya da dolaylı giden gemiler, '
                 'gemi gemi. Bir gemiye tıklayınca bütün seferleri açılır.</p></header>'
                 + (f'<nav class="dugmeler yon" aria-label="Yön">{yon}</nav>' if len(directions) > 1 else "")
                 + f'<h2 class="rapor-baslik">{_n(len(sh))} gemi, {_n(len(sel))} sefer</h2>'
                 f'<p class="not">{E(donem)}{", " if donem else ""}canlı kayıt ve geçmiş tarama birlikte. Varış ayına göre '
-                f'<a href="#aylik">aylık raporlar</a> sayfanın sonunda.</p>'
-                f'<p class="eylemler"><a class="eylem" href="{sl}-gemiler.csv" download>Gemi listesi (CSV)</a>'
+                f'<a href="#aylik">aylık raporlar</a> sayfanın sonunda.</p>{petrol_not}'
+                f'<p class="eylemler"><a class="eylem ana" href="{sl}-seferler.html">Bütün seferler tek listede</a>'
+                f'<a class="eylem" href="{sl}-gemiler.csv" download>Gemi listesi (CSV)</a>'
                 f'<a class="eylem" href="{sl}-seferler.csv" download>Bütün seferler (CSV)</a></p>'
-                f'<div class="arac"><label class="ara"><span class="gizli">Gemi ya da liman ara</span>'
-                '<input type="search" id="rapor-ara" placeholder="Gemi adı, IMO, MMSI, bayrak ya da liman" autocomplete="off"></label>'
-                '<div class="dugmeler" role="group" aria-label="Sıralama"><button type="button" data-sirala="n" aria-pressed="true">'
-                'Sefer sayısı</button><button type="button" data-sirala="son" aria-pressed="false">Son sefer</button>'
-                '<button type="button" data-sirala="ad" aria-pressed="false">Ad</button></div>'
-                f'<output id="rapor-say" aria-live="polite">{_n(len(sh))} gemi</output></div>'
-                f'<p class="lejant">{legend}</p>'
-                '<div class="gemi-liste" id="gemi-liste"><div class="gemi-bas" aria-hidden="true"><span>Gemi</span>'
-                '<span>Sefer</span><span>Son sefer</span><span>Başlıca hat</span></div>'
-                + "".join(_satir(cfg, E, directions, s, top) for s in sh)
-                + "</div>"
+                + (liste(sh) if sh else '<p class="not">Henüz sefer yok.</p>')
                 + (f'<section id="aylik"><h2>Aylık raporlar</h2><p class="not">Aylar varış tarihine göre.</p>'
                    f'<ul class="aylar">{ay_li}</ul></section>' if ay_li else "")
-                + (ARAC if sh else "") + "</main>")
-        if not sh:
-            body = body.replace('<div class="gemi-liste" id="gemi-liste">', '<p class="not">Henüz sefer yok.</p>'
-                                '<div class="gemi-liste" id="gemi-liste" hidden>', 1)
+                + "</main>")
         _write(rdir / sayfa(directions, y), _page(cfg, "Raporlar", body, 1, "raporlar",
                                                    desc=f"{a_ad} limanlarından {b_ad} limanlarına giden {len(sh)} gemi, {len(sel)} sefer."))
+
+        def sefer_satiri(r):
+            mm = r.get("m")
+            ter = f'<br><span class="not">{E(r["ter"])}</span>' if r.get("ter") and r.get("oc") == A else ""
+            return [
+                f'<b>{E(r.get("n") or "Adı bilinmiyor")}</b><br><span class="not">{E(bayrak(r.get("b"), mm))}{", MMSI " + str(mm) if mm else ""}</span>',
+                f'{E(r.get("o") or "?")}{ter}<br><span class="not tarih">{E(_kisa(cfg, r.get("t0")))}</span>',
+                E(", ".join(r.get("ara") or [])) or "–",
+                (f'{E(r["d"])}<br><span class="not tarih">{E(_kisa(cfg, r.get("t1")))}</span>' if r.get("d")
+                 else '<span class="uyari">Kayıtsız</span>'),
+                f'<span class="isaret" style="--c:var(--c-{r["a"]})">{E(harita.ALL_LABELS.get(r["k"], r["k"]))}</span>',
+                f'<a href="{_harita_link(directions, r)}">Haritada</a>']
+        bas = ["Gemi", "Çıkış", "Ara liman", "Varış", "Tür", ""]
+        yol = f'<p class="yol"><a href="{sayfa(directions, y)}">Raporlar</a>, {E(a_ad)} → {E(b_ad)}</p>'
+
+        # bütün seferler tek listede
+        ara_kutu = ('<div class="arac"><label class="ara"><span class="gizli">Sefer ara</span><input type="search" id="tablo-ara" '
+                    'placeholder="Gemi, liman, bayrak ya da tür" autocomplete="off"></label><output id="tablo-say"></output></div>')
+        tablo_js = ('<script>(function(){var a=document.getElementById("tablo-ara"),o=document.getElementById("tablo-say"),'
+                    'r=[].slice.call(document.querySelectorAll("tbody tr")),z;function g(){var q=a.value.trim().toLocaleLowerCase("tr"),n=0;'
+                    'r.forEach(function(t){var u=!q||t.textContent.toLocaleLowerCase("tr").indexOf(q)>=0;t.hidden=!u;if(u)n++});'
+                    'o.textContent=n+" sefer"}a.addEventListener("input",function(){clearTimeout(z);z=setTimeout(g,120)});g()})();</script>')
+        hepsi = sorted(sel, key=lambda r: r.get("t0") or _zaman(r), reverse=True)
+        _write(rdir / f"{sl}-seferler.html", _page(cfg, "Bütün seferler", (
+            f'<main class="sayfa rapor" id="icerik"><header>{yol}<h1>Bütün seferler</h1>'
+            f'<p class="giris">{E(a_ad)} limanlarından {E(b_ad)} limanlarına {_n(len(sel))} sefer, {_n(len(sh))} gemi. '
+            'En yeni çıkış en üstte.</p></header>' + ara_kutu + _tbl(bas, [sefer_satiri(r) for r in hepsi]) + tablo_js
+            + "</main>"), 1, "raporlar", desc=f"{a_ad} limanlarından {b_ad} limanlarına bütün seferler."))
+
+        # petrol tankerleri
+        if petrol:
+            sh_p = ships(petrol, y, vessels, m2k, pages, bilgi)
+            ter_say = Counter(r.get("ter") for r in petrol)
+            ter_rows = [[E(t), _n(n), _n(gemi_say([r for r in petrol if r.get("ter") == t]))] for t, n in ter_say.most_common()]
+            _write(rdir / f"{sl}-petrol.html", _page(cfg, "Petrol tankerleri", (
+                f'<main class="sayfa rapor" id="icerik"><header>{yol}<h1>Petrol ve akaryakıt tankerleri</h1>'
+                f'<p class="giris">{E(a_ad)} tarafında petrol ya da akaryakıt iskelesinde yanaşıp {E(b_ad)} limanlarına '
+                f'giden {_n(len(sh_p))} gemi, {_n(len(petrol))} sefer. Bu iskelelere yalnızca sıvı dökme yük gemileri '
+                'yanaşır; yükün türü (ham petrol, ürün, kimyasal) AIS verisinden kesin bilinemez.</p></header>'
+                '<p class="not">Ceyhan’daki BTC (Bakü-Tiflis-Ceyhan) ve Kerkük-Ceyhan terminalleri birbirine bir iki kilometre '
+                'uzaklıkta; AIS konumuyla ayırt edilemedikleri için birlikte sayılır.</p>'
+                + _tbl(["İskele", "Sefer", "Gemi"], ter_rows, num=(1, 2)) + "<h2>Gemiler</h2>" + liste(sh_p)
+                + "<h2>Seferler</h2>" + _tbl(bas, [sefer_satiri(r) for r in sorted(petrol, key=lambda r: r.get("t0") or "", reverse=True)])
+                + "</main>"), 1, "raporlar", desc=f"{a_ad} petrol iskelelerinden {b_ad} limanlarına {len(petrol)} sefer."))
 
         # aylık raporlar
         sirali = sorted(aylar)
@@ -283,25 +337,14 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
             rs = sorted(aylar[m], key=lambda r: r.get("t0") or _zaman(r))
             onceki = f'<a href="{sl}-{sirali[i - 1]}.html">{E(_ay(sirali[i - 1]))}</a>' if i else "<span></span>"
             sonraki = f'<a href="{sl}-{sirali[i + 1]}.html">{E(_ay(sirali[i + 1]))}</a>' if i + 1 < len(sirali) else ""
-            rows = []
-            for r in rs:
-                mm = r.get("m")
-                ad = E(r.get("n") or "Adı bilinmiyor")
-                rows.append([
-                    f'<b>{ad}</b><br><span class="not">{E(bayrak(r.get("b"), mm))}{", MMSI " + str(mm) if mm else ""}</span>',
-                    f'{E(r.get("o") or "?")}<br><span class="not tarih">{E(_kisa(cfg, r.get("t0")))}</span>',
-                    E(", ".join(r.get("ara") or [])) or "–",
-                    (f'{E(r["d"])}<br><span class="not tarih">{E(_kisa(cfg, r.get("t1")))}</span>' if r.get("d")
-                     else '<span class="uyari">Kayıtsız</span>'),
-                    f'<span class="isaret" style="--c:var(--c-{r["a"]})">{E(harita.ALL_LABELS.get(r["k"], r["k"]))}</span>',
-                    f'<a href="{_harita_link(directions, r)}">Haritada</a>'])
+            rows = [sefer_satiri(r) for r in rs]
             n_gemi = len({x.get("m") or x.get("n") for x in rs})
             mbody = (f'<main class="sayfa rapor" id="icerik"><header><p class="yol"><a href="{sayfa(directions, y)}">Raporlar</a>'
                      f', {E(a_ad)} → {E(b_ad)}</p><h1>{E(_ay(m))}</h1>'
                      f'<p class="giris">{E(a_ad)} limanlarından {E(b_ad)} limanlarına {_n(len(rs))} sefer, {_n(n_gemi)} gemi. '
                      'Varış tarihine göre; satırlar çıkış tarihine göre sıralı.</p></header>'
                      f'<nav class="ay-gecis" aria-label="Aylar">{onceki}{sonraki}</nav>'
-                     + _tbl(["Gemi", "Çıkış", "Ara liman", "Varış", "Tür", ""], rows) + "</main>")
+                     + _tbl(bas, rows) + "</main>")
             _write(rdir / f"{sl}-{m}.html", _page(cfg, f"{_ay(m)} raporu", mbody, 1, "raporlar",
                                                    desc=f"{_ay(m)}: {a_ad} limanlarından {b_ad} limanlarına {len(rs)} sefer."))
 
@@ -315,8 +358,8 @@ def build(cfg, con, recs: list[dict], out: Path) -> None:
                 f'{s["hatlar"][0][0][0]} → {s["hatlar"][0][0][1]}' if s["hatlar"] else ""] for s in sh]))
         (rdir / f"{sl}-seferler.csv").write_bytes(_csv(
             [["Gemi", "MMSI", "IMO", "Bayrak", "Tür", "Çıkış limanı", "Çıkış tarihi", "Ara limanlar", "Varış limanı",
-              "Varış tarihi", "Kaynak", "Kayıt"]]
+              "Varış tarihi", "Türk tarafındaki terminal", "Kaynak", "Kayıt"]]
             + [[r.get("n") or "", r.get("m") or "", r.get("imo") or "", bayrak(r.get("b"), r.get("m")),
                 harita.ALL_LABELS.get(r["k"], r["k"]), r.get("o") or "", r.get("t0") or "", ", ".join(r.get("ara") or []),
-                r.get("d") or "", r.get("t1") or "", "Canlı kayıt" if r["s"] == "c" else "Geçmiş tarama (GFW)", r["id"]]
+                r.get("d") or "", r.get("t1") or "", r.get("ter") or "", "Canlı kayıt" if r["s"] == "c" else "Geçmiş tarama (GFW)", r["id"]]
                for r in sorted(sel, key=lambda r: r.get("t0") or "")]))
