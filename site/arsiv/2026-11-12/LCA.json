@@ -1,0 +1,58 @@
+[
+ {
+  "mmsi": 620800295,
+  "imo": 9152571,
+  "ad": "ZEG GLORY",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-12T11:45:47Z",
+  "cikis_utc": "",
+  "sure_saat": 9.2,
+  "terminal": "",
+  "draft_giris_m": 3.8,
+  "draft_cikis_m": 3.8,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "LARNACA"
+ },
+ {
+  "mmsi": 209492000,
+  "imo": null,
+  "ad": "VTS AYIA MARINA",
+  "tip": "Bilinmiyor",
+  "giris_utc": "2026-11-12T11:46:06Z",
+  "cikis_utc": "2026-11-12T15:43:10Z",
+  "sure_saat": 4.0,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 341317002,
+  "imo": 9020285,
+  "ad": "JOAV I",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-12T11:47:16Z",
+  "cikis_utc": "",
+  "sure_saat": 9.0,
+  "terminal": "",
+  "draft_giris_m": 3.5,
+  "draft_cikis_m": 3.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "CY LCA"
+ },
+ {
+  "mmsi": 314810000,
+  "imo": 9197064,
+  "ad": "NIKITI II",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-12T11:47:42Z",
+  "cikis_utc": "",
+  "sure_saat": 9.1,
+  "terminal": "",
+  "draft_giris_m": 7.0,
+  "draft_cikis_m": 7.0,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "CY LCA"
+ }
+]

@@ -1,0 +1,44 @@
+[
+ {
+  "mmsi": 261008252,
+  "imo": null,
+  "ad": "JULIA",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-12T12:48:08Z",
+  "cikis_utc": "",
+  "sure_saat": 8.2,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 210004055,
+  "imo": 9342562,
+  "ad": "SLUGGER",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-12T16:38:57Z",
+  "cikis_utc": "",
+  "sure_saat": 3.8,
+  "terminal": "EAPC petrol şamandıraları",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 428074146,
+  "imo": null,
+  "ad": "RAN",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-12T16:40:40Z",
+  "cikis_utc": "",
+  "sure_saat": 3.9,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ }
+]

@@ -1,0 +1,50 @@
+[
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T12:31:42Z",
+  "t_end": "2026-11-12T12:39:25Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T13:27:26Z",
+  "t_end": "2026-11-12T13:35:06Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T14:23:07Z",
+  "t_end": "2026-11-12T14:30:48Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T15:18:48Z",
+  "t_end": "2026-11-12T15:26:43Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T16:14:43Z",
+  "t_end": "2026-11-12T16:19:48Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T17:07:49Z",
+  "t_end": "2026-11-12T17:18:50Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T18:06:51Z",
+  "t_end": "2026-11-12T18:22:44Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T19:10:44Z",
+  "t_end": "2026-11-12T19:26:34Z",
+  "reason": "çalıştırmalar arası boşluk"
+ }
+]
