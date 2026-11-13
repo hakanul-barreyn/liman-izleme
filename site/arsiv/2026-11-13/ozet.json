@@ -1,0 +1,182 @@
+{
+ "gun": "2026-11-13",
+ "utc_aralik": [
+  "2026-11-12T21:00:00Z",
+  "2026-11-13T21:00:00Z"
+ ],
+ "limanlar": {
+  "ISK": {
+   "ad": "İskenderun Körfezi (Ceyhan, Dörtyol, İskenderun)",
+   "ulke": "TR",
+   "rol": "izlenen",
+   "ziyaret": 0,
+   "giren": 0,
+   "cikan": 0
+  },
+  "ALG": {
+   "ad": "Aliağa – Nemrut Körfezi",
+   "ulke": "TR",
+   "rol": "izlenen",
+   "ziyaret": 0,
+   "giren": 0,
+   "cikan": 0
+  },
+  "MER": {
+   "ad": "Mersin",
+   "ulke": "TR",
+   "rol": "izlenen",
+   "ziyaret": 68,
+   "giren": 25,
+   "cikan": 32
+  },
+  "IST": {
+   "ad": "İstanbul – Ambarlı",
+   "ulke": "TR",
+   "rol": "izlenen",
+   "ziyaret": 16,
+   "giren": 10,
+   "cikan": 14
+  },
+  "IZM": {
+   "ad": "İzmit Körfezi (Kocaeli)",
+   "ulke": "TR",
+   "rol": "izlenen",
+   "ziyaret": 0,
+   "giren": 0,
+   "cikan": 0
+  },
+  "HFA": {
+   "ad": "Hayfa",
+   "ulke": "IL",
+   "rol": "varis",
+   "ziyaret": 111,
+   "giren": 48,
+   "cikan": 51
+  },
+  "HAD": {
+   "ad": "Hadera (Orot Rabin)",
+   "ulke": "IL",
+   "rol": "varis",
+   "ziyaret": 9,
+   "giren": 2,
+   "cikan": 3
+  },
+  "ASD": {
+   "ad": "Aşdod",
+   "ulke": "IL",
+   "rol": "varis",
+   "ziyaret": 64,
+   "giren": 19,
+   "cikan": 25
+  },
+  "ASK": {
+   "ad": "Aşkelon (EAPC petrol terminali)",
+   "ulke": "IL",
+   "rol": "varis",
+   "ziyaret": 12,
+   "giren": 9,
+   "cikan": 10
+  },
+  "ETH": {
+   "ad": "Eilat",
+   "ulke": "IL",
+   "rol": "varis",
+   "ziyaret": 0,
+   "giren": 0,
+   "cikan": 0
+  },
+  "PSD": {
+   "ad": "Port Said",
+   "ulke": "EG",
+   "rol": "varis",
+   "ziyaret": 2,
+   "giren": 2,
+   "cikan": 2
+  },
+  "DAM": {
+   "ad": "Dimyat (Damietta)",
+   "ulke": "EG",
+   "rol": "varis",
+   "ziyaret": 0,
+   "giren": 0,
+   "cikan": 0
+  },
+  "ALX": {
+   "ad": "İskenderiye ve Dekheila",
+   "ulke": "EG",
+   "rol": "varis",
+   "ziyaret": 0,
+   "giren": 0,
+   "cikan": 0
+  },
+  "LMS": {
+   "ad": "Limasol",
+   "ulke": "CY",
+   "rol": "varis",
+   "ziyaret": 112,
+   "giren": 29,
+   "cikan": 33
+  },
+  "LCA": {
+   "ad": "Larnaka",
+   "ulke": "CY",
+   "rol": "varis",
+   "ziyaret": 5,
+   "giren": 1,
+   "cikan": 2
+  },
+  "VAS": {
+   "ad": "Vasiliko",
+   "ulke": "CY",
+   "rol": "varis",
+   "ziyaret": 12,
+   "giren": 4,
+   "cikan": 9
+  },
+  "PIR": {
+   "ad": "Pire",
+   "ulke": "GR",
+   "rol": "varis",
+   "ziyaret": 530,
+   "giren": 157,
+   "cikan": 188
+  },
+  "SKG": {
+   "ad": "Selanik",
+   "ulke": "GR",
+   "rol": "varis",
+   "ziyaret": 0,
+   "giren": 0,
+   "cikan": 0
+  },
+  "BOJ": {
+   "ad": "Burgaz",
+   "ulke": "BG",
+   "rol": "varis",
+   "ziyaret": 32,
+   "giren": 13,
+   "cikan": 13
+  },
+  "VAR": {
+   "ad": "Varna",
+   "ulke": "BG",
+   "rol": "varis",
+   "ziyaret": 67,
+   "giren": 31,
+   "cikan": 36
+  },
+  "ILK": {
+   "ad": "İsrail kıyı yaklaşma alanı",
+   "ulke": "IL",
+   "rol": "varis",
+   "ziyaret": 19,
+   "giren": 11,
+   "cikan": 12
+  }
+ },
+ "kurgusal": false,
+ "iz_gemi_sayisi": 509,
+ "olay_sayisi": 95,
+ "kesinti_sayisi": 26,
+ "ham_veri": "ham.jsonl.gz"
+}

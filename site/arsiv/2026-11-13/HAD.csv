@@ -1,0 +1,10 @@
+mmsi,imo,ad,tip,giris_utc,cikis_utc,sure_saat,terminal,draft_giris_m,draft_cikis_m,draft_fark_m,beyan_edilen_varis
+428000112,9132583,MAORA 1,Römorkör / hizmet,2026-11-12T11:43:59Z,,33.8,,,,,
+428150010,,OFEK,Römorkör / hizmet,2026-11-12T11:45:17Z,,33.7,Kömür iskelesi,,,,
+428003005,,HADERA PORT,Bilinmiyor,2026-11-12T11:50:58Z,,33.7,Kömür iskelesi,,,,
+538011919,9875111,GENCO COURAGEOUS,Kargo gemisi,2026-11-12T11:51:15Z,,33.2,Kömür iskelesi,17.5,17.5,0.0,HADERA
+428150014,,SHAHAR,Römorkör / hizmet,2026-11-12T11:54:50Z,,33.4,Kömür iskelesi,,,,
+428398000,,YAIR,Römorkör / hizmet,2026-11-12T12:05:10Z,2026-11-13T07:10:32Z,19.1,Kömür iskelesi,,,,
+428000407,9891725,HADERA,Römorkör / hizmet,2026-11-12T12:12:17Z,2026-11-13T09:02:52Z,20.8,Kömür iskelesi,4.8,4.8,0.0,HADERA PORT
+511100504,9258181,BAR DIVE 1,Bilinmiyor,2026-11-13T08:55:23Z,2026-11-13T12:26:13Z,3.5,Kömür iskelesi,2.5,2.5,0.0,HADERA
+428000407,9891725,HADERA,Römorkör / hizmet,2026-11-13T12:11:52Z,,9.2,Kömür iskelesi,4.8,4.8,0.0,HADERA PORT

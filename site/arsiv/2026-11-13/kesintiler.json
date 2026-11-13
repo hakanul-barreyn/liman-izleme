@@ -1,0 +1,158 @@
+[
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-12T23:33:32Z",
+  "t_end": "2026-11-12T23:40:43Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T00:28:50Z",
+  "t_end": "2026-11-13T01:00:06Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T01:48:17Z",
+  "t_end": "2026-11-13T02:02:17Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T03:39:13Z",
+  "t_end": "2026-11-13T03:50:45Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T04:38:54Z",
+  "t_end": "2026-11-13T04:55:52Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T05:44:04Z",
+  "t_end": "2026-11-13T05:57:07Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T06:45:16Z",
+  "t_end": "2026-11-13T07:07:41Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T07:55:51Z",
+  "t_end": "2026-11-13T08:54:27Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T09:42:39Z",
+  "t_end": "2026-11-13T09:56:15Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T10:44:25Z",
+  "t_end": "2026-11-13T10:56:20Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T11:44:29Z",
+  "t_end": "2026-11-13T11:48:43Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T12:21:57Z",
+  "t_end": "2026-11-13T12:22:03Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T13:10:50Z",
+  "t_end": "2026-11-13T13:10:55Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T14:00:12Z",
+  "t_end": "2026-11-13T14:00:22Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T14:49:01Z",
+  "t_end": "2026-11-13T14:49:07Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T15:03:45Z",
+  "t_end": "2026-11-13T15:45:43Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T16:18:53Z",
+  "t_end": "2026-11-13T16:18:59Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T16:33:47Z",
+  "t_end": "2026-11-13T16:51:07Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T17:24:19Z",
+  "t_end": "2026-11-13T17:24:25Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T17:39:10Z",
+  "t_end": "2026-11-13T17:47:22Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T18:21:12Z",
+  "t_end": "2026-11-13T18:21:18Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T18:35:26Z",
+  "t_end": "2026-11-13T18:49:09Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T19:22:51Z",
+  "t_end": "2026-11-13T19:22:57Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T19:37:11Z",
+  "t_end": "2026-11-13T19:51:52Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-13T20:25:03Z",
+  "t_end": "2026-11-13T20:25:09Z",
+  "reason": "OperationalError: database is locked"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-13T20:39:53Z",
+  "t_end": "2026-11-13T20:51:14Z",
+  "reason": "çalıştırmalar arası boşluk"
+ }
+]
