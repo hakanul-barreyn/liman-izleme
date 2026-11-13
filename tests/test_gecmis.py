@@ -307,3 +307,23 @@ def test_ceyhan_dongusu_ve_sahte_konum(tmp_path):
     assert [d["kanit"] for d in dosya] == ["iz"]
     sayfa_ = (cfg.site_dir / "tankerler" / f'{dosya[0]["dosya"]}.html').read_text()
     assert "Sahte konum, Beyrut havalimanı" in sayfa_ and "Hiçbir limana uğramadan 11" in sayfa_
+    # Azerbaycan petrolü: beklenen ve görülen tanker seferleri dengesi, raporda resmî kaynak tablosu
+    raw2 = copy.deepcopy(raw)
+    raw2["azerbaycan"] = {"btc": {"yil": 2024, "varil": 223000000, "tanker": 305},
+                          "tahmin": [{"yil": 2025, "varil_gun": 94000, "gumruk_ton": 0}],
+                          "aciklamalar": [{"kurum": "SOCAR", "kurum_en": "SOCAR", "gun": "2024-06-03", "tur": "resmi",
+                                           "metin": "Doğrudan satış yok.", "metin_en": "No direct sales.",
+                                           "kaynak": "Turan", "url": "https://turan.az/x"},
+                                          {"kurum": "bp", "gun": "2025-02", "tur": "resmi", "metin": "305 tanker.",
+                                           "kaynak": "bp", "url": "https://bp.com/x"}]}
+    cfg2 = config.Config(raw2, tmp_path)
+    from liman import ozet
+    pt = ozet.petrol_dengesi(cfg2, cik, [])
+    y = {r["yil"]: r for r in pt["yillar"]}["2025"]
+    assert pt["ort_varil"] == 731148 and y["beklenen"] == 47 and y["tanker"] == 2 and y["isaret"] == 1
+    site.HATALAR.clear()
+    site.build(cfg2, con)
+    assert not site.HATALAR
+    r = (cfg2.site_dir / "rapor" / "index.html").read_text()
+    assert 'id="azerbaycan"' in r and "Tablo 10." in r and "Şubat 2025" in r and "https://turan.az/x" in r
+    assert 'id="azerbaijan"' in (cfg2.site_dir / "rapor" / "en.html").read_text()

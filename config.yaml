@@ -229,3 +229,98 @@ yayin:
   opentimestamps: true
   site_guncelleme_dakika: 60
   gunluk_saat: "00:05"
+
+# Azerbaycan petrolü: resmî açıklamalar ve resmî kayıtlar (rapor Bölüm 4.7). Her satır kaynağıyla.
+# tur: resmi = devlet/şirket açıklaması ya da resmî istatistik; izleme = ticari tanker izleme verisi (karşılaştırma için).
+azerbaycan:
+  btc:            # BTC operatörü BP'nin yıllık sonuçları: Ceyhan'da yüklenen varil ve tanker sayısı
+    yil: 2024
+    varil: 223000000
+    tanker: 305
+    kaynak: "bp Azerbaijan, 2024 full year results"
+    url: "https://www.bp.com/en_az/azerbaijan/home/news/business-updates/2024-full-year-results.html"
+  tahmin:         # İsrail'e giden Azerbaycan ham petrolü (izleme verisi) ve Azerbaycan gümrüğünün İsrail kaydı
+    - yil: 2023
+      gumruk_ton: 2240000      # Ocak-Kasım 2023, Devlet Gümrük Komitesi (Globes, 5 Mayıs 2024)
+    - yil: 2024
+      varil_gun: 71800         # 2025 değeri ve %31 yıllık artıştan türetildi (Kpler, Reuters 21 Ocak 2026)
+      gumruk_ton: 1173003      # Devlet Gümrük Komitesi (Report.az)
+      kaynak: "Kpler (Reuters), 2025 değerinden türetildi"
+    - yil: 2025
+      varil_gun: 94000
+      gumruk_ton: 0            # Ocak-Kasım 2025 ithalatçı ülke listesinde İsrail yok
+      kaynak: "Kpler (Reuters, 21 Ocak 2026)"
+  aciklamalar:
+    - kurum: "Azerbaycan Devlet Gümrük Komitesi"
+      kurum_en: "State Customs Committee of Azerbaijan"
+      gun: "2024-05-05"
+      tarih_not: "Globes haberinin tarihi"
+      tur: resmi
+      metin: "Ocak-Kasım 2023'te İsrail, Azerbaycan ham petrolünün ikinci büyük alıcısı: 2,24 milyon ton, 1,38 milyar dolar. Ocak 2024'te en büyük alıcı: 523,5 bin ton, 297 milyon dolar."
+      metin_en: "January-November 2023: Israel the second-largest buyer of Azerbaijani crude, 2.24 million tonnes, USD 1.38 billion. January 2024: the largest buyer, 523,500 tonnes, USD 297 million."
+      kaynak: "Globes (5 Mayıs 2024), Azerbaijani oil continues flowing to Israel via Turkey"
+      url: "https://en.globes.co.il/en/article-azerbaijani-oil-continues-flowing-to-israel-via-turkey-1001477929"
+    - kurum: "SOCAR"
+      kurum_en: "SOCAR"
+      gun: "2024-06-03"
+      tur: resmi
+      metin: "SOCAR, İsrail'e doğrudan ham petrol sattığı yönündeki suçlamaların doğru olmadığını açıkladı."
+      metin_en: "SOCAR stated that accusations that it sells crude oil to Israel directly are not true."
+      kaynak: "Turan (3 Haziran 2024), SOCAR denies direct oil sales to Israel"
+      url: "https://turan.az/en/politics/socar-denies-direct-oil-sales-to-israel"
+    - kurum: "T.C. Enerji ve Tabii Kaynaklar Bakanlığı"
+      kurum_en: "Ministry of Energy and Natural Resources of Türkiye"
+      gun: "2024-11-11"
+      tur: resmi
+      metin: "BTC boru hattını kullanan şirketler Türkiye'nin İsrail'le ticaret yapmama kararına uydu; BOTAŞ Azerbaycan petrolünün satışında taraf değil; Ceyhan'dan İsrail varışlı yükleme yapılmadı."
+      metin_en: "Companies using the BTC pipeline respected Türkiye's decision not to trade with Israel; BOTAŞ is not party to the sale of Azerbaijani oil; no cargo was loaded at Ceyhan with Israel as destination."
+      kaynak: "Daily Sabah (11 Kasım 2024), Türkiye rejects claims of oil flowing to Israel from Ceyhan"
+      url: "https://dailysabah.com/business/energy/turkiye-rejects-claims-of-oil-flowing-to-israel-from-ceyhan"
+    - kurum: "bp Azerbaycan (BTC operatörü)"
+      kurum_en: "bp Azerbaijan (BTC operator)"
+      gun: "2025-02"
+      tur: resmi
+      metin: "2024'te BTC ile taşınan yaklaşık 223 milyon varil (29 milyon ton) ham petrol Ceyhan'da 305 tankere yüklendi."
+      metin_en: "In 2024 about 223 million barrels (29 million tonnes) of BTC crude were lifted at Ceyhan on 305 tankers."
+      kaynak: "bp Azerbaijan, 2024 full year results"
+      url: "https://www.bp.com/en_az/azerbaijan/home/news/business-updates/2024-full-year-results.html"
+    - kurum: "İsrail Enerji ve Altyapı Bakanı Eli Cohen"
+      kurum_en: "Israeli Minister of Energy and Infrastructure Eli Cohen"
+      gun: "2025-03-17"
+      tur: resmi
+      metin: "SOCAR ve BP'ye İsrail açıklarında doğalgaz arama ruhsatı verilmesi üzerine: “SOCAR ve BP'nin girişi İsrail Devleti için mükemmel bir haber.”"
+      metin_en: "On the award of offshore gas exploration licences to SOCAR and BP: “The entry of SOCAR and BP is excellent news for the State of Israel.”"
+      kaynak: "The Algemeiner (17 Mart 2025)"
+      url: "https://www.algemeiner.com/2025/03/17/israel-azerbaijan-strengthen-strategic-alliance-gas-exploration-deal-signing-jerusalem/"
+    - kurum: "Azerbaycan Devlet Gümrük Komitesi"
+      kurum_en: "State Customs Committee of Azerbaijan"
+      gun: "2025-04-30"
+      tur: resmi
+      metin: "2024'te İsrail'e 1,17 milyon ton ham petrol, 713 milyon dolar; 2023'e göre %48 az."
+      metin_en: "2024: 1.17 million tonnes of crude to Israel, USD 713 million; 48% less than 2023."
+      kaynak: "Report.az, List of countries importing oil from Azerbaijan in 2024"
+      url: "https://report.az/en/energy/list-of-countries-importing-oil-from-azerbaijan-in-2024"
+    - kurum: "Azerbaycan Devlet Gümrük Komitesi"
+      kurum_en: "State Customs Committee of Azerbaijan"
+      gun: "2025-12-16"
+      tur: resmi
+      metin: "Ocak-Kasım 2025'te ham petrol alan 22 ülkenin listesinde İsrail yok (toplam ihracat 22,1 milyon ton)."
+      metin_en: "January-November 2025: Israel does not appear among the 22 countries importing Azerbaijani crude (total exports 22.1 million tonnes)."
+      kaynak: "Report.az (16 Aralık 2025), Страны-импортеры азербайджанской нефти"
+      url: "https://report.az/ru/energetika/strany-importery-azerbajdzhanskoj-nefti-spisokv"
+    - kurum: "İsrail Enerji ve Altyapı Bakanlığı"
+      kurum_en: "Israeli Ministry of Energy and Infrastructure"
+      gun: "2026-01-21"
+      tur: resmi
+      metin: "Bakanlık petrol ithalatının kaynakları hakkında yorum yapmadı."
+      metin_en: "The ministry does not comment on the sources of its oil imports."
+      kaynak: "Reuters / The Jerusalem Post (21 Ocak 2026)"
+      url: "https://www.jpost.com/business-and-innovation/article-884083"
+    - kurum: "Kpler, Vortexa, LSEG (tanker izleme)"
+      kurum_en: "Kpler, Vortexa, LSEG (tanker tracking)"
+      gun: "2026-01-21"
+      tur: izleme
+      metin: "2025'te İsrail Ceyhan'dan günde 94 bin varil Azerbaycan ham petrolü aldı (%31 artış); bu, İsrail'in petrol ithalatının %46,4'ü. Ceyhan'dan çıkan gemiler genellikle Mısır ya da Kıbrıs açıklarını varış yeri olarak bildiriyor; KIMOLOS 31 Aralık'ta Ceyhan'da yükledi, 1-5 Ocak'ta AIS'ini kapattı, 4 Ocak'ta Aşkelon'da boşalttı."
+      metin_en: "In 2025 Israel received 94,000 barrels per day of Azerbaijani crude from Ceyhan (up 31%), 46.4% of its oil imports. Ships from Ceyhan typically signal offshore Egypt or Cyprus; KIMOLOS loaded at Ceyhan on 31 December, switched off AIS on 1-5 January and discharged at Ashkelon on 4 January."
+      kaynak: "Reuters / The Jerusalem Post (21 Ocak 2026)"
+      url: "https://www.jpost.com/business-and-innovation/article-884083"

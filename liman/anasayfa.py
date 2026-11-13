@@ -115,6 +115,11 @@ def build(cfg, o: dict, E) -> str:
         if orn:  # Türkçe tarih eki tarihe göre değişir: "… tarihinde" kalıbı her tarihte doğru
             ornek = (f' Örnek: <a href="tankerler/{E(orn["anahtar"])}.html">{E(orn["ad"])}</a> {E(_gun(orn["t0"]))} tarihinde '
                      f'Ceyhan’dan çıktı, {E(_gun(orn["t1"]))} tarihinde {E(_lim(orn["d"]))} limanına vardı.')
+        pt = {y["yil"]: y for y in (o.get("petrol") or {}).get("yillar") or []}.get("2025") or {}
+        if pt.get("beklenen"):
+            ek += (f' İzleme verisine göre 2025’te Ceyhan’dan İsrail’e günde {_sayi(pt["varil_gun"])} varil Azerbaycan petrolü gitti; '
+                   f'bu yaklaşık {_sayi(pt["beklenen"])} tanker seferi demek. Azerbaycan gümrüğünün 2025 listesinde İsrail yok. '
+                   '<a href="rapor/index.html#azerbaycan">Resmî kaynaklar ve kayıp yük</a>.')
         ekle(test["ceyhan"], f'<p><b>{_sayi(cey)} sefer</b> Ceyhan terminallerinin önünden çıkıp {E(B)} limanına '
                              f'ya da açıklarına gitti; {_sayi(tk.get("ceyhan_kayitli", 0))} tanker ya da muhtemel tanker İsrail '
                              f'limanına kayıtlı olarak vardı.{ornek}{ek}</p>', '<a href="tankerler/index.html">Tanker dosyaları</a>')

@@ -154,6 +154,11 @@ def _kaynakca(o, en=False) -> list[tuple[str, str]]:
         ("aisstream.io. Real-time AIS data stream." if en else "aisstream.io. Gerçek zamanlı AIS veri akışı.",
          "https://aisstream.io"),
     ]
+    gor = {u for _m, u in out + sabit}
+    for a in (o.get("petrol") or {}).get("aciklamalar") or []:
+        if a.get("url") and a["url"] not in gor:
+            gor.add(a["url"])
+            out.append((f"{a.get('kaynak')}.", a["url"]))
     return out + sabit
 
 
@@ -389,14 +394,15 @@ göründü{(", bunların " + n(cy["iz_donus"]) + " tanesi limansız dönüş") i
 {n(tk["dogrulanan"])} gemisinin tanker olduğu AIS tipi, iskele, rota ya da basın kaydıyla doğrulandı (Tablo 8). İsrail limanına kayıtlı varışı olan Ceyhan seferleri Tablo 7’de. {_basin_tr(o)}</p>
 {_cey_ornek_tr(o, E)}
 {tablo_tanker}
-<h3>4.7 İsrail’den Türkiye’ye seferler</h3>
+{_petrol_tr(o, E)}
+<h3>4.8 İsrail’den Türkiye’ye seferler</h3>
 <p>{(f"Aynı dönemde İsrail limanlarından çıkıp Türk limanlarına varan {n(i['sonra'])} sefer ({n(i['gemi_sonra'])} gemi, ayda ortalama "
      f"{n(i['ort_sonra'])}) kaydedildi; en çok varış {E(i['varis'][0][0]) if i['varis'] else '–'} limanına. Ticaret Bakanlığı’na göre "
      "2 Mayıs 2024’ten bu yana İsrail’den bir sevkiyat yoktur; gemi hareketi yükün kaynağını göstermez, ancak bu seferlerin her biri "
      "gemi adı ve tarihiyle listelenmiştir.") if i else "Bu yönde kayıt yok."}</p>
 <figure class="sekil"><div class="grafik-kaydir">{oz.aylik_svg(o, next((y for y, v in o["yonler"].items() if not v["ihracat"]), "TR>IL"), kimlik="sekil2")}</div>
 <figcaption>Şekil 2. İsrail limanlarından Türk limanlarına aylık sefer sayısı.</figcaption></figure>
-<h3>4.8 Beyan öncesiyle karşılaştırma</h3>
+<h3>4.9 Beyan öncesiyle karşılaştırma</h3>
 <p>{karsilastirma}</p>
 
 <h2 id="tartisma">5. Tartışma</h2>
@@ -404,7 +410,7 @@ göründü{(", bunların " + n(cy["iz_donus"]) + " tanesi limansız dönüş") i
 <p>Ticaret Bakanlığı’nın 2 Mayıs 2024 açıklaması bir gümrük kararıdır; gemi trafiğinin bütünüyle durmasını gerektirmez. Ancak
 açıklamadan sonra Türk limanlarından İsrail limanlarına her ay onlarca seferin sürmesi, iki ülke arasındaki deniz bağlantısının
 kesilmediğini gösterir. Enerji Bakanlığı’nın 11 Kasım 2024’te “İsrail varışlı sevkiyat olmadı” açıklaması, Ceyhan’dan çıkan
-tankerlerin İsrail limanlarına girdiği ya da İsrail açıklarında AIS’ini kapattığı kayıtlarla karşılaştırılmalıdır (Bölüm 4.6).
+tankerlerin İsrail limanlarına girdiği ya da İsrail açıklarında AIS’ini kapattığı kayıtlarla karşılaştırılmalıdır (Bölüm 4.6 ve 4.7).
 Fidan’ın 29 Ağustos 2025 açıklamasından sonra Türk bayraklı gemilerle yapılan {n(d["tr_bayrak_kisit"])} sefer ve bütün bayraklarla
 yapılan {n(d["kisit_sonra"])} sefer, liman kısıtlamalarının trafiği durdurmadığını gösterir.</p>
 <h3>5.2 Başka açıklamalar</h3>
@@ -449,6 +455,172 @@ Türkiye (CSV)</a>; tankerler: <a href="../tankerler/tankerler.csv">tankerler.cs
 <li>Geçmiş tarama: Powered by Global Fishing Watch. Veri CC BY-NC 4.0.</li>
 </ul>
 <h2 id="kaynakca">Kaynakça</h2><ol class="kaynakca">{kaynak}</ol>'''
+
+
+VARIL_TON = 7.33  # Azeri BTC karışımı için yaklaşık varil/ton (API ~36)
+
+
+def _tarih(s: str | None, en=False) -> str:
+    if s and len(s) == 7:
+        return _ay(s + "-01", en)
+    return _gun(s, en)
+
+
+def _petrol_tablolari(o, E, en: bool):
+    """Tablo 9 (açıklamalar) ve Tablo 10 (beklenen ve görülen tanker seferleri)."""
+    pt = o.get("petrol") or {}
+    n = lambda v: _n(v, en)  # noqa: E731
+    acik = sorted(pt.get("aciklamalar") or [], key=lambda a: a.get("gun") or "")
+    t9 = _tablo(E, ["Date", "Source", "Statement or record"] if en else ["Tarih", "Kaynak", "Açıklama ya da kayıt"],
+                [[E(_tarih(a.get("gun"), en)),
+                  E((a.get("kurum_en") if en else a.get("kurum")) or "") + (" <i>(tracking data)</i>" if en and a.get("tur") == "izleme"
+                                                                            else " <i>(izleme verisi)</i>" if a.get("tur") == "izleme" else ""),
+                  E((a.get("metin_en") if en else a.get("metin")) or "") + (f' <a href="{E(a["url"])}" rel="noopener">[{"source" if en else "kaynak"}]</a>' if a.get("url") else "")]
+                 for a in acik],
+                baslik=("Table 9. Azerbaijani oil: official statements and records, in date order" if en else
+                        "Tablo 9. Azerbaycan petrolü: resmî açıklamalar ve kayıtlar, tarih sırasıyla"))
+    ys = [y for y in pt.get("yillar") or [] if y["tanker"] or y.get("beklenen")]
+    yok = "not listed" if en else "listede yok"
+
+    def g(y):
+        v = y.get("gumruk_ton")
+        return "–" if v is None else (yok if v == 0 else n(v))
+    olcu = [
+        ("Tracking estimate (bbl/day)" if en else "İzleme tahmini (varil/gün)", lambda y: n(y.get("varil_gun"))),
+        ("Azerbaijani customs, crude to Israel (tonnes)" if en else "Azerbaycan gümrüğü, İsrail’e ham petrol (ton)", g),
+        ("<b>Expected tanker voyages</b>" if en else "<b>Beklenen tanker seferi</b>", lambda y: f"<b>{n(y.get('beklenen'))}</b>"),
+        ("Tanker departures from Ceyhan in our scan" if en else "Taramadaki Ceyhan tanker çıkışı",
+         lambda y: n(y["tanker"]) + (f' / {n(y["btc_tanker"])} (bp)' if y.get("btc_tanker") else "")),
+        ("… with an Israel signature" if en else "… İsrail izi olan", lambda y: n(y["isaret"])),
+        ("… returned with no port call, no other sign" if en else "… limansız dönüş, başka iz yok", lambda y: n(y["donus_yalniz"])),
+        ("<b>Not seen</b>" if en else "<b>Görülmeyen</b>",
+         lambda y: f"<b>{n(max(0, y['beklenen'] - y['isaret'] - y['donus_yalniz']))}</b>" if y.get("beklenen") is not None else "–"),
+    ]
+    satir = [[ad] + [f(y) for y in ys] for ad, f in olcu]
+    bas = [""] + [y["yil"] for y in ys]
+    ort = pt.get("ort_varil")
+    not_ = ((f"Expected = tracking estimate × days / {n(ort)} barrels (average cargo per tanker loaded at Ceyhan, BP 2024: 223 million "
+             "barrels on 305 tankers). Israel signature: next port call in Israel, AIS gap ending or starting off Israel, AIS position off "
+             "Israel or at the spoofed Beirut-airport point before the next port call. The 2024 tracking figure is derived from the 2025 "
+             "figure and its reported 31% year-on-year increase. The scan is still in progress; the figures for the scanned departures rise "
+             "as it advances.") if en else
+            (f"Beklenen = izleme tahmini × gün / {n(ort)} varil (Ceyhan’da tanker başına ortalama yük; BP 2024: 305 tankere 223 milyon "
+             "varil). İsrail izi: bir sonraki uğrak İsrail limanı, İsrail açıklarında kapanan ya da açılan AIS boşluğu, bir sonraki uğraktan "
+             "önce İsrail açıklarında ya da Beyrut havalimanındaki sahte konum noktasında görülen AIS konumu. 2024 izleme değeri, 2025 "
+             "değeri ve bildirilen %31 yıllık artıştan türetildi. Tarama sürüyor; taranan çıkışların sayısı ilerledikçe artar."))
+    t10 = _tablo(E, bas, satir, num=tuple(range(1, len(bas))),
+                 baslik=("Table 10. Azerbaijani crude to Israel: expected tanker voyages and what the AIS record shows" if en else
+                         "Tablo 10. İsrail’e giden Azerbaycan ham petrolü: beklenen tanker seferleri ve AIS kaydında görülen"),
+                 not_=not_) if ys else ""
+    return t9, t10
+
+
+def _petrol_tr(o, E) -> str:
+    pt = o.get("petrol") or {}
+    if not pt.get("aciklamalar"):
+        return ""
+    n = lambda v: _n(v)  # noqa: E731
+    t9, t10 = _petrol_tablolari(o, E, False)
+    yl = {y["yil"]: y for y in pt.get("yillar") or []}
+    y24, y25 = yl.get("2024") or {}, yl.get("2025") or {}
+    g24 = y24.get("gumruk_ton")
+    iz24 = (y24.get("varil_gun") or 0) * 366
+    fark = ""
+    if g24 and iz24:
+        fark = (f"Azerbaycan gümrüğü 2024’te İsrail’e {n(round(g24 / 1e4) / 100)} milyon ton (yaklaşık {n(round(g24 * VARIL_TON / 1e5) / 10)} "
+                f"milyon varil) ham petrol kaydetti; izleme verisine göre aynı yıl Ceyhan’dan İsrail’e giden Azerbaycan petrolü yaklaşık "
+                f"{n(round(iz24 / 1e5) / 10)} milyon varil. 2025’te gümrüğün alıcı ülke listesinde İsrail hiç yok; izleme verisi ise günde "
+                f"{n(y25.get('varil_gun'))} varil, yani yılda yaklaşık {n(round((y25.get('varil_gun') or 0) * 365 / 1e5) / 10)} milyon varil "
+                "gösteriyor. ")
+    cy = o.get("kapsama") or {}
+    toplam_bek = sum(y.get("beklenen") or 0 for y in pt.get("yillar") or [])
+    toplam_gor = sum((y["isaret"] + y["donus_yalniz"]) for y in pt.get("yillar") or [] if y.get("beklenen"))
+    btc24 = y24.get("btc_tanker")
+    kaps24 = (f"BP’ye göre 2024’te Ceyhan’da 305 tanker yüklendi; bu sürümde taranan 2024 Ceyhan tanker çıkışı {n(y24.get('tanker'))} "
+              f"(yaklaşık %{round(100 * (y24.get('tanker') or 0) / btc24)}). " if btc24 else "")
+    return f"""<h3 id="azerbaycan">4.7 Azerbaycan petrolü: resmî kaynaklar ve kayıp yük</h3>
+<p>Ceyhan’dan yüklenen ham petrolün büyük kısmı Bakü-Tiflis-Ceyhan (BTC) boru hattıyla gelen Azerbaycan petrolüdür. Tablo 9, petrolün
+satıcısı SOCAR’ın, Azerbaycan Devlet Gümrük Komitesi’nin, BTC operatörü bp’nin, Türkiye Enerji Bakanlığı’nın ve İsrail Enerji
+Bakanlığı’nın açıklamalarını tarih sırasıyla verir. Son satır karşılaştırma için ticari tanker izleme verisidir; resmî bir açıklama
+değildir.</p>
+{t9}
+<p>{fark}Gümrük kaydı malın beyan edilen alıcısının ülkesini gösterir; petrol Ceyhan’da bir tüccara satıldığında son varış ülkesi
+kayda girmeyebilir. SOCAR’ın açıklaması “doğrudan” satışı, Türkiye Enerji Bakanlığı’nın açıklaması “İsrail varışlı” yüklemeyi reddeder.
+Bu ifadeler, Ceyhan’da yüklenen yükün yolda İsrail’e yönlendirilmesini dışlamaz; resmî kayıtlarla gemi kayıtları arasındaki fark
+tam da bu noktada oluşur.</p>
+{t10}
+<p><b>Kalan petrol nerede?</b> Kaynaklardaki hacim, {('yıllarda toplam yaklaşık ' + n(toplam_bek) + ' tanker seferi demektir') if toplam_bek else 'yılda onlarca tanker seferi demektir'};
+AIS kaydında İsrail izi taşıyan ya da limansız döngü yapan çıkış sayısı {n(toplam_gor)}. Fark beş yoldan oluşabilir; veri
+bunların her birine işaret ediyor:</p>
+<ul>
+<li><b>Tarama henüz bitmedi.</b> {kaps24}Ceyhan gemilerinin geçmiş taraması şu an %{n(cy.get('ceyhan') or 0)}, Ceyhan’ın erken dönemi %{n(cy.get('ceyhan_erken') or 0)} düzeyinde. Görülen sayı tarama ilerledikçe artar.</li>
+<li><b>Sahte varış bildirimi.</b> İzleme şirketlerine göre Ceyhan’dan çıkan tankerler varış yeri olarak genellikle Mısır ya da Kıbrıs
+açıklarını bildiriyor. Bu durumda AIS’teki “sonraki uğrak” boşaltma yerini göstermez.</li>
+<li><b>AIS’in kapatılması ve sahte konum.</b> KIMOLOS 31 Aralık’ta Ceyhan’da yükledi, 1-5 Ocak’ta AIS’ini kapattı ve 4 Ocak’ta Aşkelon’da
+boşalttı (Kpler, LSEG). İsrail kıyısındaki GPS karıştırması gemileri Beyrut havalimanında gösteriyor; bu sırada liman ziyareti
+modeli bir uğrak üretemez.</li>
+<li><b>Açık deniz boşaltması.</b> Aşkelon’daki petrol iskeleleri kıyıdan açıktaki şamandıralardır. Gemi limana girmeden boşalttığında
+GFW bunu çoğu zaman liman ziyareti saymaz; bu yüzden İsrail açıklarındaki AIS konumu ayrıca sorgulandı (Tablo 10, “İsrail izi”).</li>
+<li><b>Gemiden gemiye aktarma.</b> Yük, Doğu Akdeniz’de başka bir tankere aktarılıp İsrail’e o tankerle götürülebilir. Ceyhan’dan çıkıp
+açık denizde bekleyen tankerler tanker dosyalarında “bekleme” ve “STS” olarak işaretlidir.</li>
+</ul>
+<p>Başka bir boru hattı ya da kara yolu bu farkı açıklamaz: izleme tahmini doğrudan Ceyhan’dan çıkan petrolü ölçer. Azerbaycan
+petrolünün Karadeniz’deki Supsa ve Kulevi (Gürcistan) terminallerinden çıkan kısmı Türk limanlarına uğramaz ve bu çalışmanın
+konusu değildir.</p>"""
+
+
+def _petrol_en(o, E) -> str:
+    pt = o.get("petrol") or {}
+    if not pt.get("aciklamalar"):
+        return ""
+    n = lambda v: _n(v, True)  # noqa: E731
+    t9, t10 = _petrol_tablolari(o, E, True)
+    yl = {y["yil"]: y for y in pt.get("yillar") or []}
+    y24, y25 = yl.get("2024") or {}, yl.get("2025") or {}
+    g24 = y24.get("gumruk_ton")
+    iz24 = (y24.get("varil_gun") or 0) * 366
+    fark = ""
+    if g24 and iz24:
+        fark = (f"Azerbaijani customs recorded {n(round(g24 / 1e4) / 100)} million tonnes (about {n(round(g24 * VARIL_TON / 1e5) / 10)} million "
+                f"barrels) of crude to Israel in 2024; according to tracking data, Azerbaijani crude shipped from Ceyhan to Israel that year was "
+                f"about {n(round(iz24 / 1e5) / 10)} million barrels. In 2025 Israel is absent from the customs list of buyer countries, while "
+                f"tracking data show {n(y25.get('varil_gun'))} barrels per day, about {n(round((y25.get('varil_gun') or 0) * 365 / 1e5) / 10)} "
+                "million barrels a year. ")
+    cy = o.get("kapsama") or {}
+    toplam_bek = sum(y.get("beklenen") or 0 for y in pt.get("yillar") or [])
+    toplam_gor = sum((y["isaret"] + y["donus_yalniz"]) for y in pt.get("yillar") or [] if y.get("beklenen"))
+    btc24 = y24.get("btc_tanker")
+    kaps24 = (f"According to bp, 305 tankers loaded at Ceyhan in 2024; this release has scanned {n(y24.get('tanker'))} tanker departures "
+              f"from Ceyhan in 2024 (about {round(100 * (y24.get('tanker') or 0) / btc24)}%). " if btc24 else "")
+    return f"""<h3 id="azerbaijan">4.7 Azerbaijani oil: official sources and the missing cargo</h3>
+<p>Most of the crude loaded at Ceyhan is Azerbaijani oil delivered by the Baku-Tbilisi-Ceyhan (BTC) pipeline. Table 9 lists, in date
+order, the statements of the seller SOCAR, the State Customs Committee of Azerbaijan, the BTC operator bp, the Turkish Ministry of Energy
+and the Israeli Ministry of Energy. The last row is commercial tanker-tracking data, given for comparison; it is not an official
+statement.</p>
+{t9}
+<p>{fark}Customs records show the country of the declared buyer; when oil is sold to a trader at Ceyhan, the final destination may not
+enter the record. SOCAR’s statement denies “direct” sales and the Turkish Ministry of Energy’s statement denies loading “with Israel as
+destination”. Neither excludes a cargo loaded at Ceyhan being directed to Israel en route; this is exactly where the official records and
+the vessel records diverge.</p>
+{t10}
+<p><b>Where is the rest of the oil?</b> The volume in the sources amounts to {('about ' + n(toplam_bek) + ' tanker voyages over these years') if toplam_bek else 'dozens of tanker voyages a year'};
+the AIS record shows {n(toplam_gor)} departures with an Israel signature or a no-port-call loop. The gap can arise in five ways, and the
+data point to each of them:</p>
+<ul>
+<li><b>The scan is not finished.</b> {kaps24}The historical scan of Ceyhan vessels stands at {n(cy.get('ceyhan') or 0)}%, and of Ceyhan’s early period at {n(cy.get('ceyhan_erken') or 0)}%. The number seen rises as the scan advances.</li>
+<li><b>False destination.</b> According to tracking firms, tankers leaving Ceyhan usually signal offshore Egypt or Cyprus as their
+destination. The “next port call” in AIS then does not show where the cargo was discharged.</li>
+<li><b>AIS switched off and spoofed positions.</b> KIMOLOS loaded at Ceyhan on 31 December, switched off AIS on 1-5 January and
+discharged at Ashkelon on 4 January (Kpler, LSEG). GPS interference off Israel places ships at Beirut airport; the port-visit model
+cannot produce a port call while this lasts.</li>
+<li><b>Offshore discharge.</b> The oil berths at Ashkelon are buoys offshore. When a ship discharges without entering the port, GFW often
+does not count a port visit; this is why AIS presence off Israel was queried separately (Table 10, “Israel signature”).</li>
+<li><b>Ship-to-ship transfer.</b> The cargo can be transferred to another tanker in the Eastern Mediterranean and taken to Israel by that
+tanker. Tankers that leave Ceyhan and wait offshore are marked “waiting” and “STS” in the tanker files.</li>
+</ul>
+<p>No other pipeline or overland route explains the gap: the tracking estimate measures oil leaving Ceyhan itself. Azerbaijani oil
+exported from the Black Sea terminals of Supsa and Kulevi (Georgia) does not call at Turkish ports and is outside the scope of this
+study.</p>"""
 
 
 def _cey_sonuc_tr(o) -> str:
@@ -777,11 +949,12 @@ call{(", " + n(cy["iz_donus"]) + " of them returns without a port call") if cy.g
 vessels the tanker type is confirmed by AIS type, berth, route or press record (Table 8). Voyages from Ceyhan with a recorded arrival at an Israeli port are listed in Table 7. {_basin_en(o)}</p>
 {_cey_ornek_en(o, E)}
 {t_tank}
-<h3>4.7 Voyages from Israel to Türkiye</h3>
+{_petrol_en(o, E)}
+<h3>4.8 Voyages from Israel to Türkiye</h3>
 <p>{imp}</p>
 <figure class="sekil"><div class="grafik-kaydir">{oz.aylik_svg(o, next((y for y, v in o["yonler"].items() if not v["ihracat"]), "TR>IL"), en=True, kimlik="figure2")}</div>
 <figcaption>Figure 2. Monthly voyages from Israeli to Turkish ports.</figcaption></figure>
-<h3>4.8 Comparison with the period before the declaration</h3>
+<h3>4.9 Comparison with the period before the declaration</h3>
 <p>{comp}</p>
 
 <h2 id="discussion">5. Discussion</h2>
@@ -790,7 +963,7 @@ vessels the tanker type is confirmed by AIS type, berth, route or press record (
 However, the continuation of dozens of voyages a month from Turkish to Israeli ports after the announcement shows that the maritime link
 between the two countries was not cut. The Ministry of Energy’s statement of 11 November 2024 that no shipments with an Israeli
 destination took place should be weighed against the records of tankers from Ceyhan that entered Israeli ports or switched off their AIS
-near Israel (Section 4.6). The {n(d["tr_bayrak_kisit"])} voyages by Turkish-flagged vessels and {n(d["kisit_sonra"])} voyages under all
+near Israel (Sections 4.6 and 4.7). The {n(d["tr_bayrak_kisit"])} voyages by Turkish-flagged vessels and {n(d["kisit_sonra"])} voyages under all
 flags after Foreign Minister Fidan’s statement of 29 August 2025 show that the port restrictions did not stop the traffic.</p>
 <h3>5.2 Alternative explanations</h3>
 <ul>

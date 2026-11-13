@@ -182,6 +182,7 @@ def hesapla(cfg, con, recs: list[dict], tankerler: list[dict] | None = None) -> 
                                                                          or (x.get("iz") or {}).get("sahte"))),
                      "sahte": sum(1 for x in cik if (x.get("iz") or {}).get("sahte")
                                   or any(g.get("sahte") for g in x.get("bosluk") or []))}
+    out["petrol"] = petrol_dengesi(cfg, cik, ds)
     # bu sürümün veri kesiti: kayıtların sabit sıralı özetinin SHA-256'sı
     kesit = sorted([r["id"], r["y"], r["k"], r.get("m"), r.get("n"), r.get("o"), r.get("t0"), r.get("d"), r.get("t1")]
                    for r in recs)
@@ -189,6 +190,50 @@ def hesapla(cfg, con, recs: list[dict], tankerler: list[dict] | None = None) -> 
     out["veri_hash"] = hashlib.sha256(ham).hexdigest()
     out["kesit"] = kesit
     return out
+
+
+def petrol_dengesi(cfg, cik: list[dict], ds: list[dict]) -> dict:
+    """Azerbaycan petrolü: kaynaklara göre İsrail'e gitmesi gereken tanker sayısı ile Ceyhan çıkışlarında görülen iz.
+
+    Beklenen sefer = (izleme şirketlerinin yıllık varil/gün tahmini × gün) / (BP'nin açıkladığı Ceyhan yüklemesi başına
+    ortalama varil). Görülen = geçmiş taramada işlenen Ceyhan çıkışları ve bunların İsrail'e işaret eden kayıtları."""
+    az = (cfg.raw.get("azerbaycan") or {}) if hasattr(cfg, "raw") else {}
+    btc = az.get("btc") or {}
+    ort = (btc.get("varil") / btc.get("tanker")) if btc.get("varil") and btc.get("tanker") else None
+    tahmin = {str(t["yil"]): t for t in az.get("tahmin") or []}
+    tanker_m = {str(d.get("mmsi")) for d in ds if d.get("mmsi")}
+    hedef = cfg.dest_countries()
+    yillar = sorted({(x.get("t") or x.get("t0") or "")[:4] for x in cik if (x.get("t") or x.get("t0"))} | set(tahmin))
+    satir = []
+    for y in yillar:
+        if not y or y < "2023":
+            continue
+        xs = [x for x in cik if (x.get("t") or x.get("t0") or "")[:4] == y]
+        tk = [x for x in xs if (x.get("tip") or "").lower() in ("other_non_fishing", "bunker", "tanker")
+              or str(x.get("m")) in tanker_m]
+
+        def isr(x):
+            iz = x.get("iz") or {}
+            return {"kayitli": x.get("ulke") in hedef,
+                    "acik": any(g.get("il") for g in x.get("bosluk") or []),
+                    "iz": bool(iz.get("acik") or iz.get("sahte")),
+                    "sahte": bool(iz.get("sahte") or any(g.get("sahte") for g in x.get("bosluk") or [])),
+                    "donus": bool(x.get("donus"))}
+        f = [isr(x) for x in tk]
+        isaret = sum(1 for z in f if z["kayitli"] or z["acik"] or z["iz"] or z["sahte"])
+        donus_yalniz = sum(1 for z in f if z["donus"] and not (z["kayitli"] or z["acik"] or z["iz"] or z["sahte"]))
+        ulke = Counter((x.get("ulke_ad") or "Kayıtsız (sonraki uğrak yok)") for x in tk)
+        t = tahmin.get(y) or {}
+        gun = 366 if int(y) % 4 == 0 else 365
+        bek = round(t["varil_gun"] * gun / ort) if t.get("varil_gun") and ort else None
+        satir.append({"yil": y, "cikis": len(xs), "tanker": len(tk), "kayitli": sum(z["kayitli"] for z in f),
+                      "acik": sum(z["acik"] for z in f), "iz": sum(z["iz"] for z in f), "sahte": sum(z["sahte"] for z in f),
+                      "donus": sum(z["donus"] for z in f), "donus_yalniz": donus_yalniz, "isaret": isaret,
+                      "beklenen": bek, "varil_gun": t.get("varil_gun"), "tahmin_kaynak": t.get("kaynak"),
+                      "gumruk_ton": t.get("gumruk_ton"), "btc_tanker": (btc.get("tanker") if str(btc.get("yil")) == y else None),
+                      "ulkeler": ulke.most_common(6)})
+    return {"ort_varil": round(ort) if ort else None, "btc": btc, "yillar": satir,
+            "aciklamalar": az.get("aciklamalar") or []}
 
 
 # --------------------------------------------------------------------------- grafik
