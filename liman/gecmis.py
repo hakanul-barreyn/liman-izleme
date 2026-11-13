@@ -125,8 +125,14 @@ class Client:
         q = urllib.parse.urlencode({"format": "JSON", "group-by": "VESSEL_ID", "temporal-resolution": "DAILY",
                                     "datasets[0]": DS_PRESENCE, "date-range": f"{start},{end}",
                                     "spatial-aggregation": "true"})
+        # gövde: {"geojson": <GeoJSON nesnesi>} (metin değil). Önce FeatureCollection, reddedilirse yalın Polygon.
         fc = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {}, "geometry": geometry}]}
-        raw = self._req("POST", f"{REPORT_API}?{q}", {"geojson": json.dumps(fc)}, ham=True)
+        try:
+            raw = self._req("POST", f"{REPORT_API}?{q}", {"geojson": fc}, ham=True)
+        except RuntimeError as e:
+            if "(422)" not in str(e):
+                raise
+            raw = self._req("POST", f"{REPORT_API}?{q}", {"geojson": geometry}, ham=True)
         return _presence_entries(raw)
 
     def area_events(self, dataset: str, geometry: dict, start: str, end: str, extra: dict | None = None) -> list[dict]:
@@ -457,10 +463,16 @@ def scan(cfg, con, client: Client | None, budget_min: float | None = None, today
         son = (today - dt.timedelta(days=3)).isoformat()
         bilinen = {k.split(":")[1] for (k,) in con.execute("SELECT key FROM gfw_cache WHERE key LIKE 'v_pv:%'")}
         bilinen |= set(vessel_ids)
+        def varlik(geom, a, b):
+            try:
+                return client.presence(geom, a, b)
+            except RuntimeError as e:
+                log.warning("AIS varlık sorgusu atlandı (%s – %s): %s", a, b, str(e)[:160])
+                return None
         for z in offshore_zones(cfg):
             for a, b in chunks(erken_bas(cfg, t), son, days=30):
                 evs = plan.area(f"pres:{z.code}:{a}:{b}",
-                                lambda z=z, a=a, b=b: client.presence(geometry(z.area), a, b), ham=True)
+                                lambda z=z, a=a, b=b: varlik(geometry(z.area), a, b), ham=True)
                 for vid, (k0, k1, _h, _v) in _episodes(evs or []):
                     if vid in bilinen:
                         continue
