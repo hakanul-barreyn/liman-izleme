@@ -1,0 +1,72 @@
+[
+ {
+  "mmsi": 620800295,
+  "imo": 9152571,
+  "ad": "ZEG GLORY",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-12T11:45:47Z",
+  "cikis_utc": "2026-11-14T00:09:46Z",
+  "sure_saat": 36.4,
+  "terminal": "",
+  "draft_giris_m": 3.8,
+  "draft_cikis_m": 3.8,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "LARNACA"
+ },
+ {
+  "mmsi": 341317002,
+  "imo": 9020285,
+  "ad": "JOAV I",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-12T11:47:16Z",
+  "cikis_utc": "2026-11-14T06:26:08Z",
+  "sure_saat": 42.6,
+  "terminal": "",
+  "draft_giris_m": 3.5,
+  "draft_cikis_m": 3.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "CY LCA"
+ },
+ {
+  "mmsi": 210795000,
+  "imo": 9048952,
+  "ad": "VTS CHRYSOVALANTIS",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-12T11:57:28Z",
+  "cikis_utc": "",
+  "sure_saat": 57.3,
+  "terminal": "",
+  "draft_giris_m": 4.5,
+  "draft_cikis_m": 4.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "LARNACA PORT"
+ },
+ {
+  "mmsi": 620800295,
+  "imo": 9152571,
+  "ad": "ZEG GLORY",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-14T03:12:46Z",
+  "cikis_utc": "2026-11-14T14:12:47Z",
+  "sure_saat": 11.0,
+  "terminal": "",
+  "draft_giris_m": 3.8,
+  "draft_cikis_m": 3.8,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "LARNACA"
+ },
+ {
+  "mmsi": 209492000,
+  "imo": 9835161,
+  "ad": "VTS AYIA MARINA",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-14T08:24:23Z",
+  "cikis_utc": "2026-11-14T15:17:36Z",
+  "sure_saat": 6.9,
+  "terminal": "",
+  "draft_giris_m": 4.5,
+  "draft_cikis_m": 4.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "LARNACA_PORT"
+ }
+]
