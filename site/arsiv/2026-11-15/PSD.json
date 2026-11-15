@@ -1,0 +1,44 @@
+[
+ {
+  "mmsi": 256549000,
+  "imo": null,
+  "ad": "TRANS CHEMICA",
+  "tip": "Bilinmiyor",
+  "giris_utc": "2026-11-14T18:41:16Z",
+  "cikis_utc": "2026-11-14T22:10:20Z",
+  "sure_saat": 3.5,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 565238000,
+  "imo": null,
+  "ad": "AYAME",
+  "tip": "Bilinmiyor",
+  "giris_utc": "2026-11-14T20:15:59Z",
+  "cikis_utc": "2026-11-14T21:51:58Z",
+  "sure_saat": 1.6,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 565936000,
+  "imo": 9343077,
+  "ad": "MAERSK JABAL",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-14T21:45:17Z",
+  "cikis_utc": "2026-11-14T22:45:17Z",
+  "sure_saat": 1.0,
+  "terminal": "",
+  "draft_giris_m": 8.6,
+  "draft_cikis_m": 8.6,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "EGPSD>ILASH"
+ }
+]

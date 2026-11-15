@@ -1,0 +1,16 @@
+[
+ {
+  "mmsi": 210795000,
+  "imo": 9048952,
+  "ad": "VTS CHRYSOVALANTIS",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-12T11:57:28Z",
+  "cikis_utc": "2026-11-15T05:33:28Z",
+  "sure_saat": 65.6,
+  "terminal": "",
+  "draft_giris_m": 4.5,
+  "draft_cikis_m": 4.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "LARNACA PORT"
+ }
+]

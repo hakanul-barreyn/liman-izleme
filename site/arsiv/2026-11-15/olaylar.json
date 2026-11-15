@@ -1,0 +1,92 @@
+[
+ {
+  "id": 562,
+  "kind": "stop",
+  "mmsi": 237829800,
+  "mmsi2": null,
+  "t_start": "2026-11-14T21:03:21Z",
+  "t_end": "2026-11-15T05:24:20Z",
+  "lat": 38.03152894736842,
+  "lon": 23.520132719298246,
+  "detail": {
+   "saat": 8.3,
+   "draft_once": null,
+   "draft_sonra": null
+  }
+ },
+ {
+  "id": 895,
+  "kind": "stop",
+  "mmsi": 240401100,
+  "mmsi2": null,
+  "t_start": "2026-11-14T21:03:38Z",
+  "t_end": "2026-11-15T05:39:38Z",
+  "lat": 37.91202083333333,
+  "lon": 23.706233166666667,
+  "detail": {
+   "saat": 8.6,
+   "draft_once": null,
+   "draft_sonra": null
+  }
+ },
+ {
+  "id": 719,
+  "kind": "stop",
+  "mmsi": 241850000,
+  "mmsi2": null,
+  "t_start": "2026-11-14T21:36:20Z",
+  "t_end": "2026-11-15T04:21:15Z",
+  "lat": 38.03990114035088,
+  "lon": 23.53239956140351,
+  "detail": {
+   "saat": 6.7,
+   "draft_once": 3.0,
+   "draft_sonra": 3.0
+  }
+ },
+ {
+  "id": 736,
+  "kind": "stop",
+  "mmsi": 240125600,
+  "mmsi2": null,
+  "t_start": "2026-11-14T22:06:29Z",
+  "t_end": "2026-11-15T05:33:32Z",
+  "lat": 37.91514868421053,
+  "lon": 23.7019099122807,
+  "detail": {
+   "saat": 7.5,
+   "draft_once": null,
+   "draft_sonra": null
+  }
+ },
+ {
+  "id": 789,
+  "kind": "stop",
+  "mmsi": 241750000,
+  "mmsi2": null,
+  "t_start": "2026-11-14T22:18:21Z",
+  "t_end": "2026-11-15T05:33:23Z",
+  "lat": 38.010733333333334,
+  "lon": 23.552939814814817,
+  "detail": {
+   "saat": 7.3,
+   "draft_once": 6.1,
+   "draft_sonra": 6.1
+  }
+ },
+ {
+  "id": 880,
+  "kind": "stop",
+  "mmsi": 229892000,
+  "mmsi2": null,
+  "t_start": "2026-11-14T22:41:40Z",
+  "t_end": "2026-11-15T05:40:10Z",
+  "lat": 37.870722666666666,
+  "lon": 23.735069166666666,
+  "detail": {
+   "saat": 7.0,
+   "draft_once": 2.0,
+   "draft_sonra": 2.0
+  }
+ }
+]

@@ -1,0 +1,16 @@
+[
+ {
+  "mmsi": 249268000,
+  "imo": null,
+  "ad": "M/Y SILENT GRACE",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-14T00:55:36Z",
+  "cikis_utc": "2026-11-15T05:26:58Z",
+  "sure_saat": 28.5,
+  "terminal": "EAPC petrol şamandıraları",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ }
+]
