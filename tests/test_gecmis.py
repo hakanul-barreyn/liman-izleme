@@ -317,6 +317,10 @@ def test_ceyhan_dongusu_ve_sahte_konum(tmp_path):
                                           {"kurum": "bp", "gun": "2025-02", "tur": "resmi", "metin": "305 tanker.",
                                            "kaynak": "bp", "url": "https://bp.com/x"}]}
     cfg2 = config.Config(raw2, tmp_path)
+    (tmp_path / "arsiv").mkdir(exist_ok=True)
+    (tmp_path / "arsiv" / "kaynaklar.json").write_text(json.dumps({"https://turan.az/x": {
+        "kopya": "https://web.archive.org/web/20261116120000/https://turan.az/x", "zaman": "2026-11-16T12:00:00Z",
+        "yol": "kaydedildi"}}))
     from liman import ozet
     pt = ozet.petrol_dengesi(cfg2, cik, [])
     y = {r["yil"]: r for r in pt["yillar"]}["2025"]
@@ -325,11 +329,12 @@ def test_ceyhan_dongusu_ve_sahte_konum(tmp_path):
     site.build(cfg2, con)
     assert not site.HATALAR
     r = (cfg2.site_dir / "rapor" / "index.html").read_text()
+    assert "Arşiv kopyası, 16 Kasım 2026" in r
     assert 'id="azerbaycan"' in r and "Tablo 10." in r and "Şubat 2025" in r and "https://turan.az/x" in r
     assert 'id="azerbaijan"' in (cfg2.site_dir / "rapor" / "en.html").read_text()
     # ekler ve kanıt paketi kaynak listesi
     ek = (cfg2.site_dir / "rapor" / "ekler.html").read_text()
     assert "Ek C. Seferler" in ek and "KIMOLOS" in ek and "V11-2025-02-01" in ek and "tanker-dosyalari/" in ek
     kc = (cfg2.site_dir / "veri" / "kaynaklar.csv").read_text(encoding="utf-8-sig")
-    assert "https://turan.az/x" in kc and "https://web.archive.org/web/https://turan.az/x" in kc
+    assert "https://turan.az/x" in kc and "https://web.archive.org/web/20261116120000/https://turan.az/x" in kc
     assert "sha256sum -c SHA256SUMS.txt" in (cfg2.site_dir / "rapor" / "BENIOKU.txt").read_text()

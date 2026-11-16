@@ -1,0 +1,40 @@
+# Kaynakları arşivle: kaynakçadaki her bağlantıyı İnternet Arşivi'ne (Wayback Machine) kaydettirir ve kopyaların
+# adreslerini arsiv/kaynaklar.json dosyasına yazar. Rapor, ekler ve kanıt paketi bu kopyaları tarihleriyle gösterir.
+# Kaynak eklendiğinde (config.yaml, gemiler.yaml, makale.py değişince), haftada bir ve elle çalışır.
+name: Kaynakları arşivle
+
+on:
+  push:
+    branches: [main]
+    paths: [config.yaml, gemiler.yaml, liman/makale.py, liman/arsiv.py, kurulum/kaynak_arsivle.py]
+  schedule:
+    - cron: "17 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kaynak-arsiv
+  cancel-in-progress: false
+
+jobs:
+  arsivle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bağlantıları İnternet Arşivi'ne kaydettir
+        run: python kurulum/kaynak_arsivle.py --yeniden-gun 90
+      - name: Kopyaların listesini depoya kaydet
+        run: |
+          git config user.name "avvam-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add arsiv/kaynaklar.json
+          if ! git diff --cached --quiet; then
+            git commit -q -m "Kaynak arşivi: $(date -u +%F)"
+            for i in 1 2 3; do git pull -q --rebase && git push -q && break; sleep 10; done
+          fi

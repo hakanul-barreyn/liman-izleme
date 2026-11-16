@@ -71,13 +71,15 @@ def _tablo(E, kimlik, baslik, bas, satirlar, not_="", kod=(), dar=()):
                if satirlar else bos) + "</section>")
 
 
-def kaynaklar(o) -> list[dict]:
+def kaynaklar(cfg, o) -> list[dict]:
+    from .arsiv import kopya
     from .makale import _kaynakca
     tr, en = _kaynakca(o), _kaynakca(o, True)
     out = []
     for i, (metin, url) in enumerate(tr):
+        k = kopya(cfg.root, url) or {}
         out.append({"no": i + 1, "kaynak": metin, "source": en[i][0] if i < len(en) else metin, "url": url,
-                    "arsiv": f"https://web.archive.org/web/{url}" if url.startswith("http") else ""})
+                    "arsiv": k.get("kopya") or "", "arsiv_zaman": k.get("zaman") or ""})
     return out
 
 
@@ -97,7 +99,7 @@ Kaynak kod ve sürümler / Source code and releases: https://github.com/{depo}
   rapor/avvam-ekler.pdf          Ekler: gemi listeleri, sefer listeleri, tanker dosyaları özeti, kaynaklar
   tanker-dosyalari/*.pdf         Her tanker için ayrı dosya: seyir defteri, Ceyhan çıkışları, GFW olay kimlikleri
   veri/*.csv, veri/*.json        Raporun dayandığı bütün kayıtlar (CSV ayırıcısı noktalı virgül, UTF-8)
-  veri/kaynaklar.csv             Bütün kaynaklar, bağlantıları ve İnternet Arşivi bağlantıları
+  veri/kaynaklar.csv             Bütün kaynaklar, bağlantıları, İnternet Arşivi kopyaları ve arşiv tarihleri
   SHA256SUMS.txt                 Paketteki her dosyanın SHA-256 özeti
 
 DOĞRULAMA
@@ -121,7 +123,7 @@ CONTENTS
   rapor/avvam-ekler.pdf          Annexes: vessel lists, voyage lists, tanker files summary, sources
   tanker-dosyalari/*.pdf         One file per tanker: log, departures from Ceyhan, GFW event identifiers
   veri/                          All records the report rests on (CSV with semicolon separator, UTF-8)
-  veri/kaynaklar.csv             All sources with links and Internet Archive links
+  veri/kaynaklar.csv             All sources with links, Internet Archive copies and archive dates
   SHA256SUMS.txt                 SHA-256 digest of every file in the package
 
 VERIFY: sha256sum -c SHA256SUMS.txt
@@ -176,13 +178,15 @@ def build(cfg, o: dict, out: Path) -> None:
                       not_=
                       "Her tankerin ayrıntılı dosyası pakette ayrı PDF olarak yer alır. / "
                       "Each tanker’s detailed file is included in the package as a separate PDF."))
-    k = kaynaklar(o)
+    k = kaynaklar(cfg, o)
     bol.append(_tablo(E, "ek-f", "Ek F. Kaynaklar / Annex F. Sources",
-                      ["No", "Kaynak / Source", "Bağlantı / Link", "İnternet Arşivi / Internet Archive"],
-                      [[x["no"], x["kaynak"], x["url"], x["arsiv"]] for x in k], kod=(2, 3), not_=
-                      "Resmî açıklamalar, basın haberleri ve yöntem kaynakları. İnternet Arşivi bağlantısı sayfanın kaydedilmiş en "
-                      "yakın kopyasını açar. / Official statements, press reports and method sources. The Internet Archive link opens "
-                      "the nearest saved copy of the page."))
+                      ["No", "Kaynak / Source", "Bağlantı / Link", "Arşiv kopyası / Archived copy", "Arşiv tarihi / Archived (UTC)"],
+                      [[x["no"], x["kaynak"], x["url"], x["arsiv"] or "–", x["arsiv_zaman"].replace("T", " ").rstrip("Z")]
+                       for x in k], kod=(2, 3), dar=(4,), not_=
+                      "Resmî açıklamalar, basın haberleri ve yöntem kaynakları. Her bağlantı İnternet Arşivi’ne (Wayback Machine) "
+                      "kaydettirildi; arşiv kopyası, sayfanın o tarihteki hâlini değiştirilemez biçimde saklar. / Official statements, "
+                      "press reports and method sources. Every link was submitted to the Internet Archive (Wayback Machine); the "
+                      "archived copy preserves the page as it was on that date."))
     bol.append(f'''<section class="ek" id="ek-g"><h2>Ek G. Paketin içeriği ve doğrulama / Annex G. Package contents and verification</h2>
 <pre class="ek-pre">{E(beni_oku(cfg, o))}</pre></section>''')
     kunye = (f'<header class="ek-kunye"><h1>Ekler / Annexes</h1><p>Avvam: Beyan ve kayıt / Declaration and record. '
@@ -202,8 +206,8 @@ def build(cfg, o: dict, out: Path) -> None:
                  "rapor", desc="Raporun ekleri: bütün gemiler, bütün seferler, tanker dosyaları ve kaynaklar."))
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";")
-    w.writerow(["No", "Kaynak", "Source", "URL", "İnternet Arşivi"])
+    w.writerow(["No", "Kaynak", "Source", "URL", "Arşiv kopyası", "Arşiv tarihi (UTC)"])
     for x in k:
-        w.writerow([x["no"], x["kaynak"], x["source"], x["url"], x["arsiv"]])
+        w.writerow([x["no"], x["kaynak"], x["source"], x["url"], x["arsiv"], x["arsiv_zaman"]])
     _write(out / "veri" / "kaynaklar.csv", "﻿" + buf.getvalue())
     _write(out / "rapor" / "BENIOKU.txt", beni_oku(cfg, o))

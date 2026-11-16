@@ -255,7 +255,8 @@ def _tr(cfg, o, E) -> str:
                           baslik="Tablo 8. Tanker dosyalarından örnekler (en güçlü kanıt önce)",
                           not_="* Basında da adı geçiyor. Her geminin dosyasında seferler, AIS’in kesildiği ve yeniden geldiği "
                                "noktalar ve o günlere ait uydu görüntüsü bağlantıları var.")
-    kaynak = "".join(f'<li>{E(m)} <a href="{E(u)}" rel="noopener">{E(u)}</a></li>' for m, u in _kaynakca(o))
+    kaynak = "".join(f'<li>{E(m)} <a href="{E(u)}" rel="noopener">{E(u)}</a>{_arsiv_bag(cfg, u, E, False)}</li>'
+                     for m, u in _kaynakca(o))
     kapsama = (f"Geçmiş taramanın bu sürümdeki durumu: beyan sonrası varış limanı taraması "
                f"{'%' + n(kaps['ana']) if kaps.get('ana') is not None else 'bilinmiyor'}, Ceyhan gemileri "
                f"{'%' + n(kaps['ceyhan']) if kaps.get('ceyhan') is not None else 'bilinmiyor'}, beyan öncesi dönem "
@@ -460,6 +461,17 @@ tankerin dosyası, bütün veri ve SHA-256 listesi tek pakette: {_paket(cfg, E)}
 
 
 VARIL_TON = 7.33  # Azeri BTC karışımı için yaklaşık varil/ton (API ~36)
+
+
+def _arsiv_bag(cfg, url, E, en: bool) -> str:
+    """Kaynakça satırına İnternet Arşivi kopyası: ". Arşiv kopyası, 16 Kasım 2026: <bağlantı>"."""
+    from .arsiv import kopya
+    k = kopya(cfg.root, url)
+    if not k:
+        return ""
+    yazi = "Archived copy" if en else "Arşiv kopyası"
+    tarih = f", {_gun((k.get('zaman') or '')[:10], en)}" if k.get("zaman") else ""
+    return f' {yazi}{E(tarih)}: <a href="{E(k["kopya"])}" rel="noopener">{E(k["kopya"])}</a>'
 
 
 def _paket(cfg, E) -> str:
@@ -812,7 +824,8 @@ def _en(cfg, o, E) -> str:
                     num=(4,), baslik="Table 8. Examples from the tanker files (strongest evidence first)",
                     not_="* Also named in press reports. Each vessel file lists its voyages, the points where AIS went off and came "
                          "back on, and satellite imagery links for those dates (in Turkish).")
-    refs = "".join(f'<li>{E(m)} <a href="{E(u)}" rel="noopener">{E(u)}</a></li>' for m, u in _kaynakca(o, en=True))
+    refs = "".join(f'<li>{E(m)} <a href="{E(u)}" rel="noopener">{E(u)}</a>{_arsiv_bag(cfg, u, E, True)}</li>'
+                   for m, u in _kaynakca(o, en=True))
     coverage = (f"Status of the historical scan in this version: destination-port vessels after the declaration "
                 f"{pct(kaps.get('ana'))}, Ceyhan vessels {pct(kaps.get('ceyhan'))}, period before the declaration "
                 f"{pct(kaps.get('erken'))}. Numbers can only grow as the scan continues, since each added record is a new port visit.")
