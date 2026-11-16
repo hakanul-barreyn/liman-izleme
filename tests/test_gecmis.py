@@ -317,6 +317,7 @@ def test_ceyhan_dongusu_ve_sahte_konum(tmp_path):
                                           {"kurum": "bp", "gun": "2025-02", "tur": "resmi", "metin": "305 tanker.",
                                            "kaynak": "bp", "url": "https://bp.com/x"}]}
     cfg2 = config.Config(raw2, tmp_path)
+    (tmp_path / "gemiler.yaml").write_text("basin:\n  - {ad: KIMOLOS, kaynak: MEE}\n", encoding="utf-8")
     (tmp_path / "arsiv").mkdir(exist_ok=True)
     (tmp_path / "arsiv" / "kaynaklar.json").write_text(json.dumps({"https://turan.az/x": {
         "kopya": "https://web.archive.org/web/20261116120000/https://turan.az/x", "zaman": "2026-11-16T12:00:00Z",
@@ -330,6 +331,8 @@ def test_ceyhan_dongusu_ve_sahte_konum(tmp_path):
     assert not site.HATALAR
     r = (cfg2.site_dir / "rapor" / "index.html").read_text()
     assert "Arşiv kopyası, 16 Kasım 2026" in r
+    tk = (cfg2.site_dir / "tankerler" / "index.html").read_text()
+    assert "Limanlara uğramadan Ceyhan’a dönüş" in tk and "KIMOLOS" in tk
     assert 'id="azerbaycan"' in r and "Tablo 10." in r and "Şubat 2025" in r and "https://turan.az/x" in r
     assert 'id="azerbaijan"' in (cfg2.site_dir / "rapor" / "en.html").read_text()
     # ekler ve kanıt paketi kaynak listesi
