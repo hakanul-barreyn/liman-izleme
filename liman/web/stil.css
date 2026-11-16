@@ -576,6 +576,7 @@ svg.aylik .eksik-yazi{font:11.5px var(--font);fill:var(--ink-3)}
 .ek-tablo th,.ek-tablo td{padding:4px 7px;border-bottom:1px solid var(--rule-2);vertical-align:top}
 .ek-tablo td{overflow-wrap:anywhere}
 .ek-tablo td.kod{word-break:break-all;font-variant-numeric:tabular-nums}
+.ek-tablo td.dar{white-space:nowrap;font-variant-numeric:tabular-nums}
 .ek-pre{white-space:pre-wrap;font-size:12px;background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:12px}
 .ozet-kutu{margin:22px 0 8px;padding:4px 24px 14px;background:var(--paper);border:1px solid var(--rule);border-radius:10px}
 .ozet-kutu h2{margin-top:18px}

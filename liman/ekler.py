@@ -60,9 +60,9 @@ def _gun(s: str | None) -> str:
     return (s or "")[:10]
 
 
-def _tablo(E, kimlik, baslik, bas, satirlar, not_="", kod=()):
+def _tablo(E, kimlik, baslik, bas, satirlar, not_="", kod=(), dar=()):
     th = "".join(f"<th scope=col>{E(h)}</th>" for h in bas)
-    tr = "".join("<tr>" + "".join(f'<td{" class=kod" if i in kod else ""}>{E(c)}</td>' for i, c in enumerate(r)) + "</tr>"
+    tr = "".join("<tr>" + "".join(f'<td{" class=kod" if i in kod else " class=dar" if i in dar else ""}>{E(c)}</td>' for i, c in enumerate(r)) + "</tr>"
                  for r in satirlar)
     bos = '<p class="not">Kayıt yok. / No records.</p>' if not satirlar else ""
     return (f'<section class="ek" id="{kimlik}"><h2>{baslik}</h2>'
@@ -153,7 +153,7 @@ def build(cfg, o: dict, out: Path) -> None:
                           [[r.get("Gemi"), r.get("IMO"), r.get("MMSI"), r.get("Bayrak"), r.get("Sefer"), r.get("Doğrudan"),
                             r.get("Ara limanlı"), r.get("Gemiden gemiye"), r.get("AIS kapatılmış"),
                             _gun(r.get("İlk sefer (varış)")), _gun(r.get("Son sefer (varış)")), r.get("Başlıca hat")] for r in g],
-                          f"{len(g)} gemi / vessels. Kaynak / source: raporlar/{yon}-gemiler.csv"))
+                          dar=(1, 2, 4, 5, 6, 7, 8, 9, 10), not_=f"{len(g)} gemi / vessels. Kaynak / source: raporlar/{yon}-gemiler.csv"))
     for yon, ad_tr, ad_en, harf in (("tr-il", "Türkiye → İsrail", "Türkiye → Israel", "C"),
                                      ("il-tr", "İsrail → Türkiye", "Israel → Türkiye", "D")):
         s = sorted(_oku(out / "raporlar" / f"{yon}-seferler.csv"), key=lambda r: r.get("Çıkış tarihi") or "")
@@ -164,7 +164,7 @@ def build(cfg, o: dict, out: Path) -> None:
                           [[_gun(r.get("Çıkış tarihi")), r.get("Çıkış limanı"), r.get("Ara limanlar"), _gun(r.get("Varış tarihi")),
                             r.get("Varış limanı"), r.get("Gemi"), r.get("IMO"), r.get("MMSI"), r.get("Bayrak"), r.get("Kayıt"),
                             r.get("GFW çıkış olayı"), r.get("GFW varış olayı")] for r in s],
-                          kod=(10, 11), not_=f"{len(s)} sefer / voyages, çıkış tarihine göre / by departure date. Sefer türü ve AIS boşluğu olayları "
+                          kod=(10, 11), dar=(0, 3, 6, 7), not_=f"{len(s)} sefer / voyages, çıkış tarihine göre / by departure date. Sefer türü ve AIS boşluğu olayları "
                           f"CSV’de / voyage type and AIS-gap events in the CSV: raporlar/{yon}-seferler.csv"))
     t = _oku(out / "tankerler" / "tankerler.csv")
     bol.append(_tablo(E, "ek-e", "Ek E. Tanker dosyaları / Annex E. Tanker files",
@@ -172,7 +172,8 @@ def build(cfg, o: dict, out: Path) -> None:
                        "Varış ya da son kayıt / Arrival or last record", "Zaman / Time", "Dosya / File"],
                       [[r.get("Gemi"), r.get("IMO"), r.get("MMSI"), r.get("Bayrak"), r.get("Kanıt"), r.get("Çıkış"),
                         _gun(r.get("Çıkış zamanı (UTC)")), r.get("Varış ya da son kayıt"), _gun(r.get("Zaman (UTC)")),
-                        f'tanker-dosyalari/{r.get("Dosya")}.pdf'] for r in t],
+                        f'tanker-dosyalari/{r.get("Dosya")}.pdf'] for r in t], dar=(1, 2, 6, 8),
+                      not_=
                       "Her tankerin ayrıntılı dosyası pakette ayrı PDF olarak yer alır. / "
                       "Each tanker’s detailed file is included in the package as a separate PDF."))
     k = kaynaklar(o)
