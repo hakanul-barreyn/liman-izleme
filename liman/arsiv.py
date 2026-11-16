@@ -17,7 +17,7 @@ TARANAN = ("config.yaml", "gemiler.yaml", "liman/makale.py")
 URL = re.compile(r"https?://[^\s\"'<>)\]]+")
 DISLA = ("web.archive.org", "archive.org/wayback", "api.github.com", "github.com/", "x.com/intent", "fonts.",
          "cdn.", "unpkg.com", "marinetraffic.com/en/ais", "myshiptracking.com", "globalfishingwatch.org/map",
-         "github.io", "127.0.0.1", "localhost", "example")
+         "github.io", "doi.org", "127.0.0.1", "localhost", "example")
 
 
 def harita(root: Path) -> dict:
