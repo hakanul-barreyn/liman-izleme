@@ -55,9 +55,9 @@ KISA_AY = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki
 
 
 # --------------------------------------------------------------------------- dil yardımcıları
-def kisa_ad(ad: str) -> str:
+def kisa_ad(ad: str | None) -> str:
     """"Aşkelon (EAPC petrol terminali)" -> "Aşkelon"; "İstanbul – Ambarlı" -> "İstanbul"."""
-    return ad.split(" (")[0].split(" – ")[0].split(" ve ")[0].strip()
+    return (ad or "").split(" (")[0].split(" – ")[0].split(" ve ")[0].strip()
 
 
 def iyelik(ad: str) -> str:
@@ -571,7 +571,7 @@ def basin_ozeti(cfg, con, ds: list[dict]) -> list[dict]:
                     "il_liman": sum(1 for x in xs if x.get("ulke") in cfg.dest_countries()),
                     "il_acik": sum(1 for x in xs if any(g.get("il") for g in x.get("bosluk") or [])),
                     "bekleme": sum(1 for x in xs if x.get("acik")), "anahtar": d["anahtar"] if d else None,
-                    "il_sefer": len(il_s), "il_tr": len(sf["IL>TR"]), "il_ornek": il_s[-1] if il_s else None,
+                    "il_sefer": len(il_s), "il_tr": len(sf["IL>TR"]), "il_ornek": next((r for r in reversed(il_s) if r.get("d") and r.get("o")), None),
                     "donus": sum(1 for x in xs if x.get("donus")),
                     "iz": sum(1 for x in xs if (x.get("iz") or {}).get("acik") or (x.get("iz") or {}).get("sahte")
                               or any(g.get("il") or g.get("sahte") for g in x.get("bosluk") or []))})
