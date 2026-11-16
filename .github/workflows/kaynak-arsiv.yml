@@ -28,8 +28,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: Bağlantıları İnternet Arşivi'ne kaydettir
+        timeout-minutes: 45
+        continue-on-error: true
         run: python kurulum/kaynak_arsivle.py --yeniden-gun 90
       - name: Kopyaların listesini depoya kaydet
+        if: always()
         run: |
           git config user.name "avvam-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
