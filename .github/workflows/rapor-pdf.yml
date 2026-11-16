@@ -18,7 +18,7 @@ concurrency:
 jobs:
   pdf:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -55,14 +55,14 @@ jobs:
           print()
           print(f"Veri kesitinin SHA-256 özeti / data snapshot digest: `{o.get('veri_hash')}`")
           print()
-          for d in ("tr", "en"):
+          for d in ("tr", "en", "ekler", "paket"):
               if d in o:
                   print(f"- {o[d]['dosya']} ({o[d]['tarih']}): SHA-256 `{o[d]['sha256']}`")
           print()
-          print("Doğrulama / verify: `sha256sum avvam-rapor-tr.pdf`")
+          print("Doğrulama / verify: `sha256sum avvam-rapor-tr.pdf`; paket içi / inside the package: `sha256sum -c SHA256SUMS.txt`")
           EOF
           cat _pdf/notlar.md
-          dosyalar="_pdf/avvam-rapor-tr.pdf _pdf/avvam-rapor-en.pdf _pdf/ozet.json site/veri/rapor-ozet.json site/veri/rapor-kesit.json"
+          dosyalar="_pdf/avvam-rapor-tr.pdf _pdf/avvam-rapor-en.pdf _pdf/avvam-ekler.pdf _pdf/avvam-kanit-paketi.zip _pdf/SHA256SUMS.txt _pdf/ozet.json site/veri/rapor-ozet.json site/veri/rapor-kesit.json"
           gh release create "rapor-$gun" $dosyalar --title "Rapor $gun" --notes-file _pdf/notlar.md --latest=false \
             || gh release upload "rapor-$gun" $dosyalar --clobber
           gh release edit "rapor-$gun" --notes-file _pdf/notlar.md || true

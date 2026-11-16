@@ -17,7 +17,7 @@ from collections import Counter
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import anasayfa, harita, makale, ozet, proof, rapor, tanker
+from . import anasayfa, ekler, harita, makale, ozet, proof, rapor, tanker
 from .db import get_meta
 from .routes import CLASS_LABELS, vessel_keys
 from .util import SHIP_GROUP_LABELS, add_hours, hazard_category, iso, now_utc, parse_iso, ship_group
@@ -691,6 +691,7 @@ def build(cfg, con) -> None:
     if o is not None:
         _dene("ana sayfa", lambda: _write(out / "index.html", _ana(cfg, o)))
         _dene("rapor", makale.build, cfg, o, out)
+        _dene("ekler", ekler.build, cfg, o, out)
     else:
         _write(out / "index.html", _index(cfg, recs, meta))
     _dene("limanlar", _limanlar, cfg, con, days, keys)

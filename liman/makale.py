@@ -449,6 +449,8 @@ saatle listelendiği için, yetkili kurumlar bu listeyi gümrük beyannameleri, 
 <li>Bütün seferler: <a href="../raporlar/tr-il-seferler.csv">Türkiye → İsrail (CSV)</a>, <a href="../raporlar/il-tr-seferler.csv">İsrail →
 Türkiye (CSV)</a>; tankerler: <a href="../tankerler/tankerler.csv">tankerler.csv</a>; raporun sayıları:
 <a href="../veri/rapor-ozet.json">rapor-ozet.json</a>.</li>
+<li>Ekler (bütün gemiler, bütün seferler, tanker dosyaları, kaynaklar): <a href="ekler.html">Ekler</a>. Rapor, ekler, her
+tankerin dosyası, bütün veri ve SHA-256 listesi tek pakette: {_paket(cfg, E)}.</li>
 <li>Günlük arşiv ve kanıt zinciri: <a href="../kanit.html">Kanıt zinciri</a>. Yöntemin bütün eşikleri: <a href="../yontem.html">Yöntem</a>.</li>
 <li>Atıf: Avvam ({o["olusturma"][:4]}). <i>Beyan ve kayıt: Türkiye’nin İsrail’le ticareti durdurma kararından sonra Türk limanlarından
 İsrail limanlarına gemi seferleri</i>. Sürüm {E(_gun(o["olusturma"][:10]))}, veri özeti {E(o["veri_hash"][:16])}.</li>
@@ -458,6 +460,15 @@ Türkiye (CSV)</a>; tankerler: <a href="../tankerler/tankerler.csv">tankerler.cs
 
 
 VARIL_TON = 7.33  # Azeri BTC karışımı için yaklaşık varil/ton (API ~36)
+
+
+def _paket(cfg, E) -> str:
+    from .ekler import PAKET
+    depo = cfg.pub.get("depo") or ""
+    if not depo:
+        return PAKET
+    u = f"https://github.com/{depo}/releases/download/rapor-son/{PAKET}"
+    return f'<a href="{E(u)}">{E(u)}</a>'
 
 
 def _tarih(s: str | None, en=False) -> str:
@@ -1002,6 +1013,8 @@ list be compared with these records under independent oversight and that discrep
 <li>All voyages: <a href="../raporlar/tr-il-seferler.csv">Türkiye → Israel (CSV)</a>, <a href="../raporlar/il-tr-seferler.csv">Israel →
 Türkiye (CSV)</a>; tankers: <a href="../tankerler/tankerler.csv">tankerler.csv</a>; figures of this report:
 <a href="../veri/rapor-ozet.json">rapor-ozet.json</a> (column headings in Turkish).</li>
+<li>Annexes (all vessels, all voyages, tanker files, sources): <a href="ekler.html">Annexes</a>. The report, annexes, each
+tanker’s file, all data and the SHA-256 list in one package: {_paket(cfg, E)}.</li>
 <li>Daily archive and evidence chain: <a href="../kanit.html">Evidence chain</a>. All thresholds of the method:
 <a href="../yontem.html">Method</a> (in Turkish).</li>
 <li>Citation: Avvam ({o["olusturma"][:4]}). <i>Declaration and record: vessel voyages from Turkish to Israeli ports after Türkiye
@@ -1032,10 +1045,10 @@ def build(cfg, o: dict, out: Path) -> None:
         return _E("" if x is None else str(x))
     rdir = out / "rapor"
     depo = E(cfg.pub.get("depo") or "")
-    tr = _tr(cfg, o, E).replace('id="pdf-satir"', f'id="pdf-satir" data-depo="{depo}" data-dil="tr" data-yazi="PDF olarak indir" '
-                                'data-arsiv="Tarihli sürümler"', 1)
-    en = _en(cfg, o, E).replace('id="pdf-satir"', f'id="pdf-satir" data-depo="{depo}" data-dil="en" data-yazi="Download PDF" '
-                                'data-arsiv="Dated versions"', 1)
+    from .ekler import INDIR_JS, indirme_kutusu
+    yer = '<p class="pdf-satir" id="pdf-satir"></p>'
+    tr = _tr(cfg, o, E).replace(yer, indirme_kutusu(cfg.pub.get("depo") or "", False, E), 1)
+    en = _en(cfg, o, E).replace(yer, indirme_kutusu(cfg.pub.get("depo") or "", True, E), 1)
     d = o["yonler"].get("TR>IL") or {}
     desc_tr = (f"Türkiye’nin İsrail’le ticareti durdurduğunu açıkladığı 2 Mayıs 2024’ten sonra Türk limanlarından İsrail limanlarına "
                f"{_n(d.get('sonra'))} sefer: yöntem, bulgular, sınırlar.")
@@ -1052,13 +1065,13 @@ def build(cfg, o: dict, out: Path) -> None:
                 '(navigator.clipboard?navigator.clipboard.writeText(b.dataset.url):Promise.reject()).then(function(){'
                 'b.textContent=document.documentElement.lang==="en"?"Copied":"Kopyalandı"},function(){})});</script>')
     if adres:
-        tr = tr.replace('<p class="pdf-satir"', paylas(desc_tr, f"{adres}/rapor/", "X’te paylaş", "Bağlantıyı kopyala")
-                        + '<p class="pdf-satir"', 1)
-        en = en.replace('<p class="pdf-satir"', paylas(desc_en, f"{adres}/rapor/en.html", "Share on X", "Copy link")
-                        + '<p class="pdf-satir"', 1)
-    _write(rdir / "index.html", _page(cfg, "Rapor: Beyan ve kayıt", f'<main class="makale" id="icerik">{tr}</main>{PDF_JS}{kopya_js}', 1,
+        tr = tr.replace('<div class="indir"', paylas(desc_tr, f"{adres}/rapor/", "X’te paylaş", "Bağlantıyı kopyala")
+                        + '<div class="indir"', 1)
+        en = en.replace('<div class="indir"', paylas(desc_en, f"{adres}/rapor/en.html", "Share on X", "Copy link")
+                        + '<div class="indir"', 1)
+    _write(rdir / "index.html", _page(cfg, "Rapor: Beyan ve kayıt", f'<main class="makale" id="icerik">{tr}</main>{INDIR_JS}{kopya_js}', 1,
                                       "rapor", desc=desc_tr))
-    sayfa = _page(cfg, "Report: Declaration and record", f'<main class="makale" id="icerik">{en}</main>{PDF_JS}{kopya_js}', 1,
+    sayfa = _page(cfg, "Report: Declaration and record", f'<main class="makale" id="icerik">{en}</main>{INDIR_JS}{kopya_js}', 1,
                   "rapor", desc=desc_en)
     _write(rdir / "en.html", sayfa.replace('<html lang="tr">', '<html lang="en">', 1))
     veri = {k: v for k, v in o.items() if k not in ("kesit",)}

@@ -327,3 +327,9 @@ def test_ceyhan_dongusu_ve_sahte_konum(tmp_path):
     r = (cfg2.site_dir / "rapor" / "index.html").read_text()
     assert 'id="azerbaycan"' in r and "Tablo 10." in r and "Şubat 2025" in r and "https://turan.az/x" in r
     assert 'id="azerbaijan"' in (cfg2.site_dir / "rapor" / "en.html").read_text()
+    # ekler ve kanıt paketi kaynak listesi
+    ek = (cfg2.site_dir / "rapor" / "ekler.html").read_text()
+    assert "Ek C. Seferler" in ek and "KIMOLOS" in ek and "V11-2025-02-01" in ek and "tanker-dosyalari/" in ek
+    kc = (cfg2.site_dir / "veri" / "kaynaklar.csv").read_text(encoding="utf-8-sig")
+    assert "https://turan.az/x" in kc and "https://web.archive.org/web/https://turan.az/x" in kc
+    assert "sha256sum -c SHA256SUMS.txt" in (cfg2.site_dir / "rapor" / "BENIOKU.txt").read_text()

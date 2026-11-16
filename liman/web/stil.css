@@ -556,6 +556,27 @@ svg.aylik .eksik-yazi{font:11.5px var(--font);fill:var(--ink-3)}
 .kopyala-link{border:1px solid var(--rule);background:var(--paper);border-radius:6px;padding:3px 10px;font-size:13.5px;cursor:pointer}
 .kopyala-link:hover{background:var(--hover)}
 .pdf-satir:empty{display:none}
+.indir{margin:18px 0 0;padding:12px 18px 10px;border:1px solid var(--rule);border-radius:10px;background:var(--paper);font-family:var(--font)}
+.indir-baslik{font-size:15px!important;margin:0 0 6px!important}
+.indir ul{margin:0;padding:0;list-style:none;font-size:14.5px}
+.indir li{padding:5px 0;border-top:1px solid var(--rule-2)}
+.indir li:first-child{border-top:0}
+.indir li a{font-weight:600}
+.indir li.yok a{font-weight:400;color:var(--ink-3)}
+.indir li .not{font-size:12.5px;color:var(--ink-3)}
+.indir>.not{margin:8px 0 0;font-size:12.5px}
+.ekler{max-width:none}
+.ek-kunye h1{margin-bottom:6px}
+.ek-kunye code{word-break:break-all;font-size:12px}
+.ek-icindekiler ol{font-family:var(--font);font-size:14px}
+.ek h2{margin-top:34px}
+.ek-kaydir{overflow-x:auto;border:1px solid var(--rule);border-radius:8px}
+.ek-tablo{border-collapse:collapse;width:100%;font-family:var(--font);font-size:12px}
+.ek-tablo th{text-align:left;background:var(--paper-2);position:sticky;top:0;font-weight:650}
+.ek-tablo th,.ek-tablo td{padding:4px 7px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+.ek-tablo td{overflow-wrap:anywhere}
+.ek-tablo td.kod{word-break:break-all;font-variant-numeric:tabular-nums}
+.ek-pre{white-space:pre-wrap;font-size:12px;background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:12px}
 .ozet-kutu{margin:22px 0 8px;padding:4px 24px 14px;background:var(--paper);border:1px solid var(--rule);border-radius:10px}
 .ozet-kutu h2{margin-top:18px}
 .makale .tablo{margin:16px 0 6px}
@@ -574,7 +595,16 @@ svg.aylik .eksik-yazi{font:11.5px var(--font);fill:var(--ink-3)}
   :root{color-scheme:light;--plane:#fff;--paper:#fff;--paper-2:#f5f7f9;--ink:#111c28;--ink-2:#3b4b5c;--ink-3:#66778a;
     --rule:#c9d2da;--rule-2:#e1e7ec;--magenta:#a3105f}
   body{background:#fff}
-  .ust,.alt-bilgi,.kurgu,.atla,.dil,.pdf-satir,.paylas-satir,.tema,.eylemler{display:none!important}
+  .ust,.alt-bilgi,.kurgu,.atla,.dil,.pdf-satir,.indir,.paylas-satir,.tema,.eylemler{display:none!important}
+  .ekler .ek{break-before:page}
+  .ekler .ek h2{margin-top:0}
+  .ek-kaydir{overflow:visible;border:0}
+  .ek-tablo{font-size:6.6pt;line-height:1.3}
+  .ek-tablo th,.ek-tablo td{padding:1.6pt 3pt}
+  .ek-tablo thead{display:table-header-group}
+  .ek-tablo tr{break-inside:avoid}
+  .ek-tablo th{position:static}
+  .ek-pre{font-size:8pt;border:0;padding:0}
   .makale{max-width:none;padding:0;font-size:10.5pt;line-height:1.5}
   .makale h1{font-size:21pt}
   .makale h2{font-size:14pt;margin-top:20pt;break-after:avoid}

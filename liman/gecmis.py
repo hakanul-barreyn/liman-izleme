@@ -593,7 +593,41 @@ def _merged(con, keys: list[str]) -> list[dict]:
     return list(seen.values())
 
 
+class _Tampon:
+    """compute boyunca yazmaları biriktirir, sonda tek ve kısa bir işlemde uygular.
+
+    Hesap bir dakikadan uzun sürebilir; yazma kilidi bu süre boyunca tutulursa aynı veritabanına yazan AIS toplayıcı
+    'database is locked' hatasıyla düşer. Okumalar doğrudan veritabanına gider."""
+
+    def __init__(self, con):
+        self.con, self.yaz = con, []
+
+    def execute(self, sql, args=()):
+        if sql.lstrip()[:6].upper() in ("INSERT", "DELETE", "UPDATE", "REPLAC"):
+            self.yaz.append((sql, tuple(args)))
+            return None
+        return self.con.execute(sql, args)
+
+    def commit(self):
+        con = self.con
+        if con.in_transaction:
+            con.commit()
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            for sql, args in self.yaz:
+                con.execute(sql, args)
+            con.commit()
+        except BaseException:
+            con.rollback()
+            raise
+        self.yaz = []
+
+    def __getattr__(self, ad):
+        return getattr(self.con, ad)
+
+
 def compute(cfg, con, *_eski) -> int:
+    con = _Tampon(con)
     con.execute("DELETE FROM gecmis")
     con.execute("DELETE FROM dunya")
     hedef = cfg.dest_countries()
