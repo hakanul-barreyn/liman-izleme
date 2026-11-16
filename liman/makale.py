@@ -705,14 +705,17 @@ def _basin_tr(o) -> str:
             p.append(f"{x['ad']} Ceyhan’a {len(x['alan'])} kez uğradı (geçmişi taranıyor)" if x["alan"]
                      else f"{x['ad']} için geçmiş taraması sürüyor")
         else:
-            p.append(f"{x['ad']} Ceyhan’dan {x['cikis']} kez çıktı; bunların {x['il_liman']} tanesinde sonraki uğrak İsrail limanı, "
-                     f"{x['il_acik']} tanesinde AIS sinyali İsrail açıklarında kesildi ya da orada yeniden geldi")
+            p.append(f"{x['ad']} Ceyhan’dan {x['cikis']} kez çıktı ve {x.get('donus', 0)} kez hiçbir limana uğramadan Ceyhan’a döndü; "
+                     f"{x.get('iz', 0)} çıkışta konumu İsrail açıklarında ya da sahte konum noktasında görüldü; Türk limanlarından "
+                     f"İsrail limanına kayıtlı {x.get('il_sefer', 0)} seferi, İsrail’den Türkiye’ye {x.get('il_tr', 0)} seferi var")
     s = ("Middle East Eye ve Greek City Times’ın Ceyhan’dan Aşkelon’a petrol taşıdığını yazdığı tankerler bu verilerde de var: "
          + "; ".join(p) + ".")
     taranan = [x for x in b if x["taranan"]]
     if taranan and all(x["il_liman"] == 0 for x in taranan):
-        s += (" Geçmişi taranan bu gemilerin hiçbirinin Ceyhan çıkışından sonra GFW’de İsrail limanı kaydı yok; bu, haberlerde "
-              "anlatılan AIS kapatma örüntüsüyle tutarlıdır.")
+        s += (" Bu gemilerin hiçbirinde Ceyhan çıkışından hemen sonraki uğrak İsrail limanı olarak kayıtlı değil"
+              + ("; İsrail’e kayıtlı varışlar başka Türk limanlarından ya da üçüncü ülke limanları üzerinden"
+                 if any(x.get("il_sefer") for x in taranan) else "") + ". Bu, haberlerde anlatılan AIS "
+              "kapatma ve sahte varış bildirimi örüntüsüyle tutarlıdır.")
     return s
 
 
@@ -726,14 +729,17 @@ def _basin_en(o) -> str:
             p.append(f"{x['ad']} called at Ceyhan {len(x['alan'])} times (history scan in progress)" if x["alan"]
                      else f"the history scan of {x['ad']} is in progress")
         else:
-            p.append(f"{x['ad']} left Ceyhan {x['cikis']} times; the next call was an Israeli port in {x['il_liman']} of them, and in "
-                     f"{x['il_acik']} the AIS signal stopped or resumed near Israel")
+            p.append(f"{x['ad']} left Ceyhan {x['cikis']} times and returned to Ceyhan {x.get('donus', 0)} times without calling at "
+                     f"any port; on {x.get('iz', 0)} departures its position appeared off Israel or at the spoofed-position point; it has "
+                     f"{x.get('il_sefer', 0)} recorded voyages from Turkish ports to an Israeli port and {x.get('il_tr', 0)} from Israel to Türkiye")
     s = ("Tankers that Middle East Eye and Greek City Times reported as carrying oil from Ceyhan to Ashkelon also appear in these "
          "data: " + "; ".join(p) + ".")
     taranan = [x for x in b if x["taranan"]]
     if taranan and all(x["il_liman"] == 0 for x in taranan):
-        s += (" None of the scanned vessels has an Israeli port visit in GFW after leaving Ceyhan, which is consistent with the AIS "
-              "switch-off pattern described in the reports.")
+        s += (" For none of these vessels is the call immediately after leaving Ceyhan recorded as an Israeli port"
+              + ("; their recorded arrivals in Israel come from other Turkish ports or via third-country ports"
+                 if any(x.get("il_sefer") for x in taranan) else "") + ". This is consistent with the AIS "
+              "switch-off and false-destination pattern described in the reports.")
     return s
 
 

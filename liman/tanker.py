@@ -142,14 +142,18 @@ def anahtar(d: dict) -> str:
 
 # --------------------------------------------------------------------------- veri
 def _secim(cfg, recs: list[dict]) -> list[dict]:
-    """Türk petrol iskelesinden ya da Ceyhan terminallerinin önünden İsrail'e (ya da açıklarına) giden seferler."""
+    """Türk petrol iskelesinden ya da Ceyhan terminallerinin önünden İsrail'e (ya da açıklarına) giden seferler; ayrıca
+    hangi Türk limanından çıkarsa çıksın İsrail'in yalnız petrol alan terminaline (Aşkelon EAPC) varan seferler ve
+    basında Ceyhan-İsrail petrol taşımacılığıyla adı geçen tankerlerin İsrail'e giden bütün seferleri."""
     home = {p.country for p in cfg.ports if p.role == "izlenen"}
     dest = cfg.dest_countries()
+    basin = {str(b.get("ad") or "").upper().strip() for b in _basin(cfg)} - {""}
     out = []
     for r in recs:
         a, _s, b = r["y"].partition(">")
         if a in home and b in dest and r.get("k") in SINIF_DUZEY and \
-                (r.get("sv") or (r.get("ter") or "").startswith("Ceyhan")):
+                (r.get("sv") or (r.get("ter") or "").startswith("Ceyhan") or "petrol terminali" in (r.get("d") or "")
+                 or (r.get("n") or "").upper().strip() in basin):
             out.append(r)
     return out
 
@@ -218,6 +222,8 @@ def dosyalar(cfg, con, recs: list[dict]) -> tuple[list[dict], int]:
                          and not r["ter"].startswith("Ceyhan terminalleri ve demirleme")})
         for t in iskele:
             tip.append(f"Petrol iskelesinden çıktı: {t}")
+        for t in sorted({r["d"] for r in rs if "petrol terminali" in (r.get("d") or "")}):
+            tip.append(f"İsrail’in yalnız petrol alan terminaline vardı: {t}")
         diger = sorted({x for v in vids for x in petrol_lim.get(v, [])})
         if diger:
             tip.append("Rotasında başka petrol iskeleleri de var: " + ", ".join(diger[:4]))
@@ -547,16 +553,28 @@ def basin_ozeti(cfg, con, ds: list[dict]) -> list[dict]:
     for d in ds:
         for nm in [d["ad"], *d["adlar"]]:
             dosya.setdefault((nm or "").upper(), d)
+    # bütün Türk limanlarından İsrail limanlarına ve İsrail'den Türkiye'ye kayıtlı seferler (yalnız Ceyhan değil)
+    sefer: dict[str, dict[str, list]] = defaultdict(lambda: {"TR>IL": [], "IL>TR": []})
+    for nm, yon, org, dst, t1 in con.execute("SELECT name, direction, origin, dest, t_arr FROM gecmis"):
+        k = (nm or "").upper().strip()
+        if k in adlar and yon in ("TR>IL", "IL>TR"):
+            sefer[k][yon].append({"o": org, "d": dst, "t": t1})
     out = []
     for a in adlar:
         xs = [x for x in cik if (x.get("ad") or "").upper().strip() == a]
+        sf = sefer.get(a) or {"TR>IL": [], "IL>TR": []}
+        il_s = sorted(sf["TR>IL"], key=lambda r: r["t"] or "")
         d = dosya.get(a)
         ts = sorted(x["t"] for x in xs if x.get("t"))
         out.append({"ad": a, "taranan": bool(xs or d), "cikis": len(xs), "ilk": ts[0] if ts else None, "son": ts[-1] if ts else None,
                     "alan": sorted(alan.get(a) or []),
                     "il_liman": sum(1 for x in xs if x.get("ulke") in cfg.dest_countries()),
                     "il_acik": sum(1 for x in xs if any(g.get("il") for g in x.get("bosluk") or [])),
-                    "bekleme": sum(1 for x in xs if x.get("acik")), "anahtar": d["anahtar"] if d else None})
+                    "bekleme": sum(1 for x in xs if x.get("acik")), "anahtar": d["anahtar"] if d else None,
+                    "il_sefer": len(il_s), "il_tr": len(sf["IL>TR"]), "il_ornek": il_s[-1] if il_s else None,
+                    "donus": sum(1 for x in xs if x.get("donus")),
+                    "iz": sum(1 for x in xs if (x.get("iz") or {}).get("acik") or (x.get("iz") or {}).get("sahte")
+                              or any(g.get("il") or g.get("sahte") for g in x.get("bosluk") or []))})
     return out
 
 
@@ -569,18 +587,28 @@ def _basin_sagla(cfg, E, con, ds: list[dict]) -> str:
         if not b["taranan"]:
             g = b["alan"]
             rows.append([ad_h, (f"{len(g)} uğrak" + (f' <span class="not tarih">({E(aralik(cfg, g[0], g[-1]))})</span>' if g else "")
-                                if g else "kayıt yok") + '<br><span class="not">geçmişi taranıyor</span>', "–", "–", "–"])
+                                if g else "kayıt yok") + '<br><span class="not">geçmişi taranıyor</span>', "–", "–", "–", "–"])
             continue
+        orn = b.get("il_ornek")
+        il_h = str(b.get("il_sefer", 0)) + (f'<br><span class="not">son: {E(kisa_ad(orn["o"]))} → {E(kisa_ad(orn["d"]))}, '
+                                             f'{E(gun(cfg, orn["t"]))}</span>' if orn and orn.get("t") else "")
         rows.append([ad_h, f"{b['cikis']} çıkış" + (f' <span class="not tarih">({E(aralik(cfg, b["ilk"], b["son"]))})</span>'
                                                     if b["ilk"] else ""),
-                     str(b["il_liman"]), f'<span class="uyari">{b["il_acik"]}</span>' if b["il_acik"] else "0", str(b["bekleme"])])
+                     il_h, str(b.get("il_tr", 0)), str(b.get("donus", 0)),
+                     f'<span class="uyari">{b.get("iz", 0)}</span>' if b.get("iz") else "0"])
     if not rows:
         return ""
     return ('<h2>Basında adı geçen tankerler bu veride</h2><p class="not">Haberlerde Ceyhan’dan İsrail’e petrol taşıdığı '
             'yazılan tankerler ve bu sitenin Global Fishing Watch verisinde gördükleri. Haberdeki bilgiler gemi '
             'dosyalarında “Basında” başlığında, kaynağıyla.</p>'
-            + _tbl(["Gemi", "Ceyhan’dan", "Sonraki uğrak İsrail", "AIS İsrail açıklarında kesik", "İsrail açığında bekleme"],
-                   rows, num=(2, 3, 4)))
+            + _tbl(["Gemi", "Ceyhan’dan", "Türk limanından İsrail limanına sefer", "İsrail’den Türkiye’ye sefer",
+                    "Limanlara uğramadan Ceyhan’a dönüş", "İsrail açığı izi"], rows, num=(2, 3, 4, 5))
+            + '<p class="not">Türk limanından İsrail limanına sefer: Ceyhan dahil herhangi bir Türk limanından çıkıp, doğrudan ya da '
+              'üçüncü bir limana uğrayarak, Global Fishing Watch’ın liman ziyareti kaydına göre İsrail limanına giren seferler. '
+              'Limanlara uğramadan dönüş: Ceyhan’dan çıkıp arada hiçbir limana uğramadan yeniden Ceyhan’a gelme; yük bir yerde '
+              'boşaltıldığı hâlde liman kaydı yok demektir. İsrail açığı izi: bir sonraki uğraktan önce AIS konumunun İsrail açıklarında '
+              'ya da GPS karıştırmasının sahte konum noktasında (Beyrut havalimanı) görülmesi, ya da AIS kesintisinin orada '
+              'başlayıp bitmesi.</p>')
 
 
 def _paylas_blok(E, metin: str, url: str) -> str:
