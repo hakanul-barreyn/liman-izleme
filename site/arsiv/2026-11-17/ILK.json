@@ -1,0 +1,72 @@
+[
+ {
+  "mmsi": 668116232,
+  "imo": 9083897,
+  "ad": "AEGINA VENTURE",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-16T13:12:26Z",
+  "cikis_utc": "",
+  "sure_saat": 32.2,
+  "terminal": "",
+  "draft_giris_m": 6.6,
+  "draft_cikis_m": 6.6,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "HAIFA"
+ },
+ {
+  "mmsi": 428009065,
+  "imo": 9477957,
+  "ad": "DANCHOR VIII",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-16T13:13:17Z",
+  "cikis_utc": "",
+  "sure_saat": 32.2,
+  "terminal": "",
+  "draft_giris_m": 2.5,
+  "draft_cikis_m": 2.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "HADERA"
+ },
+ {
+  "mmsi": 256821000,
+  "imo": 9468750,
+  "ad": "RIMONA",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-16T20:00:32Z",
+  "cikis_utc": "2026-11-17T14:36:36Z",
+  "sure_saat": 18.6,
+  "terminal": "",
+  "draft_giris_m": 4.0,
+  "draft_cikis_m": 4.0,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "TO ORDER"
+ },
+ {
+  "mmsi": 613751607,
+  "imo": 8211629,
+  "ad": "OAK I",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-16T20:50:07Z",
+  "cikis_utc": "2026-11-17T09:36:07Z",
+  "sure_saat": 12.8,
+  "terminal": "",
+  "draft_giris_m": 2.8,
+  "draft_cikis_m": 2.8,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "IL HFA."
+ },
+ {
+  "mmsi": 370199000,
+  "imo": 9343065,
+  "ad": "MAYFAIR",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-17T20:11:35Z",
+  "cikis_utc": "",
+  "sure_saat": 1.1,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ }
+]
