@@ -1,0 +1,58 @@
+[
+ {
+  "mmsi": 210795000,
+  "imo": 9048952,
+  "ad": "VTS CHRYSOVALANTIS",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-16T13:12:49Z",
+  "cikis_utc": "",
+  "sure_saat": 80.4,
+  "terminal": "",
+  "draft_giris_m": 4.5,
+  "draft_cikis_m": 4.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "LARNACA PORT"
+ },
+ {
+  "mmsi": 248527000,
+  "imo": 9516246,
+  "ad": "MICHELLE 1",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-16T13:29:31Z",
+  "cikis_utc": "2026-11-19T13:50:55Z",
+  "sure_saat": 72.4,
+  "terminal": "",
+  "draft_giris_m": 6.9,
+  "draft_cikis_m": 4.3,
+  "draft_fark_m": -2.6,
+  "beyan_edilen_varis": "CY LCA>GR RHO"
+ },
+ {
+  "mmsi": 352001243,
+  "imo": 9168441,
+  "ad": "HAMMER",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-18T02:25:34Z",
+  "cikis_utc": "2026-11-19T15:34:18Z",
+  "sure_saat": 37.1,
+  "terminal": "",
+  "draft_giris_m": 8.5,
+  "draft_cikis_m": 8.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "CYLCA"
+ },
+ {
+  "mmsi": 341317002,
+  "imo": 9020285,
+  "ad": "JOAV I",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-19T10:32:14Z",
+  "cikis_utc": "",
+  "sure_saat": 11.1,
+  "terminal": "",
+  "draft_giris_m": 3.5,
+  "draft_cikis_m": 3.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "CY LCA"
+ }
+]

@@ -1,0 +1,58 @@
+[
+ {
+  "mmsi": 428074146,
+  "imo": null,
+  "ad": "RAN",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-18T17:56:29Z",
+  "cikis_utc": "2026-11-18T21:20:31Z",
+  "sure_saat": 3.4,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 428009066,
+  "imo": 9839789,
+  "ad": "GAYA",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-18T18:05:48Z",
+  "cikis_utc": "2026-11-19T07:42:54Z",
+  "sure_saat": 13.6,
+  "terminal": "",
+  "draft_giris_m": 4.4,
+  "draft_cikis_m": 4.4,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ASHQELON"
+ },
+ {
+  "mmsi": 428074146,
+  "imo": null,
+  "ad": "RAN",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-19T02:20:32Z",
+  "cikis_utc": "2026-11-19T07:23:30Z",
+  "sure_saat": 5.0,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 428074146,
+  "imo": null,
+  "ad": "RAN",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-19T17:46:41Z",
+  "cikis_utc": "",
+  "sure_saat": 3.6,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ }
+]

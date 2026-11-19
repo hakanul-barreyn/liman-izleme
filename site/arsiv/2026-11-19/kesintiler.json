@@ -1,0 +1,302 @@
+[
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-18T21:39:53Z",
+  "t_end": "2026-11-18T21:51:22Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-18T21:51:32Z",
+  "t_end": "2026-11-18T21:51:59Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-18T22:01:32Z",
+  "t_end": "2026-11-18T22:01:47Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-18T22:39:23Z",
+  "t_end": "2026-11-18T22:51:14Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-18T23:39:15Z",
+  "t_end": "2026-11-18T23:49:07Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T00:37:07Z",
+  "t_end": "2026-11-19T01:04:21Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T01:52:22Z",
+  "t_end": "2026-11-19T02:14:41Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T03:02:42Z",
+  "t_end": "2026-11-19T03:55:18Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T04:15:30Z",
+  "t_end": "2026-11-19T04:16:00Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T04:25:30Z",
+  "t_end": "2026-11-19T04:25:42Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T04:35:30Z",
+  "t_end": "2026-11-19T04:35:40Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T04:43:19Z",
+  "t_end": "2026-11-19T05:00:52Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-19T05:01:02Z",
+  "t_end": "2026-11-19T05:02:02Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T05:48:53Z",
+  "t_end": "2026-11-19T05:59:42Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T06:47:43Z",
+  "t_end": "2026-11-19T07:10:49Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T07:58:50Z",
+  "t_end": "2026-11-19T08:59:13Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T08:59:23Z",
+  "t_end": "2026-11-19T08:59:36Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T09:09:26Z",
+  "t_end": "2026-11-19T09:09:39Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T09:19:26Z",
+  "t_end": "2026-11-19T09:19:40Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T09:47:14Z",
+  "t_end": "2026-11-19T10:00:33Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-19T10:00:43Z",
+  "t_end": "2026-11-19T10:02:30Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T10:00:43Z",
+  "t_end": "2026-11-19T10:01:46Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T10:10:43Z",
+  "t_end": "2026-11-19T10:10:57Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T10:20:44Z",
+  "t_end": "2026-11-19T10:20:59Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T10:48:33Z",
+  "t_end": "2026-11-19T10:58:43Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T11:46:44Z",
+  "t_end": "2026-11-19T11:55:37Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T12:05:47Z",
+  "t_end": "2026-11-19T12:06:03Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T12:25:48Z",
+  "t_end": "2026-11-19T12:26:00Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T12:43:38Z",
+  "t_end": "2026-11-19T13:08:55Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T13:19:06Z",
+  "t_end": "2026-11-19T13:19:40Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T13:56:55Z",
+  "t_end": "2026-11-19T14:51:19Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-19T14:51:29Z",
+  "t_end": "2026-11-19T14:52:01Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T14:51:29Z",
+  "t_end": "2026-11-19T14:52:01Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T15:01:31Z",
+  "t_end": "2026-11-19T15:04:53Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T15:39:20Z",
+  "t_end": "2026-11-19T15:57:03Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-19T15:57:13Z",
+  "t_end": "2026-11-19T16:03:20Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T15:57:13Z",
+  "t_end": "2026-11-19T16:03:19Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T16:07:14Z",
+  "t_end": "2026-11-19T16:09:04Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T16:17:14Z",
+  "t_end": "2026-11-19T16:19:07Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T16:45:03Z",
+  "t_end": "2026-11-19T17:01:08Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-19T17:01:18Z",
+  "t_end": "2026-11-19T17:03:05Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T17:01:18Z",
+  "t_end": "2026-11-19T17:03:05Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T17:31:19Z",
+  "t_end": "2026-11-19T17:34:44Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T17:41:19Z",
+  "t_end": "2026-11-19T17:41:53Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T17:49:09Z",
+  "t_end": "2026-11-19T17:53:46Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T18:41:46Z",
+  "t_end": "2026-11-19T18:57:00Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-19T18:57:10Z",
+  "t_end": "2026-11-19T18:59:01Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T18:57:10Z",
+  "t_end": "2026-11-19T18:59:01Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T19:45:01Z",
+  "t_end": "2026-11-19T19:59:41Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-19T20:47:42Z",
+  "t_end": "2026-11-19T20:51:10Z",
+  "reason": "çalıştırmalar arası boşluk"
+ }
+]
