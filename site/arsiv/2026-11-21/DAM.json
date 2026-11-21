@@ -1,0 +1,16 @@
+[
+ {
+  "mmsi": 538007144,
+  "imo": null,
+  "ad": "UNION TRADER",
+  "tip": "Bilinmiyor",
+  "giris_utc": "2026-11-21T05:56:59Z",
+  "cikis_utc": "2026-11-21T07:14:59Z",
+  "sure_saat": 1.3,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ }
+]
