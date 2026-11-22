@@ -1,0 +1,560 @@
+[
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-19T21:01:20Z",
+  "t_end": null,
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T21:09:29Z",
+  "t_end": "2026-11-21T21:09:57Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T21:24:58Z",
+  "t_end": "2026-11-21T21:25:33Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-21T21:27:12Z",
+  "t_end": "2026-11-21T21:37:49Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T22:06:18Z",
+  "t_end": "2026-11-21T22:06:53Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-21T22:25:50Z",
+  "t_end": "2026-11-21T22:38:28Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-21T22:38:38Z",
+  "t_end": "2026-11-21T22:38:51Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T22:38:38Z",
+  "t_end": "2026-11-21T22:38:51Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T22:48:38Z",
+  "t_end": "2026-11-21T22:48:51Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T23:03:51Z",
+  "t_end": "2026-11-21T23:03:59Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-21T23:08:39Z",
+  "t_end": "2026-11-21T23:08:52Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T23:08:39Z",
+  "t_end": "2026-11-21T23:08:52Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T23:23:52Z",
+  "t_end": "2026-11-21T23:23:58Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-21T23:26:29Z",
+  "t_end": "2026-11-21T23:36:30Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-21T23:36:40Z",
+  "t_end": "2026-11-21T23:36:53Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-21T23:36:40Z",
+  "t_end": "2026-11-21T23:37:42Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T23:36:40Z",
+  "t_end": "2026-11-21T23:36:53Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-21T23:51:53Z",
+  "t_end": "2026-11-21T23:52:00Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T00:07:01Z",
+  "t_end": "2026-11-22T00:07:08Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T00:22:09Z",
+  "t_end": "2026-11-22T00:22:22Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T00:24:31Z",
+  "t_end": "2026-11-22T00:58:38Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T01:13:45Z",
+  "t_end": "2026-11-22T01:13:51Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T01:28:51Z",
+  "t_end": "2026-11-22T01:28:59Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T01:43:59Z",
+  "t_end": "2026-11-22T01:44:05Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T01:46:40Z",
+  "t_end": "2026-11-22T02:04:59Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T02:20:03Z",
+  "t_end": "2026-11-22T02:21:03Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T02:50:12Z",
+  "t_end": "2026-11-22T02:51:58Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T03:19:42Z",
+  "t_end": "2026-11-22T03:19:49Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T03:42:34Z",
+  "t_end": "2026-11-22T03:52:20Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T04:02:30Z",
+  "t_end": "2026-11-22T04:02:44Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T04:02:30Z",
+  "t_end": "2026-11-22T04:02:44Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T04:17:45Z",
+  "t_end": "2026-11-22T04:17:51Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T04:22:30Z",
+  "t_end": "2026-11-22T04:22:43Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T04:37:43Z",
+  "t_end": "2026-11-22T04:37:50Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T04:40:20Z",
+  "t_end": "2026-11-22T04:56:41Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T05:21:47Z",
+  "t_end": "2026-11-22T05:21:55Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T05:41:47Z",
+  "t_end": "2026-11-22T05:41:54Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T05:44:42Z",
+  "t_end": "2026-11-22T05:55:02Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T06:10:05Z",
+  "t_end": "2026-11-22T06:11:07Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T06:43:03Z",
+  "t_end": "2026-11-22T07:03:26Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T07:38:31Z",
+  "t_end": "2026-11-22T07:38:39Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T07:51:27Z",
+  "t_end": "2026-11-22T08:12:41Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-22T08:12:51Z",
+  "t_end": "2026-11-22T08:12:57Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T08:12:51Z",
+  "t_end": "2026-11-22T08:12:57Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T09:00:42Z",
+  "t_end": "2026-11-22T09:45:54Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T10:21:00Z",
+  "t_end": "2026-11-22T10:21:11Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T10:33:54Z",
+  "t_end": "2026-11-22T10:44:41Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T11:13:28Z",
+  "t_end": "2026-11-22T11:13:41Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T11:32:42Z",
+  "t_end": "2026-11-22T11:41:42Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T12:01:53Z",
+  "t_end": "2026-11-22T12:02:06Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T12:01:53Z",
+  "t_end": "2026-11-22T12:02:07Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T12:17:08Z",
+  "t_end": "2026-11-22T12:17:43Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T12:29:43Z",
+  "t_end": "2026-11-22T12:49:38Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T13:04:47Z",
+  "t_end": "2026-11-22T13:04:56Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T13:19:57Z",
+  "t_end": "2026-11-22T13:21:52Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T13:37:39Z",
+  "t_end": "2026-11-22T13:55:43Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T14:05:53Z",
+  "t_end": "2026-11-22T14:06:05Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T14:05:53Z",
+  "t_end": "2026-11-22T14:06:05Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T14:30:52Z",
+  "t_end": "2026-11-22T14:37:02Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T14:43:43Z",
+  "t_end": "2026-11-22T14:47:59Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T15:23:01Z",
+  "t_end": "2026-11-22T15:24:01Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T15:36:00Z",
+  "t_end": "2026-11-22T15:42:46Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T15:57:55Z",
+  "t_end": "2026-11-22T15:58:10Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T16:13:11Z",
+  "t_end": "2026-11-22T16:14:56Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T16:29:57Z",
+  "t_end": "2026-11-22T16:30:32Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T16:30:47Z",
+  "t_end": "2026-11-22T16:42:54Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-22T16:43:04Z",
+  "t_end": "2026-11-22T16:43:38Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T16:58:04Z",
+  "t_end": "2026-11-22T16:58:13Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T17:13:14Z",
+  "t_end": "2026-11-22T17:13:47Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T17:28:48Z",
+  "t_end": "2026-11-22T17:29:49Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T17:30:55Z",
+  "t_end": "2026-11-22T17:40:35Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-22T17:40:45Z",
+  "t_end": "2026-11-22T18:02:27Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T17:40:45Z",
+  "t_end": "2026-11-22T17:41:50Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T17:40:45Z",
+  "t_end": "2026-11-22T17:47:00Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T18:02:00Z",
+  "t_end": "2026-11-22T18:02:28Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T18:10:48Z",
+  "t_end": "2026-11-22T18:17:03Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T18:10:48Z",
+  "t_end": "2026-11-22T18:17:03Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T18:28:36Z",
+  "t_end": "2026-11-22T18:43:39Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-22T18:43:49Z",
+  "t_end": "2026-11-22T18:44:52Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T18:43:49Z",
+  "t_end": "2026-11-22T18:44:03Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T18:43:49Z",
+  "t_end": "2026-11-22T18:49:54Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T19:04:55Z",
+  "t_end": "2026-11-22T19:05:10Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T19:20:10Z",
+  "t_end": "2026-11-22T19:21:57Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T19:31:40Z",
+  "t_end": "2026-11-22T19:48:07Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-22T19:48:17Z",
+  "t_end": "2026-11-22T19:59:41Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T19:48:17Z",
+  "t_end": "2026-11-22T19:59:41Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T19:48:17Z",
+  "t_end": "2026-11-22T19:59:41Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T20:14:41Z",
+  "t_end": "2026-11-22T20:14:53Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T20:29:54Z",
+  "t_end": "2026-11-22T20:30:00Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "tumu",
+  "t_start": "2026-11-22T20:36:07Z",
+  "t_end": "2026-11-22T20:42:23Z",
+  "reason": "çalıştırmalar arası boşluk"
+ },
+ {
+  "conn": "liman",
+  "t_start": "2026-11-22T20:42:33Z",
+  "t_end": "2026-11-22T20:43:07Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip1",
+  "t_start": "2026-11-22T20:42:33Z",
+  "t_end": "2026-11-22T20:42:48Z",
+  "reason": "sessizlik"
+ },
+ {
+  "conn": "takip2",
+  "t_start": "2026-11-22T20:42:33Z",
+  "t_end": null,
+  "reason": "sessizlik"
+ }
+]
