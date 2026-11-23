@@ -1,0 +1,58 @@
+[
+ {
+  "mmsi": 210795000,
+  "imo": 9048952,
+  "ad": "VTS CHRYSOVALANTIS",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-16T13:12:49Z",
+  "cikis_utc": "",
+  "sure_saat": 176.1,
+  "terminal": "",
+  "draft_giris_m": 4.5,
+  "draft_cikis_m": 4.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "LARNACA PORT"
+ },
+ {
+  "mmsi": 538007384,
+  "imo": 9515632,
+  "ad": "MERITIUS",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-20T10:44:08Z",
+  "cikis_utc": "2026-11-23T04:27:37Z",
+  "sure_saat": 65.7,
+  "terminal": "",
+  "draft_giris_m": 10.1,
+  "draft_cikis_m": 10.0,
+  "draft_fark_m": -0.1,
+  "beyan_edilen_varis": "CYLCA"
+ },
+ {
+  "mmsi": 314667000,
+  "imo": 9132038,
+  "ad": "SNP WIND",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-21T12:58:39Z",
+  "cikis_utc": "",
+  "sure_saat": 56.1,
+  "terminal": "",
+  "draft_giris_m": 5.5,
+  "draft_cikis_m": 5.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "CY LCA"
+ },
+ {
+  "mmsi": 577714000,
+  "imo": 9374870,
+  "ad": "HALIX",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-23T17:07:44Z",
+  "cikis_utc": "",
+  "sure_saat": 4.0,
+  "terminal": "",
+  "draft_giris_m": 5.4,
+  "draft_cikis_m": 5.4,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "CYLCA"
+ }
+]

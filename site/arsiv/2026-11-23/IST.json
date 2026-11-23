@@ -1,0 +1,30 @@
+[
+ {
+  "mmsi": 636023189,
+  "imo": 9523835,
+  "ad": "TG TAURUS",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-22T23:53:33Z",
+  "cikis_utc": "2026-11-23T05:26:56Z",
+  "sure_saat": 5.6,
+  "terminal": "",
+  "draft_giris_m": 6.9,
+  "draft_cikis_m": 6.9,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ISTANBUL"
+ },
+ {
+  "mmsi": 631010146,
+  "imo": 9268112,
+  "ad": "KAIJ",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-23T18:28:26Z",
+  "cikis_utc": "",
+  "sure_saat": 2.6,
+  "terminal": "",
+  "draft_giris_m": 8.0,
+  "draft_cikis_m": 8.0,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ISTANBUL"
+ }
+]

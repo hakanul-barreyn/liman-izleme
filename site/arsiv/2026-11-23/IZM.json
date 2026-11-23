@@ -1,0 +1,58 @@
+[
+ {
+  "mmsi": 636019172,
+  "imo": 9407093,
+  "ad": "CHEM MIA",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-23T15:05:38Z",
+  "cikis_utc": "",
+  "sure_saat": 6.4,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 308122000,
+  "imo": 9015199,
+  "ad": "NEDERLAND STREAM",
+  "tip": "Kargo gemisi",
+  "giris_utc": "2026-11-23T16:31:55Z",
+  "cikis_utc": "",
+  "sure_saat": 4.9,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": 7.0,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": "ALOHA"
+ },
+ {
+  "mmsi": 636020511,
+  "imo": null,
+  "ad": "ORUBA",
+  "tip": "Bilinmiyor",
+  "giris_utc": "2026-11-23T16:44:47Z",
+  "cikis_utc": "",
+  "sure_saat": 4.4,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 271053927,
+  "imo": null,
+  "ad": "GEMINI",
+  "tip": "Bilinmiyor",
+  "giris_utc": "2026-11-23T20:58:24Z",
+  "cikis_utc": "",
+  "sure_saat": 0.2,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ }
+]
