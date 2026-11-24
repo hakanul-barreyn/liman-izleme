@@ -1,0 +1,58 @@
+[
+ {
+  "mmsi": 428009067,
+  "imo": 9839777,
+  "ad": "LUBRANI",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-23T08:15:08Z",
+  "cikis_utc": "2026-11-24T13:55:58Z",
+  "sure_saat": 29.7,
+  "terminal": "",
+  "draft_giris_m": 4.7,
+  "draft_cikis_m": 4.7,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ASHKELON"
+ },
+ {
+  "mmsi": 428990000,
+  "imo": null,
+  "ad": "EAPC CONTROL",
+  "tip": "Bilinmiyor",
+  "giris_utc": "2026-11-24T01:45:12Z",
+  "cikis_utc": "2026-11-24T04:22:12Z",
+  "sure_saat": 2.6,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 428074146,
+  "imo": null,
+  "ad": "RAN",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-24T02:26:07Z",
+  "cikis_utc": "2026-11-24T05:44:06Z",
+  "sure_saat": 3.3,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 566020207,
+  "imo": 9651427,
+  "ad": "JAMAICA CASTLE",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-24T02:30:59Z",
+  "cikis_utc": "2026-11-24T06:22:48Z",
+  "sure_saat": 3.9,
+  "terminal": "EAPC petrol şamandıraları",
+  "draft_giris_m": 7.1,
+  "draft_cikis_m": 7.1,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "SEA FOR ORDERS"
+ }
+]
