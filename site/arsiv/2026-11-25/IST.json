@@ -1,0 +1,58 @@
+[
+ {
+  "mmsi": 631010146,
+  "imo": 9268112,
+  "ad": "KAIJ",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-24T21:04:26Z",
+  "cikis_utc": "2026-11-24T22:34:26Z",
+  "sure_saat": 1.5,
+  "terminal": "",
+  "draft_giris_m": 8.0,
+  "draft_cikis_m": 8.0,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ISTANBUL"
+ },
+ {
+  "mmsi": 352002560,
+  "imo": 9255842,
+  "ad": "SHELONA",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-24T21:39:37Z",
+  "cikis_utc": "2026-11-25T06:30:37Z",
+  "sure_saat": 8.8,
+  "terminal": "",
+  "draft_giris_m": 6.5,
+  "draft_cikis_m": 6.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ISTANBUL TURKEY"
+ },
+ {
+  "mmsi": 631010146,
+  "imo": 9268112,
+  "ad": "KAIJ",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-25T05:16:26Z",
+  "cikis_utc": "2026-11-25T07:46:26Z",
+  "sure_saat": 2.5,
+  "terminal": "",
+  "draft_giris_m": 8.0,
+  "draft_cikis_m": 8.0,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ISTANBUL"
+ },
+ {
+  "mmsi": 352002560,
+  "imo": 9255842,
+  "ad": "SHELONA",
+  "tip": "Tanker",
+  "giris_utc": "2026-11-25T16:36:37Z",
+  "cikis_utc": "2026-11-25T20:21:38Z",
+  "sure_saat": 3.8,
+  "terminal": "",
+  "draft_giris_m": 6.5,
+  "draft_cikis_m": 6.5,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ISTANBUL TURKEY"
+ }
+]

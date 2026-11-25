@@ -1,0 +1,72 @@
+[
+ {
+  "mmsi": 428009067,
+  "imo": 9839777,
+  "ad": "LUBRANI",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-24T18:19:17Z",
+  "cikis_utc": "2026-11-25T07:17:18Z",
+  "sure_saat": 13.0,
+  "terminal": "",
+  "draft_giris_m": 4.7,
+  "draft_cikis_m": 4.7,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ASHKELON"
+ },
+ {
+  "mmsi": 428074146,
+  "imo": null,
+  "ad": "RAN",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-24T19:38:08Z",
+  "cikis_utc": "2026-11-24T23:38:05Z",
+  "sure_saat": 4.0,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 428990000,
+  "imo": null,
+  "ad": "EAPC CONTROL",
+  "tip": "Bilinmiyor",
+  "giris_utc": "2026-11-25T02:56:11Z",
+  "cikis_utc": "2026-11-25T05:45:02Z",
+  "sure_saat": 2.8,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 428009066,
+  "imo": 9839789,
+  "ad": "GAYA",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-25T05:17:06Z",
+  "cikis_utc": "2026-11-25T07:17:06Z",
+  "sure_saat": 2.0,
+  "terminal": "",
+  "draft_giris_m": 4.4,
+  "draft_cikis_m": 4.4,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ASHQELON"
+ },
+ {
+  "mmsi": 428009067,
+  "imo": 9839777,
+  "ad": "LUBRANI",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-25T15:02:18Z",
+  "cikis_utc": "2026-11-25T20:35:18Z",
+  "sure_saat": 5.5,
+  "terminal": "",
+  "draft_giris_m": 4.7,
+  "draft_cikis_m": 4.7,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ASHKELON"
+ }
+]
