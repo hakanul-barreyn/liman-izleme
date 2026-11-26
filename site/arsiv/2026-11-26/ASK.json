@@ -1,0 +1,30 @@
+[
+ {
+  "mmsi": 428009067,
+  "imo": 9839777,
+  "ad": "LUBRANI",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-25T15:02:18Z",
+  "cikis_utc": "2026-11-26T20:42:19Z",
+  "sure_saat": 29.7,
+  "terminal": "",
+  "draft_giris_m": 4.7,
+  "draft_cikis_m": 4.7,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ASHKELON"
+ },
+ {
+  "mmsi": 428074146,
+  "imo": null,
+  "ad": "RAN",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-26T02:26:07Z",
+  "cikis_utc": "2026-11-26T05:44:05Z",
+  "sure_saat": 3.3,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ }
+]
