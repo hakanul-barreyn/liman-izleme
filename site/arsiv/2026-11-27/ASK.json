@@ -1,0 +1,44 @@
+[
+ {
+  "mmsi": 428009067,
+  "imo": 9839777,
+  "ad": "LUBRANI",
+  "tip": "Römorkör / hizmet",
+  "giris_utc": "2026-11-25T15:02:18Z",
+  "cikis_utc": "2026-11-27T05:30:19Z",
+  "sure_saat": 38.5,
+  "terminal": "",
+  "draft_giris_m": 4.7,
+  "draft_cikis_m": 4.7,
+  "draft_fark_m": 0.0,
+  "beyan_edilen_varis": "ASHKELON"
+ },
+ {
+  "mmsi": 261008252,
+  "imo": null,
+  "ad": "JULIA",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-27T11:40:38Z",
+  "cikis_utc": "2026-11-27T13:34:37Z",
+  "sure_saat": 1.9,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ },
+ {
+  "mmsi": 428074146,
+  "imo": null,
+  "ad": "RAN",
+  "tip": "Gezi / yelkenli",
+  "giris_utc": "2026-11-27T16:11:25Z",
+  "cikis_utc": "",
+  "sure_saat": 5.4,
+  "terminal": "",
+  "draft_giris_m": null,
+  "draft_cikis_m": null,
+  "draft_fark_m": null,
+  "beyan_edilen_varis": ""
+ }
+]
